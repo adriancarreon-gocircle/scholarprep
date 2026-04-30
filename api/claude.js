@@ -1,3 +1,7 @@
+export const config = {
+  maxDuration: 60
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   try {
@@ -6,17 +10,18 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY,
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
     });
     const data = await response.json();
+    if (data.error) return res.status(500).json({ error: data.error.message });
     const text = data.content?.map(c => c.text || '').join('') || '';
     res.json({ text: text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim() });
   } catch (error) {
