@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '../components/AppLayout';
 import { generatePDFQuestions } from '../lib/ai';
 
@@ -8,18 +8,32 @@ export default function PDFGeneratorPage() {
   const [subject, setSubject] = useState('mathematics');
   const [count, setCount] = useState(20);
   const [yearLevel, setYearLevel] = useState(5);
-  const [phase, setPhase] = useState('config'); // config | payment | generating | done
+  const [phase, setPhase] = useState('config'); // config | paying | generating | done
   const [error, setError] = useState('');
   const [questions, setQuestions] = useState([]);
   const [passage, setPassage] = useState(null);
 
   const total = (count * PRICE_PER_Q).toFixed(2);
 
-  const handlePayAndGenerate = async () => {
+  // Check if returning from successful Stripe payment
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paid') === 'true') {
+      const questionCount = parseInt(params.get('questions') || '20');
+      setCount(questionCount);
+      // Clean URL
+      window.history.replaceState({}, '', '/pdf-generator');
+      // Auto-generate after successful payment
+      handleGenerate(questionCount);
+    }
+  }, []);
+
+  const handleGenerate = async (questionCountOverride) => {
+    const qCount = questionCountOverride || count;
     setPhase('generating');
     setError('');
     try {
-      const data = await generatePDFQuestions(subject, count, yearLevel);
+      const data = await generatePDFQuestions(subject, qCount, yearLevel);
       if (subject === 'reading' && data.passage) {
         setPassage(data.passage);
         setQuestions(data.questions);
@@ -29,6 +43,30 @@ export default function PDFGeneratorPage() {
       setPhase('done');
     } catch (e) {
       setError('Failed to generate questions. Please try again.');
+      setPhase('config');
+    }
+  };
+
+  const handlePayAndGenerate = async () => {
+    setPhase('paying');
+    setError('');
+    try {
+      const response = await fetch('/api/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'pdf',
+          questionCount: count,
+          successUrl: `${window.location.origin}/pdf-generator?paid=true&questions=${count}`,
+          cancelUrl: `${window.location.origin}/pdf-generator`,
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+    } catch (e) {
+      setError('Payment failed to load. Please try again.');
       setPhase('config');
     }
   };
@@ -151,14 +189,14 @@ export default function PDFGeneratorPage() {
               {/* Year level */}
               <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Year level</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[1, 2, 3, 4, 5, 6].map(y => (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(y => (
                     <button key={y} onClick={() => setYearLevel(y)} style={{
-                      flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      flex: '1 0 auto', padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                       background: yearLevel === y ? '#0D1B2A' : '#FAF6EE',
                       color: yearLevel === y ? '#fff' : '#5A6A7A',
                       border: yearLevel === y ? 'none' : '1px solid rgba(13,27,42,0.12)',
-                      transition: 'all 0.15s'
+                      transition: 'all 0.15s', minWidth: 52
                     }}>Yr {y}</button>
                   ))}
                 </div>
@@ -203,6 +241,18 @@ export default function PDFGeneratorPage() {
                 Secure payment via Stripe · Instant PDF download · No subscription required
               </div>
             </>
+          )}
+
+          {phase === 'paying' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 48 }}>💳</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900, color: '#0D1B2A' }}>Redirecting to checkout...</div>
+              <div style={{ fontSize: 15, color: '#5A6A7A', maxWidth: 340, lineHeight: 1.6 }}>
+                You'll be taken to Stripe's secure checkout page to complete your payment.
+              </div>
+              <div style={{ width: 36, height: 36, border: '3px solid rgba(13,27,42,0.1)', borderTop: '3px solid #0D1B2A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
           )}
 
           {phase === 'generating' && (
