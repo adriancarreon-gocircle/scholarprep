@@ -11,6 +11,7 @@ import TestPage from './pages/TestPage';
 import WritingPage from './pages/WritingPage';
 import ProgressPage from './pages/ProgressPage';
 import PDFGeneratorPage from './pages/PDFGeneratorPage';
+import SubscribePage from './pages/Subscribe';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -25,6 +26,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/subscribe" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
       <Route path="/pdf-generator" element={<PDFGeneratorPage />} />
       <Route path="/app" element={<ProtectedRoute><AppLayout><Home /></AppLayout></ProtectedRoute>} />
       <Route path="/app/maths" element={<ProtectedRoute><AppLayout><TestPage subject="mathematics" /></AppLayout></ProtectedRoute>} />
