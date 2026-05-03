@@ -20,21 +20,28 @@ export default function PDFGeneratorPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('paid') === 'true') {
       const questionCount = parseInt(params.get('questions') || '20');
+      const savedSubject = params.get('subject') || 'mathematics';
+      const savedYearLevel = parseInt(params.get('year') || '5');
+
+      // Restore state from URL params
       setCount(questionCount);
+      setSubject(savedSubject);
+      setYearLevel(savedYearLevel);
+
       // Clean URL
       window.history.replaceState({}, '', '/pdf-generator');
+
       // Auto-generate after successful payment
-      handleGenerate(questionCount);
+      generateAfterPayment(savedSubject, questionCount, savedYearLevel);
     }
   }, []);
 
-  const handleGenerate = async (questionCountOverride) => {
-    const qCount = questionCountOverride || count;
+  const generateAfterPayment = async (subj, qCount, yrLevel) => {
     setPhase('generating');
     setError('');
     try {
-      const data = await generatePDFQuestions(subject, qCount, yearLevel);
-      if (subject === 'reading' && data.passage) {
+      const data = await generatePDFQuestions(subj, qCount, yrLevel);
+      if (subj === 'reading' && data.passage) {
         setPassage(data.passage);
         setQuestions(data.questions);
       } else {
@@ -42,7 +49,7 @@ export default function PDFGeneratorPage() {
       }
       setPhase('done');
     } catch (e) {
-      setError('Failed to generate questions. Please try again.');
+      setError('Payment was successful but question generation failed. Please contact support or try again.');
       setPhase('config');
     }
   };
@@ -51,19 +58,21 @@ export default function PDFGeneratorPage() {
     setPhase('paying');
     setError('');
     try {
+      const successUrl = `${window.location.origin}/pdf-generator?paid=true&questions=${count}&subject=${subject}&year=${yearLevel}`;
+      const cancelUrl = `${window.location.origin}/pdf-generator`;
+
       const response = await fetch('/api/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'pdf',
           questionCount: count,
-          successUrl: `${window.location.origin}/pdf-generator?paid=true&questions=${count}`,
-          cancelUrl: `${window.location.origin}/pdf-generator`,
+          successUrl,
+          cancelUrl,
         })
       });
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      // Redirect to Stripe checkout
       window.location.href = data.url;
     } catch (e) {
       setError('Payment failed to load. Please try again.');
