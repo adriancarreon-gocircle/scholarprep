@@ -1,21 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 export default function SubscribePage() {
   const navigate = useNavigate();
   const { user, trialDaysLeft, isSubscribed } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Check if returning from successful Stripe subscription
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscribed') === 'true') {
       window.history.replaceState({}, '', '/subscribe');
-      navigate('/app?subscribed=true');
+      // Force refresh the Supabase session to pick up updated metadata
+      setRefreshing(true);
+      refreshSession();
     }
   }, []);
+
+  const refreshSession = async () => {
+    try {
+      // Refresh the session token — this pulls updated user_metadata from Supabase
+      await supabase.auth.refreshSession();
+      // Give it a moment then redirect to app
+      setTimeout(() => {
+        navigate('/app');
+      }, 1500);
+    } catch (e) {
+      console.error('Session refresh failed:', e);
+      navigate('/app');
+    }
+  };
 
   // If already subscribed, redirect to app
   useEffect(() => {
@@ -43,6 +61,21 @@ export default function SubscribePage() {
       setLoading(false);
     }
   };
+
+  // Show refreshing state after successful payment
+  if (refreshing) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#FAF6EE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+        <div style={{ fontSize: 48 }}>🎉</div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A' }}>
+          Welcome to ScholarPrep!
+        </div>
+        <div style={{ fontSize: 15, color: '#5A6A7A' }}>Activating your subscription...</div>
+        <div style={{ width: 36, height: 36, border: '3px solid rgba(13,27,42,0.1)', borderTop: '3px solid #0D1B2A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAF6EE', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -73,7 +106,7 @@ export default function SubscribePage() {
           </div>
         </div>
 
-        {/* Plan card — no overflow:hidden so badge isn't clipped */}
+        {/* Plan card */}
         <div style={{ background: '#0D1B2A', borderRadius: 24, padding: '40px 40px 36px', marginBottom: 20, boxShadow: '0 24px 64px rgba(13,27,42,0.25)', position: 'relative' }}>
 
           <div style={{ textAlign: 'center', marginBottom: 28, marginTop: 8 }}>

@@ -3,9 +3,57 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
-
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+  // ── Webhook from Stripe ──────────────────────────────────────────────────────
+  if (req.method === 'POST' && req.query.webhook === 'true') {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+    try {
+      const body = await getRawBody(req);
+      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle successful subscription payment
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      if (session.mode === 'subscription' && session.customer_email) {
+        try {
+          const { createClient } = require('@supabase/supabase-js');
+          const supabaseAdmin = createClient(
+            process.env.REACT_APP_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY
+          );
+          // Find user by email and update their metadata
+          const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+          const user = users.find(u => u.email === session.customer_email);
+          if (user) {
+            await supabaseAdmin.auth.admin.updateUserById(user.id, {
+              user_metadata: {
+                ...user.user_metadata,
+                subscribed: true,
+                stripe_customer_id: session.customer,
+                subscription_id: session.subscription,
+                subscribed_at: new Date().toISOString()
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Failed to update user subscription:', err.message);
+        }
+      }
+    }
+
+    return res.json({ received: true });
+  }
+
+  // ── Create checkout session ──────────────────────────────────────────────────
+  if (req.method !== 'POST') return res.status(405).end();
 
   try {
     const { type, questionCount, successUrl, cancelUrl } = req.body;
@@ -13,7 +61,6 @@ export default async function handler(req, res) {
     let session;
 
     if (type === 'subscription') {
-      // $9.99/month subscription
       session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
@@ -23,12 +70,11 @@ export default async function handler(req, res) {
             quantity: 1,
           },
         ],
-        success_url: successUrl || `${req.headers.origin}/app?subscribed=true`,
-        cancel_url: cancelUrl || `${req.headers.origin}/app`,
+        success_url: successUrl || `${req.headers.origin}/subscribe?subscribed=true`,
+        cancel_url: cancelUrl || `${req.headers.origin}/subscribe`,
         currency: 'aud',
       });
     } else if (type === 'pdf') {
-      // Dynamic price: 15 cents per question
       const amountInCents = Math.round(questionCount * 15);
       session = await stripe.checkout.sessions.create({
         mode: 'payment',
@@ -58,4 +104,14 @@ export default async function handler(req, res) {
     console.error('Stripe error:', error);
     res.status(500).json({ error: error.message });
   }
+}
+
+// Helper to get raw body for webhook signature verification
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
 }
