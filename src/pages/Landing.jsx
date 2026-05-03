@@ -48,11 +48,11 @@ export default function Landing() {
             fontWeight: 900, lineHeight: 1.05, letterSpacing: -2,
             color: '#0D1B2A', marginBottom: 24
           }}>
-            Ace the <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>scholarship</em> test. Every time.
+            Ace the <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>exam.</em> Every time.
           </h1>
           <p style={{ fontSize: 18, lineHeight: 1.7, color: '#5A6A7A', marginBottom: 36, maxWidth: 460 }}>
-            AI-powered practice for ACER, AAST and Edutest. Fresh questions every session,
-            personalised feedback, and real exam-style tests — for Years 1 to 6.
+            AI-powered exam preparation for ACER, AAST, Edutest and NAPLAN. Fresh questions every session,
+            personalised AI feedback, and real full-length simulated exams — for Years 1 to 11.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={() => navigate('/signup')} style={{
@@ -133,9 +133,32 @@ export default function Landing() {
       <div style={{ background: '#0D1B2A', padding: '24px 48px', display: 'flex', alignItems: 'center', gap: 48 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>Prepares you for</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {['ACER', 'AAST', 'Edutest', 'AIS', 'SEAL', 'Scholarship Exams'].map(t => (
+          {['ACER', 'AAST', 'Edutest', 'NAPLAN', 'AIS', 'SEAL', 'Selective Entry Exams'].map(t => (
             <div key={t} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '7px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>{t}</div>
           ))}
+        </div>
+      </div>
+
+      {/* SELECTIVE SCHOOLS BANNER */}
+      <div style={{ background: '#F0E8D8', padding: '28px 48px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#E8B84B', marginBottom: 10 }}>Selective entry high school preparation</div>
+          <p style={{ fontSize: 14, color: '#5A6A7A', lineHeight: 1.7, marginBottom: 10 }}>
+            ScholarPrep helps students prepare for entry into Australia's most competitive selective high schools, including:
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              'Melbourne High School',
+              'Mac.Robertson Girls\' High School',
+              'Suzanne Cory High School',
+              'North Sydney Boys High School',
+              'North Sydney Girls High School',
+              'James Ruse Agricultural High School',
+              'Normanhurst Boys High School'
+            ].map(s => (
+              <div key={s} style={{ background: '#fff', border: '1px solid rgba(13,27,42,0.1)', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, color: '#0D1B2A' }}>{s}</div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -143,18 +166,18 @@ export default function Landing() {
       <section id="features" style={{ padding: '100px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#E8B84B', marginBottom: 16 }}>Why ScholarPrep</div>
         <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,52px)', fontWeight: 900, letterSpacing: -1.5, color: '#0D1B2A', marginBottom: 16 }}>
-          Everything your child needs to <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>succeed</em>
+          Everything your child needs to <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>ace the exam</em>
         </h2>
         <p style={{ fontSize: 18, color: '#5A6A7A', lineHeight: 1.7, maxWidth: 540, marginBottom: 60 }}>
-          Unlike printed workbooks, ScholarPrep generates new questions every single session — so your child actually learns, not just memorises.
+          Unlike printed workbooks, ScholarPrep generates new questions every single session from our unlimited question bank — so your child actually learns, not just memorises.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
           {[
-            { icon: '🤖', title: 'AI-generated questions', desc: 'Every test is unique. Fresh, exam-style questions based on real scholarship test patterns — never the same test twice.' },
-            { icon: '⏱️', title: 'Timed or relaxed', desc: 'Set a countdown timer to simulate real exam pressure, or let your child work at their own pace.' },
+            { icon: '🤖', title: 'Unlimited question bank', desc: 'Fresh, unique exam-style questions every session based on real test patterns. Never the same question twice — unlimited practice.' },
+            { icon: '🎯', title: 'Full simulated exams', desc: 'Sit a complete timed exam just like the real test centre — multiple sections, timed breaks, and real exam conditions from start to finish.' },
+            { icon: '📊', title: 'AI-powered analysis', desc: 'More detailed than the average teacher or tutor. AI identifies your child\'s exact weak question types and hones in on what needs work.' },
+            { icon: '📈', title: 'Progress tracking', desc: 'Track improvement across every session. See strengths, weaknesses, and trends by subject and question type over time.' },
             { icon: '✏️', title: 'AI writing feedback', desc: 'Submit typed or handwritten responses. Get detailed feedback and scores against real marking criteria.' },
-            { icon: '📊', title: 'Progress tracking', desc: 'See exactly where your child excels and where they need more practice — updated after every session.' },
-            { icon: '🎓', title: 'Years 1–6 difficulty', desc: 'Adjust difficulty to match your child\'s grade. Always appropriately challenging, never too easy.' },
             { icon: '📄', title: 'Printable PDF tests', desc: 'Generate a professional exam-style PDF with answer key at the back. Perfect for offline practice or tutors.' }
           ].map((f, i) => (
             <div key={i} style={{
@@ -170,6 +193,92 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* SIMULATED EXAM SECTION */}
+      <section style={{ background: '#0D1B2A', padding: '100px 48px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#E8B84B', marginBottom: 16 }}>Full simulated exams</div>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,52px)', fontWeight: 900, color: '#fff', marginBottom: 16 }}>
+            Sit the real exam — before exam day
+          </h2>
+          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: 48, maxWidth: 600 }}>
+            ScholarPrep replicates the exact conditions of the real test centre — timed sections, scheduled breaks, and multiple papers in one sitting. No surprises on exam day.
+          </p>
+          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 36, marginBottom: 24 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#E8B84B', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Example: ACER Selective High School Entrance Exam</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { time: '60 min', label: 'Maths & Quantitative Reasoning', color: '#E8B84B', type: 'exam' },
+                { time: '20 min', label: 'Break', color: 'rgba(255,255,255,0.2)', type: 'break' },
+                { time: '55 min', label: 'Reading & Verbal Reasoning', color: '#52B788', type: 'exam' },
+                { time: '5 min', label: 'Break', color: 'rgba(255,255,255,0.2)', type: 'break' },
+                { time: '40 min', label: 'Writing', color: '#7B61FF', type: 'exam' },
+              ].map((s, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  background: s.type === 'break' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                  borderRadius: 12, padding: '14px 20px',
+                  border: `1px solid ${s.type === 'break' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                  <div style={{ minWidth: 64, fontSize: 15, fontWeight: 800, color: s.color }}>{s.time}</div>
+                  <div style={{ fontSize: 14, color: s.type === 'break' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.8)', fontStyle: s.type === 'break' ? 'italic' : 'normal' }}>{s.label}</div>
+                  {s.type === 'exam' && <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: s.color, background: 'rgba(255,255,255,0.06)', padding: '3px 10px', borderRadius: 100, textTransform: 'uppercase' }}>Timed</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>ScholarPrep simulates the full exam experience for ACER, AAST, Edutest, NAPLAN and more.</p>
+        </div>
+      </section>
+
+      {/* AI ANALYSIS SECTION */}
+      <section style={{ background: '#FAF6EE', padding: '100px 48px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#E8B84B', marginBottom: 16 }}>Smarter than a tutor</div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,48px)', fontWeight: 900, color: '#0D1B2A', marginBottom: 20, letterSpacing: -1 }}>
+              Personalised AI analysis of every student
+            </h2>
+            <p style={{ fontSize: 16, color: '#5A6A7A', lineHeight: 1.8, marginBottom: 24 }}>
+              The average teacher has 25+ students. Even the best tutor can only cover so much in an hour. ScholarPrep's AI analyses every single question your child attempts — identifying the exact question types, topics, and patterns where they lose marks.
+            </p>
+            <p style={{ fontSize: 16, color: '#5A6A7A', lineHeight: 1.8, marginBottom: 32 }}>
+              It doesn't just say "needs improvement in Maths." It tells you: <em>"Struggles with multi-step word problems involving fractions and time — here's what to practise next."</em>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                'Identifies specific weak question types — not just subjects',
+                'Tracks improvement session by session',
+                'Highlights strengths to build confidence',
+                'Recommends what to focus on next',
+              ].map((p, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span style={{ color: '#52B788', fontWeight: 700, fontSize: 16, marginTop: 2 }}>✓</span>
+                  <span style={{ fontSize: 15, color: '#5A6A7A', lineHeight: 1.6 }}>{p}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              { subject: 'Mathematics', strength: 78, area: 'Fractions & decimals', note: 'Multi-step word problems — needs focus', color: '#E8B84B' },
+              { subject: 'Reading Comprehension', strength: 91, area: 'Inference questions', note: 'Strong — keep maintaining', color: '#52B788' },
+              { subject: 'General Ability', strength: 64, area: 'Number sequences', note: 'Letter patterns — needs practice', color: '#E07A5F' },
+            ].map((s, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 16, padding: 24, border: '1px solid rgba(13,27,42,0.07)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>{s.subject}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.strength}%</div>
+                </div>
+                <div style={{ background: '#FAF6EE', borderRadius: 100, height: 6, marginBottom: 10 }}>
+                  <div style={{ background: s.color, borderRadius: 100, height: 6, width: `${s.strength}%` }}></div>
+                </div>
+                <div style={{ fontSize: 12, color: '#5A6A7A' }}>⚠️ {s.note}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* HOW IT WORKS */}
       <section style={{ background: '#0D1B2A', padding: '100px 48px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -179,9 +288,9 @@ export default function Landing() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32 }}>
             {[
               { n: '1', t: 'Create an account', d: 'Sign up in 60 seconds. Start your 7-day free trial — no credit card required.' },
-              { n: '2', t: 'Choose your test', d: 'Pick subject, year level, question count, and whether you want a timer.' },
-              { n: '3', t: 'AI generates it', d: 'Fresh, unique questions every time. No two tests are the same.' },
-              { n: '4', t: 'Review & improve', d: 'Instant scores, explanations for wrong answers, and progress tracking over time.' }
+              { n: '2', t: 'Choose your exam', d: 'Pick your target exam, subject, year level, and whether you want a quick practice or a full simulated sitting.' },
+              { n: '3', t: 'AI generates it', d: 'Fresh questions from our unlimited question bank every time. No two tests are ever the same.' },
+              { n: '4', t: 'Review & improve', d: 'Instant scores, AI analysis of your weak spots, and progress tracking across every session.' }
             ].map((s, i) => (
               <div key={i}>
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#E8B84B', color: '#0D1B2A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, marginBottom: 20 }}>{s.n}</div>
@@ -200,10 +309,10 @@ export default function Landing() {
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,52px)', fontWeight: 900, color: '#0D1B2A', marginBottom: 60 }}>All four sections. Nothing left out.</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             {[
-              { icon: '🔢', title: 'Mathematics', desc: 'Word problems, fractions, decimals, geometry, time, money, percentages — all in real-world exam style.', tags: ['Number & algebra', 'Measurement', 'Word problems', 'Geometry'], bg: '#FEF3D0' },
-              { icon: '📖', title: 'Reading Comprehension', desc: 'Passages from stories, poems, fact sheets and brochures — with inference, vocabulary and comprehension questions.', tags: ['Inference', 'Vocabulary', 'Main idea', 'Author\'s purpose'], bg: '#E8F5EE' },
-              { icon: '🧩', title: 'General Ability', desc: 'Verbal and non-verbal reasoning, pattern recognition, analogies, sequences and logical thinking.', tags: ['Verbal reasoning', 'Pattern recognition', 'Analogies', 'Sequences'], bg: '#EEF0FF' },
-              { icon: '✏️', title: 'Writing', desc: 'Narrative and persuasive prompts with AI feedback. Type or upload a photo of handwritten work.', tags: ['Narrative', 'Persuasive', 'AI feedback', 'Scored criteria'], bg: '#FEE8E2' }
+              { icon: '🔢', title: 'Mathematics', desc: 'Word problems, fractions, decimals, geometry, time, money, percentages and more — all in real-world exam style for Years 1–11.', tags: ['Number & algebra', 'Measurement', 'Word problems', 'Geometry'], bg: '#FEF3D0' },
+              { icon: '📖', title: 'Reading Comprehension', desc: 'Passages from stories, poems, fact sheets and brochures — with inference, vocabulary and comprehension questions exactly like the real exam.', tags: ['Inference', 'Vocabulary', 'Main idea', 'Author\'s purpose'], bg: '#E8F5EE' },
+              { icon: '🧩', title: 'General Ability', desc: 'Verbal and non-verbal reasoning, pattern recognition, analogies, sequences and logical thinking — core to ACER, AAST and Edutest.', tags: ['Verbal reasoning', 'Pattern recognition', 'Analogies', 'Sequences'], bg: '#EEF0FF' },
+              { icon: '✏️', title: 'Writing', desc: 'Narrative and persuasive prompts with detailed AI marking feedback. Type or upload a photo of handwritten work.', tags: ['Narrative', 'Persuasive', 'AI feedback', 'Scored criteria'], bg: '#FEE8E2' }
             ].map((s, i) => (
               <div key={i} style={{ background: '#fff', borderRadius: 20, padding: 36, display: 'flex', gap: 24, border: '1px solid rgba(13,27,42,0.06)' }}>
                 <div style={{ width: 56, height: 56, borderRadius: 16, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{s.icon}</div>
@@ -235,7 +344,7 @@ export default function Landing() {
               <div style={{ fontSize: 14, color: '#5A6A7A', marginBottom: 24 }}>Full access for 7 days</div>
               <div style={{ height: 1, background: 'rgba(13,27,42,0.08)', marginBottom: 24 }}></div>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                {['All 4 subjects unlocked', 'AI question generation', 'AI writing feedback', 'Progress dashboard', 'Years 1–6 difficulty', 'No credit card needed'].map(f => (
+                {['All 4 subjects unlocked', 'Unlimited question bank', 'AI writing feedback', 'Progress dashboard & AI analysis', 'Years 1–11 difficulty', 'No credit card needed'].map(f => (
                   <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#5A6A7A' }}>
                     <span style={{ color: '#52B788', fontWeight: 700 }}>✓</span>{f}
                   </li>
@@ -255,7 +364,7 @@ export default function Landing() {
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>per month · cancel anytime</div>
               <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', marginBottom: 24 }}></div>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                {['Unlimited tests & questions', 'Fresh AI questions every session', 'All 4 subjects', 'Timed & untimed modes', 'Full writing AI feedback', 'Detailed progress tracking', 'Years 1–6 difficulty'].map(f => (
+                {['Unlimited tests & question bank', 'Full simulated timed exams', 'All 4 subjects · Years 1–11', 'AI personalised analysis', 'Full writing AI feedback', 'Detailed progress tracking', 'ACER, AAST, Edutest & NAPLAN'].map(f => (
                   <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
                     <span style={{ color: '#E8B84B', fontWeight: 700 }}>✓</span>{f}
                   </li>
@@ -293,7 +402,7 @@ export default function Landing() {
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#E8B84B', marginBottom: 16 }}>Get started today</div>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,52px)', fontWeight: 900, color: '#fff', marginBottom: 16 }}>
-            Your child's scholarship starts <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>here</em>
+            Your child's exam success starts <em style={{ fontStyle: 'italic', color: '#E8B84B' }}>here</em>
           </h2>
           <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: 40 }}>
             7 days free. No credit card. Cancel anytime.
@@ -309,8 +418,8 @@ export default function Landing() {
       {/* FOOTER */}
       <footer style={{ background: '#0D1B2A', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '32px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 900, color: 'rgba(255,255,255,0.8)' }}>Scholar<span style={{ color: '#E8B84B' }}>Prep</span></div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>© 2026 ScholarPrep · Built for Australian primary school families</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>ACER · AAST · Edutest</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>© 2026 ScholarPrep — a Go Circle Pty Ltd company. Built for Australian primary and secondary school families.</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>ACER · AAST · Edutest · NAPLAN</div>
       </footer>
 
       <style>{`

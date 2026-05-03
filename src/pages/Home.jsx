@@ -109,7 +109,7 @@ export default function Home() {
         <div style={{ marginTop: 32, background: '#0D1B2A', borderRadius: 20, padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>📄 Need a printable test?</div>
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>Generate a professional exam-style PDF — 50¢ per question, answers included.</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>Generate a professional exam-style PDF — just 15¢ per question, with answers and full explanations included.</div>
           </div>
           <button onClick={() => navigate('/pdf-generator')} style={{ background: '#E8B84B', color: '#0D1B2A', padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 24 }}>
             Generate PDF →

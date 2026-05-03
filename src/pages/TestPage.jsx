@@ -43,7 +43,7 @@ function SetupScreen({ subject, yearLevel, onStart }) {
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Time limit</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[{l:'No timer',v:0},{l:'10 min',v:600},{l:'20 min',v:1200},{l:'30 min',v:1800},{l:'45 min',v:2700}].map(t => (
+          {[{ l: 'No timer', v: 0 }, { l: '10 min', v: 600 }, { l: '20 min', v: 1200 }, { l: '30 min', v: 1800 }, { l: '45 min', v: 2700 }].map(t => (
             <button key={t.v} onClick={() => setTimer(t.v)} style={{
               padding: '8px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer',
               background: timer === t.v ? '#0D1B2A' : '#FAF6EE',
