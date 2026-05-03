@@ -93,7 +93,7 @@ export default function Landing() {
             <div style={{ background: '#FAF6EE', borderRadius: 12, padding: 16, fontSize: 15, fontWeight: 500, color: '#0D1B2A', lineHeight: 1.6, marginBottom: 16 }}>
               Adam's car travels at 70 km per hour. How far has it traveled from 9am to 3:30pm with no stops?
             </div>
-            {[{l:'A',t:'225 km',s:'neutral'},{l:'B',t:'455 km',s:'correct'},{l:'C',t:'570 km',s:'neutral'},{l:'D',t:'630 km',s:'neutral'}].map(o => (
+            {[{ l: 'A', t: '225 km', s: 'neutral' }, { l: 'B', t: '455 km', s: 'correct' }, { l: 'C', t: '570 km', s: 'neutral' }, { l: 'D', t: '630 km', s: 'neutral' }].map(o => (
               <div key={o.l} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
                 borderRadius: 10, marginBottom: 6,
@@ -160,7 +160,7 @@ export default function Landing() {
             <div key={i} style={{
               background: '#fff', borderRadius: 20, padding: 32,
               border: '1px solid rgba(13,27,42,0.06)',
-              borderTop: `3px solid ${['#E8B84B','#52B788','#E07A5F','#7B61FF','#00B4D8','#E8B84B'][i]}`
+              borderTop: `3px solid ${['#E8B84B', '#52B788', '#E07A5F', '#7B61FF', '#00B4D8', '#E8B84B'][i]}`
             }}>
               <div style={{ fontSize: 32, marginBottom: 16 }}>{f.icon}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>{f.title}</div>
@@ -200,10 +200,10 @@ export default function Landing() {
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 'clamp(32px,4vw,52px)', fontWeight: 900, color: '#0D1B2A', marginBottom: 60 }}>All four sections. Nothing left out.</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             {[
-              { icon: '🔢', title: 'Mathematics', desc: 'Word problems, fractions, decimals, geometry, time, money, percentages — all in real-world exam style.', tags: ['Number & algebra','Measurement','Word problems','Geometry'], bg: '#FEF3D0' },
-              { icon: '📖', title: 'Reading Comprehension', desc: 'Passages from stories, poems, fact sheets and brochures — with inference, vocabulary and comprehension questions.', tags: ['Inference','Vocabulary','Main idea','Author\'s purpose'], bg: '#E8F5EE' },
-              { icon: '🧩', title: 'General Ability', desc: 'Verbal and non-verbal reasoning, pattern recognition, analogies, sequences and logical thinking.', tags: ['Verbal reasoning','Pattern recognition','Analogies','Sequences'], bg: '#EEF0FF' },
-              { icon: '✏️', title: 'Writing', desc: 'Narrative and persuasive prompts with AI feedback. Type or upload a photo of handwritten work.', tags: ['Narrative','Persuasive','AI feedback','Scored criteria'], bg: '#FEE8E2' }
+              { icon: '🔢', title: 'Mathematics', desc: 'Word problems, fractions, decimals, geometry, time, money, percentages — all in real-world exam style.', tags: ['Number & algebra', 'Measurement', 'Word problems', 'Geometry'], bg: '#FEF3D0' },
+              { icon: '📖', title: 'Reading Comprehension', desc: 'Passages from stories, poems, fact sheets and brochures — with inference, vocabulary and comprehension questions.', tags: ['Inference', 'Vocabulary', 'Main idea', 'Author\'s purpose'], bg: '#E8F5EE' },
+              { icon: '🧩', title: 'General Ability', desc: 'Verbal and non-verbal reasoning, pattern recognition, analogies, sequences and logical thinking.', tags: ['Verbal reasoning', 'Pattern recognition', 'Analogies', 'Sequences'], bg: '#EEF0FF' },
+              { icon: '✏️', title: 'Writing', desc: 'Narrative and persuasive prompts with AI feedback. Type or upload a photo of handwritten work.', tags: ['Narrative', 'Persuasive', 'AI feedback', 'Scored criteria'], bg: '#FEE8E2' }
             ].map((s, i) => (
               <div key={i} style={{ background: '#fff', borderRadius: 20, padding: 36, display: 'flex', gap: 24, border: '1px solid rgba(13,27,42,0.06)' }}>
                 <div style={{ width: 56, height: 56, borderRadius: 16, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{s.icon}</div>
@@ -235,7 +235,7 @@ export default function Landing() {
               <div style={{ fontSize: 14, color: '#5A6A7A', marginBottom: 24 }}>Full access for 7 days</div>
               <div style={{ height: 1, background: 'rgba(13,27,42,0.08)', marginBottom: 24 }}></div>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                {['All 4 subjects unlocked','AI question generation','AI writing feedback','Progress dashboard','Years 1–6 difficulty','No credit card needed'].map(f => (
+                {['All 4 subjects unlocked', 'AI question generation', 'AI writing feedback', 'Progress dashboard', 'Years 1–6 difficulty', 'No credit card needed'].map(f => (
                   <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#5A6A7A' }}>
                     <span style={{ color: '#52B788', fontWeight: 700 }}>✓</span>{f}
                   </li>
@@ -255,7 +255,7 @@ export default function Landing() {
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>per month · cancel anytime</div>
               <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', marginBottom: 24 }}></div>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                {['Unlimited tests & questions','Fresh AI questions every session','All 4 subjects','Timed & untimed modes','Full writing AI feedback','Detailed progress tracking','Years 1–6 difficulty'].map(f => (
+                {['Unlimited tests & questions', 'Fresh AI questions every session', 'All 4 subjects', 'Timed & untimed modes', 'Full writing AI feedback', 'Detailed progress tracking', 'Years 1–6 difficulty'].map(f => (
                   <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
                     <span style={{ color: '#E8B84B', fontWeight: 700 }}>✓</span>{f}
                   </li>
@@ -270,11 +270,11 @@ export default function Landing() {
             <div style={{ background: '#fff', borderRadius: 20, padding: 36, border: '1px solid rgba(13,27,42,0.08)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6A7A', marginBottom: 8 }}>One-off purchase</div>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A' }}>PDF Test</div>
-              <div style={{ fontSize: 48, fontWeight: 800, color: '#0D1B2A', lineHeight: 1, margin: '16px 0 4px' }}>50¢</div>
+              <div style={{ fontSize: 48, fontWeight: 800, color: '#0D1B2A', lineHeight: 1, margin: '16px 0 4px' }}>15¢</div>
               <div style={{ fontSize: 14, color: '#5A6A7A', marginBottom: 24 }}>per question · no subscription</div>
               <div style={{ height: 1, background: 'rgba(13,27,42,0.08)', marginBottom: 24 }}></div>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                {['Choose subject & year level','10 to 100 questions','Professional exam-style PDF','Answer key at the back','Pay once, download instantly','Great for tutors & classrooms'].map(f => (
+                {['Choose subject & year level', '10 to 100 questions', 'Professional exam-style PDF', 'Answer key at the back', 'Pay once, download instantly', 'Great for tutors & classrooms'].map(f => (
                   <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#5A6A7A' }}>
                     <span style={{ color: '#52B788', fontWeight: 700 }}>✓</span>{f}
                   </li>

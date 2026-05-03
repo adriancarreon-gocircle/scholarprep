@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import AppLayout from '../components/AppLayout';
 import { generatePDFQuestions } from '../lib/ai';
 
-const PRICE_PER_Q = 0.50;
+const PRICE_PER_Q = 0.15;
 
 export default function PDFGeneratorPage() {
   const [subject, setSubject] = useState('mathematics');
@@ -16,8 +16,6 @@ export default function PDFGeneratorPage() {
   const total = (count * PRICE_PER_Q).toFixed(2);
 
   const handlePayAndGenerate = async () => {
-    // In production: initiate Stripe checkout here
-    // For now we go straight to generation (Stripe integration requires backend)
     setPhase('generating');
     setError('');
     try {
@@ -91,7 +89,7 @@ export default function PDFGeneratorPage() {
         <p>${answers}</p>
         <br/>
         <h3>Explanations</h3>
-        ${questions.map((q, i) => `<p><strong>${i+1}.</strong> ${q.correct}. ${q.options[q.correct]} — ${q.explanation}</p>`).join('')}
+        ${questions.map((q, i) => `<p><strong>${i + 1}.</strong> ${q.correct}. ${q.options[q.correct]} — ${q.explanation}</p>`).join('')}
       </div>
       </body></html>`);
     win.document.close();
@@ -119,7 +117,7 @@ export default function PDFGeneratorPage() {
                 <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>Generate a PDF Test</h1>
                 <p style={{ fontSize: 16, color: '#5A6A7A', lineHeight: 1.7 }}>
                   Create a professional exam-style test PDF — looks just like a real scholarship exam, with an answer key at the back.
-                  Just <strong style={{ color: '#0D1B2A' }}>50¢ per question</strong>. No subscription needed.
+                  Just <strong style={{ color: '#0D1B2A' }}>15¢ per question</strong>. No subscription needed.
                 </p>
               </div>
 
@@ -154,7 +152,7 @@ export default function PDFGeneratorPage() {
               <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Year level</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {[1,2,3,4,5,6].map(y => (
+                  {[1, 2, 3, 4, 5, 6].map(y => (
                     <button key={y} onClick={() => setYearLevel(y)} style={{
                       flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                       background: yearLevel === y ? '#0D1B2A' : '#FAF6EE',
@@ -181,7 +179,7 @@ export default function PDFGeneratorPage() {
                   ))}
                 </div>
                 <div style={{ fontSize: 14, color: '#5A6A7A' }}>
-                  {count} questions × 50¢ = <strong style={{ color: '#0D1B2A', fontSize: 16 }}>${total}</strong>
+                  {count} questions × 15¢ = <strong style={{ color: '#0D1B2A', fontSize: 16 }}>${total}</strong>
                 </div>
               </div>
 
@@ -238,11 +236,11 @@ export default function PDFGeneratorPage() {
               <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)', textAlign: 'left' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>📋 Your PDF includes:</div>
                 <div style={{ fontSize: 14, color: '#5A6A7A', lineHeight: 1.8 }}>
-                  ✓ {questions.length} multiple-choice questions<br/>
-                  {passage && `✓ Reading passage: ${passage.title}`}<br/>
-                  ✓ Student name, date & score fields<br/>
-                  ✓ Clear A/B/C/D answer options<br/>
-                  ✓ Complete answer key at the back<br/>
+                  ✓ {questions.length} multiple-choice questions<br />
+                  {passage && `✓ Reading passage: ${passage.title}`}<br />
+                  ✓ Student name, date & score fields<br />
+                  ✓ Clear A/B/C/D answer options<br />
+                  ✓ Complete answer key at the back<br />
                   ✓ Full explanations for every question
                 </div>
               </div>
