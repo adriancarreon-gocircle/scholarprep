@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AppLayout from '../components/AppLayout';
 import { generatePDFQuestions } from '../lib/ai';
 
 const PRICE_PER_Q = 0.50;
@@ -99,6 +100,7 @@ export default function PDFGeneratorPage() {
   };
 
   return (
+    <AppLayout>
     <div style={{ minHeight: '100vh', background: '#FAF6EE' }}>
       {/* Header */}
       <div style={{ background: '#0D1B2A', padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -106,7 +108,7 @@ export default function PDFGeneratorPage() {
           Scholar<span style={{ color: '#E8B84B' }}>Prep</span>
           <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginLeft: 16, fontFamily: 'inherit', fontWeight: 400 }}>PDF Test Generator</span>
         </div>
-        <a href="/" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>← Back to home</a>
+        <a href="/home" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>← Back to home</a>
       </div>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: 48 }}>
@@ -255,5 +257,6 @@ export default function PDFGeneratorPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   );
 }
