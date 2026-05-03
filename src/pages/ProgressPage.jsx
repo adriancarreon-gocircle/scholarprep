@@ -53,100 +53,131 @@ const subjects = [
   }
 ];
 
-// ── Topic Band Chart Row (NAPLAN style) ───────────────────────────────────────
-function TopicBandRow({ topic, score, color }) {
+// Convert score to letter grade
+const getGrade = (score) => {
+  if (score >= 90) return 'A+';
+  if (score >= 80) return 'A';
+  if (score >= 75) return 'B+';
+  if (score >= 65) return 'B';
+  if (score >= 55) return 'C+';
+  if (score >= 45) return 'C';
+  if (score >= 35) return 'D';
+  return 'E';
+};
+
+const getGradeColor = (score) => {
+  if (score >= 80) return '#2D6A4F';
+  if (score >= 60) return '#A07010';
+  if (score >= 40) return '#E07A5F';
+  return '#B04030';
+};
+
+const getStatusLabel = (score, na) => {
+  const diff = score - na;
+  if (diff >= 15) return { text: 'Well above average', color: '#2D6A4F' };
+  if (diff >= 5) return { text: 'Above average', color: '#52B788' };
+  if (diff >= -5) return { text: 'At average', color: '#A07010' };
+  if (diff >= -15) return { text: 'Below average', color: '#E07A5F' };
+  return { text: 'Well below average', color: '#B04030' };
+};
+
+const getFeedback = (score, na, label) => {
+  const diff = score - na;
+  if (diff >= 15) return `Excellent — well ahead of the national average. Keep practising to maintain this strong performance.`;
+  if (diff >= 5) return `Good work — slightly above average. A few more targeted sessions will consolidate this further.`;
+  if (diff >= -5) return `On track with the national average. Regular practice will push you above the benchmark.`;
+  if (diff >= -15) return `Below average. Focus here — complete 2–3 short targeted tests on ${label} to lift your score.`;
+  return `Significant gap to close. Prioritise ${label} urgently before your exam with daily 5-question drills.`;
+};
+
+// ── Topic Row: 3-column layout ────────────────────────────────────────────────
+function TopicRow({ topic, score, color }) {
   const na = topic.nationalAvg;
   const hasScore = score > 0;
-
-  // Band colours: 0-39 red, 40-59 amber, 60-79 yellow-green, 80-100 green
-  const getBandColor = (pct) => {
-    if (pct >= 80) return '#2D6A4F';
-    if (pct >= 60) return '#A07010';
-    if (pct >= 40) return '#E07A5F';
-    return '#B04030';
-  };
-
-  const getStatusLabel = (score, na) => {
-    if (!hasScore) return { text: 'Not yet tested', color: '#9AA5B0' };
-    const diff = score - na;
-    if (diff >= 15) return { text: 'Well above average', color: '#2D6A4F' };
-    if (diff >= 5) return { text: 'Above average', color: '#52B788' };
-    if (diff >= -5) return { text: 'At average', color: '#A07010' };
-    if (diff >= -15) return { text: 'Below average', color: '#E07A5F' };
-    return { text: 'Well below average', color: '#B04030' };
-  };
-
-  const getAdvice = (score, na, label) => {
-    if (!hasScore) return `Complete a ${label} practice test to see your performance here.`;
-    const diff = score - na;
-    if (diff >= 15) return `Excellent — well ahead of the national average. Keep practising to maintain this.`;
-    if (diff >= 5) return `Good work — slightly above average. A few more targeted sessions will consolidate this.`;
-    if (diff >= -5) return `On track with the national average. Regular practice will push you above the benchmark.`;
-    if (diff >= -15) return `Below average. Focus on this topic — attempt 2–3 short targeted tests to lift your score.`;
-    return `Significant gap to close. Prioritise this topic urgently before your exam. Try 5-question daily drills.`;
-  };
-
-  const status = getStatusLabel(score, na);
+  const status = hasScore ? getStatusLabel(score, na) : { text: 'Not yet tested', color: '#9AA5B0' };
+  const grade = hasScore ? getGrade(score) : '—';
+  const gradeColor = hasScore ? getGradeColor(score) : '#9AA5B0';
 
   return (
-    <div style={{ marginBottom: 12, background: '#FAFAF8', borderRadius: 12, padding: '12px 16px', border: '1px solid rgba(13,27,42,0.06)' }}>
-      {/* Topic label + status */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A' }}>{topic.label}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 90px 1fr',
+      gap: 0,
+      borderBottom: '1px solid rgba(13,27,42,0.06)',
+      alignItems: 'stretch',
+      background: '#fff'
+    }}>
+      {/* Column 1: Topic label + band chart */}
+      <div style={{ padding: '14px 16px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', marginBottom: 10 }}>{topic.label}</div>
+
+        {/* Band bar */}
+        <div style={{ position: 'relative', height: 32, marginBottom: 4 }}>
+          {/* Background bands */}
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 6, display: 'flex', overflow: 'hidden' }}>
+            <div style={{ width: '40%', background: '#FDEAEA' }}></div>
+            <div style={{ width: '20%', background: '#FEF3D0' }}></div>
+            <div style={{ width: '20%', background: '#E8F5EE' }}></div>
+            <div style={{ width: '20%', background: '#C8EDD8' }}></div>
+          </div>
+
+          {/* Band labels */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+            <div style={{ width: '40%', textAlign: 'center', fontSize: 9, color: '#B04030', fontWeight: 600, opacity: 0.6 }}>Below (0–39%)</div>
+            <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#A07010', fontWeight: 600, opacity: 0.6 }}>Developing</div>
+            <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#2D6A4F', fontWeight: 600, opacity: 0.6 }}>Proficient</div>
+            <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#1A4030', fontWeight: 600, opacity: 0.6 }}>Advanced</div>
+          </div>
+
+          {/* National average marker — open circle, larger */}
+          <div style={{
+            position: 'absolute', top: '50%', left: `${na}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 18, height: 18, borderRadius: '50%',
+            background: '#fff', border: '3px solid #5A6A7A',
+            zIndex: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+          }}></div>
+
+          {/* Student score marker — filled dot, larger */}
           {hasScore && (
-            <div style={{ fontSize: 13, fontWeight: 800, color: getBandColor(score) }}>{score}%</div>
+            <div style={{
+              position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`,
+              transform: 'translate(-50%, -50%)',
+              width: 22, height: 22, borderRadius: '50%',
+              background: color, border: '3px solid #fff',
+              zIndex: 3, boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
+            }}></div>
           )}
-          <div style={{ fontSize: 11, fontWeight: 600, color: status.color, background: `${status.color}15`, padding: '2px 8px', borderRadius: 100 }}>
-            {status.text}
-          </div>
+        </div>
+
+        {/* Scale */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#9AA5B0' }}>
+          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
         </div>
       </div>
 
-      {/* Band bar */}
-      <div style={{ position: 'relative', height: 28, marginBottom: 6 }}>
-        {/* Background bands */}
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 6, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ width: '40%', background: '#FDEAEA' }}></div>
-          <div style={{ width: '20%', background: '#FEF3D0' }}></div>
-          <div style={{ width: '20%', background: '#E8F5EE' }}></div>
-          <div style={{ width: '20%', background: '#C8EDD8' }}></div>
+      {/* Column 2: Score + Grade */}
+      <div style={{
+        padding: '14px 12px', borderRight: '1px solid rgba(13,27,42,0.06)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2
+      }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+          {hasScore ? `${score}%` : '—'}
         </div>
-
-        {/* Band labels */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
-          <div style={{ width: '40%', textAlign: 'center', fontSize: 9, color: '#B04030', fontWeight: 600, opacity: 0.7 }}>Below (0–39%)</div>
-          <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#A07010', fontWeight: 600, opacity: 0.7 }}>Developing</div>
-          <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#2D6A4F', fontWeight: 600, opacity: 0.7 }}>Proficient</div>
-          <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#1A4030', fontWeight: 600, opacity: 0.7 }}>Advanced</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
+        <div style={{ fontSize: 10, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>
+          {status.text}
         </div>
-
-        {/* National average marker (open circle + dashed line) */}
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${na}%`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 1, height: '100%', borderLeft: '2px dashed #5A6A7A', opacity: 0.6 }}></div>
-          <div style={{ position: 'absolute', width: 10, height: 10, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A' }}></div>
-        </div>
-
-        {/* Student score marker (filled dot) */}
-        {hasScore && (
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${score}%`, display: 'flex', alignItems: 'center', transform: 'translateX(-50%)' }}>
-            <div style={{ width: 14, height: 14, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}></div>
-          </div>
-        )}
       </div>
 
-      {/* Scale labels */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#9AA5B0', marginBottom: 6 }}>
-        <span>0%</span>
-        <span>25%</span>
-        <span>50%</span>
-        <span>75%</span>
-        <span>100%</span>
-      </div>
-
-      {/* Advice text */}
-      <div style={{ fontSize: 12, color: '#5A6A7A', lineHeight: 1.5, fontStyle: 'italic' }}>
-        {getAdvice(score, na, topic.label)}
+      {/* Column 3: Feedback */}
+      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, color: '#5A6A7A', lineHeight: 1.6 }}>
+          {hasScore
+            ? getFeedback(score, na, topic.label)
+            : `Complete a practice test to see your ${topic.label} performance here.`
+          }
+        </div>
       </div>
     </div>
   );
@@ -161,7 +192,10 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
   return (
     <div style={{ background: '#fff', borderRadius: 20, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', boxShadow: '0 2px 12px rgba(13,27,42,0.04)', overflow: 'hidden' }}>
       {/* Subject header */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+      <div
+        style={{ padding: '20px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#FAFAF8' }}
+        onClick={() => setExpanded(e => !e)}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 44, height: 44, borderRadius: 14, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{subject.icon}</div>
           <div>
@@ -172,7 +206,9 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {avg !== null && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 30, fontWeight: 800, color: avg >= 70 ? '#2D6A4F' : avg >= 50 ? '#A07010' : '#B04030' }}>{avg}%</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: avg >= 70 ? '#2D6A4F' : avg >= 50 ? '#A07010' : '#B04030' }}>
+                {avg}% <span style={{ fontSize: 20 }}>{getGrade(avg)}</span>
+              </div>
               <div style={{ fontSize: 11, color: vsNational >= 0 ? '#2D6A4F' : '#B04030', fontWeight: 600 }}>
                 {vsNational >= 0 ? `↑ +${vsNational}%` : `↓ ${vsNational}%`} vs national avg ({subject.nationalAvg}%)
               </div>
@@ -183,82 +219,91 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '20px 24px' }}>
-          {/* Topic band charts */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Topic breakdown</div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#9AA5B0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: subject.color }}></div>
-                  <span>Your score</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A' }}></div>
-                  <span>National average</span>
-                </div>
-              </div>
+        <div>
+          {/* Column headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 1fr', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)' }}>
+            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+              Topic
+              <span style={{ marginLeft: 12, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 10 }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: subject.color, border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></span>
+                  <span style={{ fontSize: 10, color: '#9AA5B0' }}>Your score</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A' }}></span>
+                  <span style={{ fontSize: 10, color: '#9AA5B0' }}>National avg</span>
+                </span>
+              </span>
             </div>
-            {subject.topics.map((topic, i) => (
-              <TopicBandRow
-                key={topic.key}
-                topic={topic}
-                score={topicScores[i] || 0}
-                color={subject.color}
-              />
-            ))}
+            <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
+            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
           </div>
 
-          {/* AI Summary */}
-          <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>🤖 AI Analysis — {subject.label}</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>
-              {(() => {
-                if (avg === null) return 'Complete a test to get your AI analysis.';
-                const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
-                const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
-                const vsNat = avg - subject.nationalAvg;
-                let text = '';
-                if (vsNat >= 10) text += `Strong overall performance — ${vsNat}% above the national average. `;
-                else if (vsNat >= 0) text += `Performing at or just above the national average. `;
-                else text += `Currently ${Math.abs(vsNat)}% below the national average — there is room to improve. `;
-                if (strong.length > 0) text += `Strengths include ${strong.join(', ')}. `;
-                if (weak.length > 0) text += `Priority areas to address: ${weak.join(', ')}. Focus targeted practice on these before the exam. `;
-                if (weak.length === 0 && avg >= 70) text += `All topics are performing well. Maintain consistency and try harder year-level tests to keep pushing your score.`;
-                return text;
-              })()}
-            </div>
-          </div>
+          {/* Topic rows */}
+          {subject.topics.map((topic, i) => (
+            <TopicRow
+              key={topic.key}
+              topic={topic}
+              score={topicScores[i] || 0}
+              color={subject.color}
+            />
+          ))}
 
-          {/* Test history for this subject */}
-          {sessions.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Test history</div>
-              <div style={{ borderRadius: 12, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px 70px', background: '#FAF6EE', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <div>Date</div>
-                  <div>Year</div>
-                  <div>Result</div>
-                  <div>Score</div>
-                </div>
-                {sessions.map((s, i) => {
-                  const score = s.score || s.percentage || 0;
-                  return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px 70px', padding: '10px 14px', fontSize: 13, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
-                      <div style={{ color: '#5A6A7A', fontSize: 12 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                      <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
-                      <div style={{ color: '#5A6A7A', fontSize: 12 }}>{s.correct !== undefined ? `${s.correct} / ${s.total} correct` : '—'}</div>
-                      <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
-                    </div>
-                  );
-                })}
+          {/* AI Summary + session history */}
+          <div style={{ padding: '20px 24px' }}>
+            {/* AI Summary */}
+            <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>🤖 AI Analysis — {subject.label}</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>
+                {(() => {
+                  if (avg === null) return 'Complete a test to get your AI analysis.';
+                  const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
+                  const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
+                  const vsNat = avg - subject.nationalAvg;
+                  let text = '';
+                  if (vsNat >= 10) text += `Strong overall performance — ${vsNat}% above the national average. `;
+                  else if (vsNat >= 0) text += `Performing at or just above the national average. `;
+                  else text += `Currently ${Math.abs(vsNat)}% below the national average — there is room to improve. `;
+                  if (strong.length > 0) text += `Strengths include ${strong.join(', ')}. `;
+                  if (weak.length > 0) text += `Priority areas to address: ${weak.join(', ')}. Focus targeted practice on these before the exam. `;
+                  if (weak.length === 0 && avg >= 70) text += `All topics are performing well. Maintain consistency and try harder year-level tests to push your score higher.`;
+                  return text;
+                })()}
               </div>
             </div>
-          )}
 
-          <button onClick={() => navigate(subject.path)} style={{ padding: '9px 22px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            Practise {subject.label} →
-          </button>
+            {/* Test history */}
+            {sessions.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Test history</div>
+                <div style={{ borderRadius: 12, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', background: '#FAF6EE', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <div>Date</div>
+                    <div>Year</div>
+                    <div>Result</div>
+                    <div>Score</div>
+                    <div>Grade</div>
+                  </div>
+                  {sessions.map((s, i) => {
+                    const score = s.score || s.percentage || 0;
+                    return (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', padding: '10px 14px', fontSize: 13, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
+                        <div style={{ color: '#5A6A7A', fontSize: 12 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
+                        <div style={{ color: '#5A6A7A', fontSize: 12 }}>{s.correct !== undefined ? `${s.correct} / ${s.total} correct` : '—'}</div>
+                        <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
+                        <div style={{ fontWeight: 800, color: getGradeColor(score) }}>{getGrade(score)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => navigate(subject.path)} style={{ padding: '9px 22px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer' }}>
+              Practise {subject.label} →
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -349,12 +394,12 @@ export default function ProgressPage() {
               <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🎯 Overall AI recommendation</div>
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8 }}>
                 {(() => {
-                  const avgs = subjects.map(s => ({ label: s.label, avg: getSubjectAverage(s.key), nationalAvg: s.nationalAvg, path: s.path })).filter(s => s.avg !== null);
+                  const avgs = subjects.map(s => ({ label: s.label, avg: getSubjectAverage(s.key), nationalAvg: s.nationalAvg })).filter(s => s.avg !== null);
                   if (avgs.length === 0) return 'Complete more tests to get personalised recommendations.';
                   const weakest = [...avgs].sort((a, b) => a.avg - b.avg)[0];
                   const strongest = [...avgs].sort((a, b) => b.avg - a.avg)[0];
                   const belowNational = avgs.filter(s => s.avg < s.nationalAvg);
-                  return `Your strongest subject is ${strongest.label} at ${strongest.avg}%. ${weakest.label} needs the most attention at ${weakest.avg}%${weakest.avg < weakest.nationalAvg ? ` — currently ${weakest.nationalAvg - weakest.avg}% below the national benchmark` : ''}. ${belowNational.length > 0 ? `Focus on bringing ${belowNational.map(s => s.label).join(' and ')} up to benchmark level before exam day.` : 'You are above the national benchmark across all tested subjects — keep it up!'}`;
+                  return `Your strongest subject is ${strongest.label} at ${strongest.avg}% (${getGrade(strongest.avg)}). ${weakest.label} needs the most attention at ${weakest.avg}% (${getGrade(weakest.avg)})${weakest.avg < weakest.nationalAvg ? ` — currently ${weakest.nationalAvg - weakest.avg}% below the national benchmark` : ''}. ${belowNational.length > 0 ? `Focus on bringing ${belowNational.map(s => s.label).join(' and ')} up to benchmark level before exam day.` : 'You are above the national benchmark across all tested subjects — keep it up!'}`;
                 })()}
               </div>
             </div>
