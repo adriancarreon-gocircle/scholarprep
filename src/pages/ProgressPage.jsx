@@ -5,7 +5,7 @@ import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions } fro
 
 const subjects = [
   {
-    key: 'mathematics', label: 'Mathematics', icon: '🔢', color: '#E8B84B', path: '/app/maths',
+    key: 'mathematics', label: 'Mathematics', shortLabel: 'Maths', icon: '🔢', color: '#E8B84B', path: '/app/maths',
     nationalAvg: 64,
     topics: [
       { label: 'Number operations', key: 'number', nationalAvg: 65 },
@@ -17,7 +17,7 @@ const subjects = [
     ]
   },
   {
-    key: 'reading', label: 'Reading Comprehension', icon: '📖', color: '#52B788', path: '/app/reading',
+    key: 'reading', label: 'Reading Comprehension', shortLabel: 'Reading', icon: '📖', color: '#52B788', path: '/app/reading',
     nationalAvg: 67,
     topics: [
       { label: 'Literal comprehension', key: 'literal', nationalAvg: 72 },
@@ -29,7 +29,7 @@ const subjects = [
     ]
   },
   {
-    key: 'general', label: 'General Ability', icon: '🧩', color: '#7B61FF', path: '/app/general',
+    key: 'general', label: 'General Ability', shortLabel: 'General Ability', icon: '🧩', color: '#7B61FF', path: '/app/general',
     nationalAvg: 61,
     topics: [
       { label: 'Verbal analogies', key: 'analogies', nationalAvg: 63 },
@@ -41,7 +41,7 @@ const subjects = [
     ]
   },
   {
-    key: 'writing', label: 'Writing', icon: '✏️', color: '#E07A5F', path: '/app/writing',
+    key: 'writing', label: 'Writing', shortLabel: 'Writing', icon: '✏️', color: '#E07A5F', path: '/app/writing',
     nationalAvg: 62,
     topics: [
       { label: 'Ideas & content', key: 'ideas', nationalAvg: 64 },
@@ -53,7 +53,6 @@ const subjects = [
   }
 ];
 
-// Convert score to letter grade
 const getGrade = (score) => {
   if (score >= 90) return 'A+';
   if (score >= 80) return 'A';
@@ -90,6 +89,65 @@ const getFeedback = (score, na, label) => {
   return `Significant gap to close. Prioritise ${label} urgently before your exam with daily 5-question drills.`;
 };
 
+// ── Subject Summary Card (top panel) ─────────────────────────────────────────
+function SubjectSummaryCard({ subject, avg, totalQuestions, onClick }) {
+  const hasData = avg !== null;
+  const vsNational = hasData ? avg - subject.nationalAvg : null;
+  const grade = hasData ? getGrade(avg) : '—';
+  const gradeColor = hasData ? getGradeColor(avg) : '#9AA5B0';
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff', borderRadius: 16, padding: '20px 20px',
+        border: `1px solid rgba(13,27,42,0.08)`,
+        borderTop: `4px solid ${subject.color}`,
+        cursor: 'pointer', transition: 'all 0.15s',
+        boxShadow: '0 2px 8px rgba(13,27,42,0.04)'
+      }}
+      onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+      onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+    >
+      {/* Subject icon + label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 10, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{subject.icon}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A' }}>{subject.shortLabel}</div>
+      </div>
+
+      {hasData ? (
+        <>
+          {/* Score + Grade */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 36, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{avg}%</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: gradeColor }}>{grade}</div>
+          </div>
+
+          {/* vs national */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: vsNational >= 0 ? '#2D6A4F' : '#B04030', marginBottom: 10 }}>
+            {vsNational >= 0 ? `↑ +${vsNational}%` : `↓ ${vsNational}%`} vs national avg
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height: 5, background: '#F0E8D8', borderRadius: 3, marginBottom: 10, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${avg}%`, background: subject.color, borderRadius: 3 }}></div>
+          </div>
+
+          {/* Question count */}
+          <div style={{ fontSize: 12, color: '#5A6A7A' }}>
+            {totalQuestions} question{totalQuestions !== 1 ? 's' : ''} attempted
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 13, color: '#9AA5B0', lineHeight: 1.5 }}>
+          No tests completed yet.<br />
+          <span style={{ color: subject.color, fontWeight: 600 }}>Start practising →</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Topic Row: 3-column layout ────────────────────────────────────────────────
 function TopicRow({ topic, score, color }) {
   const na = topic.nationalAvg;
@@ -99,29 +157,19 @@ function TopicRow({ topic, score, color }) {
   const gradeColor = hasScore ? getGradeColor(score) : '#9AA5B0';
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 90px 1fr',
-      gap: 0,
-      borderBottom: '1px solid rgba(13,27,42,0.06)',
-      alignItems: 'stretch',
-      background: '#fff'
-    }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 1fr', gap: 0, borderBottom: '1px solid rgba(13,27,42,0.06)', alignItems: 'stretch', background: '#fff' }}>
       {/* Column 1: Topic label + band chart */}
       <div style={{ padding: '14px 16px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', marginBottom: 10 }}>{topic.label}</div>
 
         {/* Band bar */}
         <div style={{ position: 'relative', height: 32, marginBottom: 4 }}>
-          {/* Background bands */}
           <div style={{ position: 'absolute', inset: 0, borderRadius: 6, display: 'flex', overflow: 'hidden' }}>
             <div style={{ width: '40%', background: '#FDEAEA' }}></div>
             <div style={{ width: '20%', background: '#FEF3D0' }}></div>
             <div style={{ width: '20%', background: '#E8F5EE' }}></div>
             <div style={{ width: '20%', background: '#C8EDD8' }}></div>
           </div>
-
-          {/* Band labels */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
             <div style={{ width: '40%', textAlign: 'center', fontSize: 9, color: '#B04030', fontWeight: 600, opacity: 0.6 }}>Below (0–39%)</div>
             <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#A07010', fontWeight: 600, opacity: 0.6 }}>Developing</div>
@@ -129,7 +177,7 @@ function TopicRow({ topic, score, color }) {
             <div style={{ width: '20%', textAlign: 'center', fontSize: 9, color: '#1A4030', fontWeight: 600, opacity: 0.6 }}>Advanced</div>
           </div>
 
-          {/* National average marker — open circle, larger */}
+          {/* National average — open circle, large */}
           <div style={{
             position: 'absolute', top: '50%', left: `${na}%`,
             transform: 'translate(-50%, -50%)',
@@ -138,7 +186,7 @@ function TopicRow({ topic, score, color }) {
             zIndex: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
           }}></div>
 
-          {/* Student score marker — filled dot, larger */}
+          {/* Student score — filled dot, large */}
           {hasScore && (
             <div style={{
               position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`,
@@ -150,57 +198,44 @@ function TopicRow({ topic, score, color }) {
           )}
         </div>
 
-        {/* Scale */}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#9AA5B0' }}>
           <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
         </div>
       </div>
 
       {/* Column 2: Score + Grade */}
-      <div style={{
-        padding: '14px 12px', borderRight: '1px solid rgba(13,27,42,0.06)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2
-      }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
-          {hasScore ? `${score}%` : '—'}
-        </div>
+      <div style={{ padding: '14px 12px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>{hasScore ? `${score}%` : '—'}</div>
         <div style={{ fontSize: 22, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
-        <div style={{ fontSize: 10, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>
-          {status.text}
-        </div>
+        <div style={{ fontSize: 10, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
       </div>
 
       {/* Column 3: Feedback */}
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center' }}>
         <div style={{ fontSize: 12, color: '#5A6A7A', lineHeight: 1.6 }}>
-          {hasScore
-            ? getFeedback(score, na, topic.label)
-            : `Complete a practice test to see your ${topic.label} performance here.`
-          }
+          {hasScore ? getFeedback(score, na, topic.label) : `Complete a practice test to see your ${topic.label} performance here.`}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Subject Card ──────────────────────────────────────────────────────────────
-function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
+// ── Subject Detail Card ───────────────────────────────────────────────────────
+function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(true);
   const vsNational = avg !== null ? avg - subject.nationalAvg : null;
 
   return (
-    <div style={{ background: '#fff', borderRadius: 20, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', boxShadow: '0 2px 12px rgba(13,27,42,0.04)', overflow: 'hidden' }}>
-      {/* Subject header */}
-      <div
-        style={{ padding: '20px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#FAFAF8' }}
-        onClick={() => setExpanded(e => !e)}
-      >
+    <div id={anchorId} style={{ background: '#fff', borderRadius: 20, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', boxShadow: '0 2px 12px rgba(13,27,42,0.04)', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#FAFAF8' }}
+        onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 44, height: 44, borderRadius: 14, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{subject.icon}</div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
-            <div style={{ fontSize: 12, color: '#5A6A7A' }}>{stats.attempts} session{stats.attempts !== 1 ? 's' : ''} completed</div>
+            <div style={{ fontSize: 12, color: '#5A6A7A' }}>{stats.attempts} session{stats.attempts !== 1 ? 's' : ''} · {stats.totalQuestions || 0} questions attempted</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -222,16 +257,16 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
         <div>
           {/* Column headers */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 1fr', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)' }}>
-            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
               Topic
-              <span style={{ marginLeft: 12, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 10 }}>
+              <span style={{ display: 'flex', gap: 10 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: subject.color, border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></span>
-                  <span style={{ fontSize: 10, color: '#9AA5B0' }}>Your score</span>
+                  <span style={{ fontSize: 10, color: '#9AA5B0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>Your score</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A' }}></span>
-                  <span style={{ fontSize: 10, color: '#9AA5B0' }}>National avg</span>
+                  <span style={{ fontSize: 10, color: '#9AA5B0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>National avg</span>
                 </span>
               </span>
             </div>
@@ -241,15 +276,9 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
 
           {/* Topic rows */}
           {subject.topics.map((topic, i) => (
-            <TopicRow
-              key={topic.key}
-              topic={topic}
-              score={topicScores[i] || 0}
-              color={subject.color}
-            />
+            <TopicRow key={topic.key} topic={topic} score={topicScores[i] || 0} color={subject.color} />
           ))}
 
-          {/* AI Summary + session history */}
           <div style={{ padding: '20px 24px' }}>
             {/* AI Summary */}
             <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
@@ -278,11 +307,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores }) {
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Test history</div>
                 <div style={{ borderRadius: 12, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', background: '#FAF6EE', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    <div>Date</div>
-                    <div>Year</div>
-                    <div>Result</div>
-                    <div>Score</div>
-                    <div>Grade</div>
+                    <div>Date</div><div>Year</div><div>Result</div><div>Score</div><div>Grade</div>
                   </div>
                   {sessions.map((s, i) => {
                     const score = s.score || s.percentage || 0;
@@ -324,6 +349,10 @@ export default function ProgressPage() {
 
   const getSubjectSessions = (key) => recent.filter(s => s.subject === key);
 
+  const getTotalQuestions = (key) => {
+    return recent.filter(s => s.subject === key).reduce((sum, s) => sum + (s.total || 0), 0);
+  };
+
   const getTopicScores = (subjectKey, avg) => {
     if (avg === null) return [];
     const subject = subjects.find(s => s.key === subjectKey);
@@ -333,6 +362,11 @@ export default function ProgressPage() {
       const variance = ((seed * (i + 1) * 7) % 30) - 15;
       return Math.min(100, Math.max(5, Math.round(avg + variance)));
     });
+  };
+
+  const scrollToSubject = (key) => {
+    const el = document.getElementById(`subject-${key}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
@@ -355,22 +389,44 @@ export default function ProgressPage() {
           </div>
         ) : (
           <>
-            {/* Summary stats */}
+            {/* ── Subject Summary Panel ── */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Subject summary</div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 }}>
+              {subjects.map(s => (
+                <SubjectSummaryCard
+                  key={s.key}
+                  subject={s}
+                  avg={getSubjectAverage(s.key)}
+                  totalQuestions={getTotalQuestions(s.key)}
+                  onClick={() => {
+                    const stats = progress.subjectStats[s.key];
+                    if (stats && stats.attempts > 0) {
+                      scrollToSubject(s.key);
+                    } else {
+                      navigate(s.path);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Overall stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 32 }}>
               {[
-                { label: 'Total tests', value: totalTests },
-                { label: 'This week', value: weekly.testsCompleted },
-                { label: 'Overall average', value: overallAvg !== null ? `${overallAvg}%` : '—' },
-                { label: 'Est. time spent', value: `${Math.round(totalTests * 15)}m` }
+                { label: 'Total tests completed', value: totalTests },
+                { label: 'Tests this week', value: weekly.testsCompleted },
+                { label: 'Overall average', value: overallAvg !== null ? `${overallAvg}% ${getGrade(overallAvg)}` : '—' },
               ].map((s, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid rgba(13,27,42,0.08)' }}>
+                <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid rgba(13,27,42,0.08)' }}>
                   <div style={{ fontSize: 11, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 4 }}>{s.label}</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: '#0D1B2A' }}>{s.value}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0D1B2A' }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            {/* Subject cards */}
+            {/* Subject detail cards */}
             {subjects.map(s => {
               const avg = getSubjectAverage(s.key);
               const stats = progress.subjectStats[s.key];
@@ -382,9 +438,10 @@ export default function ProgressPage() {
                   key={s.key}
                   subject={s}
                   avg={avg}
-                  stats={stats}
+                  stats={{ ...stats, totalQuestions: getTotalQuestions(s.key) }}
                   sessions={sessions}
                   topicScores={topicScores}
+                  anchorId={`subject-${s.key}`}
                 />
               );
             })}
