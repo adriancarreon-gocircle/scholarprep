@@ -35,14 +35,14 @@ export default function AppLayout({ children }) {
           <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 900, color: '#fff' }}>
             Scholar<span style={{ color: '#E8B84B' }}>Prep</span>
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>ACER · AAST · Edutest</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>ACER · AAST · Edutest · NAPLAN</div>
         </div>
 
         {/* Year level selector */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Year level</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-            {[1,2,3,4,5,6].map(y => (
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(y => (
               <button key={y} onClick={() => setYearLevel(y)} style={{
                 padding: '5px 0', borderRadius: 6, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
                 background: yearLevel === y ? '#E8B84B' : 'rgba(255,255,255,0.06)',
