@@ -36,7 +36,6 @@ export default function PDFGeneratorPage() {
   };
 
   const handleDownloadPDF = () => {
-    // Build PDF using browser print as a clean fallback (jsPDF would be in full build)
     const win = window.open('', '_blank');
     const subjectLabel = { mathematics: 'Mathematics', reading: 'Reading Comprehension', general: 'General Ability' }[subject];
     const answers = questions.map((q, i) => `${i + 1}. ${q.correct}`).join('   ');
@@ -101,162 +100,162 @@ export default function PDFGeneratorPage() {
 
   return (
     <AppLayout>
-    <div style={{ minHeight: '100vh', background: '#FAF6EE' }}>
-      {/* Header */}
-      <div style={{ background: '#0D1B2A', padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 900, color: '#fff' }}>
-          Scholar<span style={{ color: '#E8B84B' }}>Prep</span>
-          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginLeft: 16, fontFamily: 'inherit', fontWeight: 400 }}>PDF Test Generator</span>
+      <div style={{ minHeight: '100vh', background: '#FAF6EE' }}>
+        {/* Header */}
+        <div style={{ background: '#0D1B2A', padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 900, color: '#fff' }}>
+            Scholar<span style={{ color: '#E8B84B' }}>Prep</span>
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginLeft: 16, fontFamily: 'inherit', fontWeight: 400 }}>PDF Test Generator</span>
+          </div>
+          <a href="/app" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>← Back to home</a>
         </div>
-        <a href="/home" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>← Back to home</a>
-      </div>
 
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: 48 }}>
-        {error && <div style={{ background: '#FDEAEA', border: '1px solid #E07A5F', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#B04030' }}>⚠️ {error}</div>}
+        <div style={{ maxWidth: 680, margin: '0 auto', padding: 48 }}>
+          {error && <div style={{ background: '#FDEAEA', border: '1px solid #E07A5F', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#B04030' }}>⚠️ {error}</div>}
 
-        {phase === 'config' && (
-          <>
-            <div style={{ marginBottom: 32 }}>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>Generate a PDF Test</h1>
-              <p style={{ fontSize: 16, color: '#5A6A7A', lineHeight: 1.7 }}>
-                Create a professional exam-style test PDF — looks just like a real scholarship exam, with an answer key at the back.
-                Just <strong style={{ color: '#0D1B2A' }}>50¢ per question</strong>. No subscription needed.
-              </p>
-            </div>
+          {phase === 'config' && (
+            <>
+              <div style={{ marginBottom: 32 }}>
+                <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>Generate a PDF Test</h1>
+                <p style={{ fontSize: 16, color: '#5A6A7A', lineHeight: 1.7 }}>
+                  Create a professional exam-style test PDF — looks just like a real scholarship exam, with an answer key at the back.
+                  Just <strong style={{ color: '#0D1B2A' }}>50¢ per question</strong>. No subscription needed.
+                </p>
+              </div>
 
-            {/* Subject */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>Subject</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { k: 'mathematics', l: 'Mathematics', icon: '🔢', desc: 'Number, algebra, measurement, geometry' },
-                  { k: 'reading', l: 'Reading Comprehension', icon: '📖', desc: 'Passage with inference & vocabulary questions' },
-                  { k: 'general', l: 'General Ability', icon: '🧩', desc: 'Verbal reasoning, patterns, logic' }
-                ].map(s => (
-                  <button key={s.k} onClick={() => setSubject(s.k)} style={{
-                    display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
-                    borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                    background: subject === s.k ? '#0D1B2A' : '#FAF6EE',
-                    border: subject === s.k ? 'none' : '1.5px solid rgba(13,27,42,0.1)',
-                    transition: 'all 0.15s'
+              {/* Subject */}
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>Subject</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { k: 'mathematics', l: 'Mathematics', icon: '🔢', desc: 'Number, algebra, measurement, geometry' },
+                    { k: 'reading', l: 'Reading Comprehension', icon: '📖', desc: 'Passage with inference & vocabulary questions' },
+                    { k: 'general', l: 'General Ability', icon: '🧩', desc: 'Verbal reasoning, patterns, logic' }
+                  ].map(s => (
+                    <button key={s.k} onClick={() => setSubject(s.k)} style={{
+                      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
+                      borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                      background: subject === s.k ? '#0D1B2A' : '#FAF6EE',
+                      border: subject === s.k ? 'none' : '1.5px solid rgba(13,27,42,0.1)',
+                      transition: 'all 0.15s'
+                    }}>
+                      <span style={{ fontSize: 22 }}>{s.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: subject === s.k ? '#fff' : '#0D1B2A' }}>{s.l}</div>
+                        <div style={{ fontSize: 13, color: subject === s.k ? 'rgba(255,255,255,0.55)' : '#5A6A7A' }}>{s.desc}</div>
+                      </div>
+                      {subject === s.k && <span style={{ marginLeft: 'auto', color: '#E8B84B', fontSize: 18 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Year level */}
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Year level</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[1,2,3,4,5,6].map(y => (
+                    <button key={y} onClick={() => setYearLevel(y)} style={{
+                      flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      background: yearLevel === y ? '#0D1B2A' : '#FAF6EE',
+                      color: yearLevel === y ? '#fff' : '#5A6A7A',
+                      border: yearLevel === y ? 'none' : '1px solid rgba(13,27,42,0.12)',
+                      transition: 'all 0.15s'
+                    }}>Yr {y}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Question count */}
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Number of questions</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                  {[10, 20, 30, 40, 50, 60, 80, 100].map(n => (
+                    <button key={n} onClick={() => setCount(n)} style={{
+                      padding: '8px 16px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                      background: count === n ? '#E8B84B' : '#FAF6EE',
+                      color: count === n ? '#0D1B2A' : '#5A6A7A',
+                      border: count === n ? 'none' : '1px solid rgba(13,27,42,0.12)',
+                      transition: 'all 0.15s'
+                    }}>{n}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 14, color: '#5A6A7A' }}>
+                  {count} questions × 50¢ = <strong style={{ color: '#0D1B2A', fontSize: 16 }}>${total}</strong>
+                </div>
+              </div>
+
+              {/* Summary + pay */}
+              <div style={{ background: '#0D1B2A', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Order summary</div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
+                  {count} × {subject} questions · Year {yearLevel} · PDF with answer key
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#E8B84B' }}>${total}</div>
+                  <button onClick={handlePayAndGenerate} style={{
+                    background: '#E8B84B', color: '#0D1B2A', padding: '12px 28px',
+                    borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer'
                   }}>
-                    <span style={{ fontSize: 22 }}>{s.icon}</span>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: subject === s.k ? '#fff' : '#0D1B2A' }}>{s.l}</div>
-                      <div style={{ fontSize: 13, color: subject === s.k ? 'rgba(255,255,255,0.55)' : '#5A6A7A' }}>{s.desc}</div>
-                    </div>
-                    {subject === s.k && <span style={{ marginLeft: 'auto', color: '#E8B84B', fontSize: 18 }}>✓</span>}
+                    Pay & Generate PDF →
                   </button>
-                ))}
+                </div>
               </div>
-            </div>
+              <div style={{ fontSize: 13, color: '#5A6A7A', textAlign: 'center' }}>
+                Secure payment via Stripe · Instant PDF download · No subscription required
+              </div>
+            </>
+          )}
 
-            {/* Year level */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Year level</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[1,2,3,4,5,6].map(y => (
-                  <button key={y} onClick={() => setYearLevel(y)} style={{
-                    flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                    background: yearLevel === y ? '#0D1B2A' : '#FAF6EE',
-                    color: yearLevel === y ? '#fff' : '#5A6A7A',
-                    border: yearLevel === y ? 'none' : '1px solid rgba(13,27,42,0.12)',
-                    transition: 'all 0.15s'
-                  }}>Yr {y}</button>
-                ))}
+          {phase === 'generating' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 48 }}>📄</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900, color: '#0D1B2A' }}>Generating your test...</div>
+              <div style={{ fontSize: 15, color: '#5A6A7A', maxWidth: 340, lineHeight: 1.6 }}>
+                Creating {count} unique {subject} questions at Year {yearLevel} level. This may take 20–40 seconds for larger tests.
               </div>
+              <div style={{ width: 36, height: 36, border: '3px solid rgba(13,27,42,0.1)', borderTop: '3px solid #0D1B2A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
+          )}
 
-            {/* Question count */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Number of questions</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                {[10, 20, 30, 40, 50, 60, 80, 100].map(n => (
-                  <button key={n} onClick={() => setCount(n)} style={{
-                    padding: '8px 16px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                    background: count === n ? '#E8B84B' : '#FAF6EE',
-                    color: count === n ? '#0D1B2A' : '#5A6A7A',
-                    border: count === n ? 'none' : '1px solid rgba(13,27,42,0.12)',
-                    transition: 'all 0.15s'
-                  }}>{n}</button>
-                ))}
-              </div>
-              <div style={{ fontSize: 14, color: '#5A6A7A' }}>
-                {count} questions × 50¢ = <strong style={{ color: '#0D1B2A', fontSize: 16 }}>${total}</strong>
-              </div>
-            </div>
-
-            {/* Summary + pay */}
-            <div style={{ background: '#0D1B2A', borderRadius: 16, padding: 24, marginBottom: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Order summary</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
-                {count} × {subject} questions · Year {yearLevel} · PDF with answer key
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#E8B84B' }}>${total}</div>
-                <button onClick={handlePayAndGenerate} style={{
-                  background: '#E8B84B', color: '#0D1B2A', padding: '12px 28px',
-                  borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer'
+          {phase === 'done' && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ background: '#E8F5EE', borderRadius: 20, padding: 40, marginBottom: 24 }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>Your test is ready!</div>
+                <div style={{ fontSize: 15, color: '#5A6A7A', marginBottom: 24 }}>
+                  {questions.length} questions · {subject === 'mathematics' ? 'Mathematics' : subject === 'reading' ? 'Reading Comprehension' : 'General Ability'} · Year {yearLevel}
+                </div>
+                <button onClick={handleDownloadPDF} style={{
+                  background: '#0D1B2A', color: '#fff', padding: '16px 36px',
+                  borderRadius: 100, fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(13,27,42,0.2)'
                 }}>
-                  Pay & Generate PDF →
+                  📥 Download / Print PDF
                 </button>
               </div>
-            </div>
-            <div style={{ fontSize: 13, color: '#5A6A7A', textAlign: 'center' }}>
-              Secure payment via Stripe · Instant PDF download · No subscription required
-            </div>
-          </>
-        )}
-
-        {phase === 'generating' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 20, textAlign: 'center' }}>
-            <div style={{ fontSize: 48 }}>📄</div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900, color: '#0D1B2A' }}>Generating your test...</div>
-            <div style={{ fontSize: 15, color: '#5A6A7A', maxWidth: 340, lineHeight: 1.6 }}>
-              Creating {count} unique {subject} questions at Year {yearLevel} level. This may take 20–40 seconds for larger tests.
-            </div>
-            <div style={{ width: 36, height: 36, border: '3px solid rgba(13,27,42,0.1)', borderTop: '3px solid #0D1B2A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          </div>
-        )}
-
-        {phase === 'done' && (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ background: '#E8F5EE', borderRadius: 20, padding: 40, marginBottom: 24 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>Your test is ready!</div>
-              <div style={{ fontSize: 15, color: '#5A6A7A', marginBottom: 24 }}>
-                {questions.length} questions · {subject === 'mathematics' ? 'Mathematics' : subject === 'reading' ? 'Reading Comprehension' : 'General Ability'} · Year {yearLevel}
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)', textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>📋 Your PDF includes:</div>
+                <div style={{ fontSize: 14, color: '#5A6A7A', lineHeight: 1.8 }}>
+                  ✓ {questions.length} multiple-choice questions<br/>
+                  {passage && `✓ Reading passage: ${passage.title}`}<br/>
+                  ✓ Student name, date & score fields<br/>
+                  ✓ Clear A/B/C/D answer options<br/>
+                  ✓ Complete answer key at the back<br/>
+                  ✓ Full explanations for every question
+                </div>
               </div>
-              <button onClick={handleDownloadPDF} style={{
-                background: '#0D1B2A', color: '#fff', padding: '16px 36px',
-                borderRadius: 100, fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(13,27,42,0.2)'
+              <button onClick={() => { setPhase('config'); setQuestions([]); setPassage(null); }} style={{
+                padding: '12px 28px', borderRadius: 100, fontSize: 14, fontWeight: 600,
+                background: '#FAF6EE', color: '#0D1B2A', border: '1.5px solid rgba(13,27,42,0.12)', cursor: 'pointer'
               }}>
-                📥 Download / Print PDF
+                Generate another test
               </button>
             </div>
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(13,27,42,0.08)', textAlign: 'left' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A', marginBottom: 8 }}>📋 Your PDF includes:</div>
-              <div style={{ fontSize: 14, color: '#5A6A7A', lineHeight: 1.8 }}>
-                ✓ {questions.length} multiple-choice questions<br/>
-                {passage && `✓ Reading passage: ${passage.title}\n`}
-                ✓ Student name, date & score fields<br/>
-                ✓ Clear A/B/C/D answer options<br/>
-                ✓ Complete answer key at the back<br/>
-                ✓ Full explanations for every question
-              </div>
-            </div>
-            <button onClick={() => { setPhase('config'); setQuestions([]); setPassage(null); }} style={{
-              padding: '12px 28px', borderRadius: 100, fontSize: 14, fontWeight: 600,
-              background: '#FAF6EE', color: '#0D1B2A', border: '1.5px solid rgba(13,27,42,0.12)', cursor: 'pointer'
-            }}>
-              Generate another test
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
     </AppLayout>
   );
 }
