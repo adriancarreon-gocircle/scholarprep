@@ -66,13 +66,17 @@ export default function SubscribePage() {
           </p>
         </div>
 
-        {/* Plan card */}
-        <div style={{ background: '#0D1B2A', borderRadius: 24, padding: 40, marginBottom: 20, boxShadow: '0 24px 64px rgba(13,27,42,0.25)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: '#E8B84B', color: '#0D1B2A', padding: '5px 20px', borderRadius: 100, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+        {/* Badge sits OUTSIDE the card so it's never clipped */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: -16, position: 'relative', zIndex: 2 }}>
+          <div style={{ background: '#E8B84B', color: '#0D1B2A', padding: '6px 20px', borderRadius: 100, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Most popular
           </div>
+        </div>
 
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        {/* Plan card — no overflow:hidden so badge isn't clipped */}
+        <div style={{ background: '#0D1B2A', borderRadius: 24, padding: '40px 40px 36px', marginBottom: 20, boxShadow: '0 24px 64px rgba(13,27,42,0.25)', position: 'relative' }}>
+
+          <div style={{ textAlign: 'center', marginBottom: 28, marginTop: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Monthly subscription</div>
             <div style={{ fontSize: 56, fontWeight: 900, color: '#E8B84B', lineHeight: 1 }}>$9.99</div>
             <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>per month · AUD · cancel anytime</div>
