@@ -35,8 +35,7 @@ export default async function handler(req, res) {
 
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-          // Check all possible email sources — prioritise customer_details
-          // which is set from the locked-in ScholarPrep account email
+          // Get email — prioritise customer_details which is always populated after checkout
           const customerEmail =
             session.customer_details?.email ||
             session.customer_email ||
@@ -101,14 +100,14 @@ export default async function handler(req, res) {
             quantity: 1,
           },
         ],
-        // Lock the checkout to the user's ScholarPrep email
-        // This pre-fills the email and ensures webhook finds the right user
+        // Lock checkout to the user's ScholarPrep email
         ...(userEmail && { customer_email: userEmail }),
         success_url: successUrl || `${req.headers.origin}/subscribe?subscribed=true`,
         cancel_url: cancelUrl || `${req.headers.origin}/subscribe`,
         currency: 'aud',
         billing_address_collection: 'auto',
       });
+
     } else if (type === 'pdf') {
       const amountInCents = Math.round(questionCount * 15);
       session = await stripe.checkout.sessions.create({
@@ -127,9 +126,12 @@ export default async function handler(req, res) {
             quantity: 1,
           },
         ],
+        // Pre-fill and lock the email to the user's ScholarPrep account
+        ...(userEmail && { customer_email: userEmail }),
         success_url: successUrl || `${req.headers.origin}/pdf-generator?paid=true&questions=${questionCount}`,
         cancel_url: cancelUrl || `${req.headers.origin}/pdf-generator`,
       });
+
     } else {
       return res.status(400).json({ error: 'Invalid checkout type' });
     }

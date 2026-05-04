@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '../components/AppLayout';
 import { generatePDFQuestions } from '../lib/ai';
+import { useAuth } from '../hooks/useAuth';
 
 const PRICE_PER_Q = 0.15;
 
 export default function PDFGeneratorPage() {
+  const { user } = useAuth();
   const [subject, setSubject] = useState('mathematics');
   const [count, setCount] = useState(20);
   const [yearLevel, setYearLevel] = useState(5);
@@ -23,15 +25,11 @@ export default function PDFGeneratorPage() {
       const savedSubject = params.get('subject') || 'mathematics';
       const savedYearLevel = parseInt(params.get('year') || '5');
 
-      // Restore state from URL params
       setCount(questionCount);
       setSubject(savedSubject);
       setYearLevel(savedYearLevel);
 
-      // Clean URL
       window.history.replaceState({}, '', '/pdf-generator');
-
-      // Auto-generate after successful payment
       generateAfterPayment(savedSubject, questionCount, savedYearLevel);
     }
   }, []);
@@ -69,6 +67,7 @@ export default function PDFGeneratorPage() {
           questionCount: count,
           successUrl,
           cancelUrl,
+          userEmail: user?.email,
         })
       });
       const data = await response.json();
@@ -166,6 +165,11 @@ export default function PDFGeneratorPage() {
                   Create a professional exam-style test PDF — looks just like a real scholarship exam, with an answer key at the back.
                   Just <strong style={{ color: '#0D1B2A' }}>15¢ per question</strong>. No subscription needed.
                 </p>
+                {user?.email && (
+                  <div style={{ marginTop: 10, fontSize: 13, color: '#5A6A7A' }}>
+                    Paying as: <strong style={{ color: '#0D1B2A' }}>{user.email}</strong>
+                  </div>
+                )}
               </div>
 
               {/* Subject */}
