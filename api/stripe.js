@@ -19,7 +19,6 @@ export default async function handler(req, res) {
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Handle successful subscription payment
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       if (session.mode === 'subscription') {
@@ -36,14 +35,14 @@ export default async function handler(req, res) {
 
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-          // Get email from customer_details (populated after checkout)
-          // Falls back to customer_email or Stripe customer lookup
+          // Check all possible email sources — prioritise customer_details
+          // which is set from the locked-in ScholarPrep account email
           const customerEmail =
             session.customer_details?.email ||
             session.customer_email ||
             await getStripeCustomerEmail(stripe, session.customer);
 
-          console.log('Processing subscription for email:', customerEmail);
+          console.log('Webhook: processing subscription for:', customerEmail);
 
           if (customerEmail) {
             const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -74,8 +73,6 @@ export default async function handler(req, res) {
             } else {
               console.error('No Supabase user found with email:', customerEmail);
             }
-          } else {
-            console.error('Could not determine customer email from session');
           }
         } catch (err) {
           console.error('Webhook processing error:', err.message);
@@ -90,7 +87,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { type, questionCount, successUrl, cancelUrl } = req.body;
+    const { type, questionCount, successUrl, cancelUrl, userEmail } = req.body;
 
     let session;
 
@@ -104,6 +101,9 @@ export default async function handler(req, res) {
             quantity: 1,
           },
         ],
+        // Lock the checkout to the user's ScholarPrep email
+        // This pre-fills the email and ensures webhook finds the right user
+        ...(userEmail && { customer_email: userEmail }),
         success_url: successUrl || `${req.headers.origin}/subscribe?subscribed=true`,
         cancel_url: cancelUrl || `${req.headers.origin}/subscribe`,
         currency: 'aud',
@@ -141,7 +141,6 @@ export default async function handler(req, res) {
   }
 }
 
-// Get customer email from Stripe if not in session
 async function getStripeCustomerEmail(stripe, customerId) {
   if (!customerId) return null;
   try {
@@ -153,7 +152,6 @@ async function getStripeCustomerEmail(stripe, customerId) {
   }
 }
 
-// Helper to get raw body for webhook signature verification
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';

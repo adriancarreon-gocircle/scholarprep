@@ -10,12 +10,10 @@ export default function SubscribePage() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Check if returning from successful Stripe subscription
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscribed') === 'true') {
       window.history.replaceState({}, '', '/subscribe');
-      // Force refresh the Supabase session to pick up updated metadata
       setRefreshing(true);
       refreshSession();
     }
@@ -23,19 +21,14 @@ export default function SubscribePage() {
 
   const refreshSession = async () => {
     try {
-      // Refresh the session token — this pulls updated user_metadata from Supabase
       await supabase.auth.refreshSession();
-      // Give it a moment then redirect to app
-      setTimeout(() => {
-        navigate('/app');
-      }, 1500);
+      setTimeout(() => navigate('/app'), 1500);
     } catch (e) {
       console.error('Session refresh failed:', e);
       navigate('/app');
     }
   };
 
-  // If already subscribed, redirect to app
   useEffect(() => {
     if (isSubscribed) navigate('/app');
   }, [isSubscribed]);
@@ -49,6 +42,9 @@ export default function SubscribePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'subscription',
+          // Pass the user's ScholarPrep email so Stripe pre-fills it
+          // and the webhook can always match the right account
+          userEmail: user?.email,
           successUrl: `${window.location.origin}/subscribe?subscribed=true`,
           cancelUrl: `${window.location.origin}/subscribe`,
         })
@@ -62,14 +58,11 @@ export default function SubscribePage() {
     }
   };
 
-  // Show refreshing state after successful payment
   if (refreshing) {
     return (
       <div style={{ minHeight: '100vh', background: '#FAF6EE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
         <div style={{ fontSize: 48 }}>🎉</div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A' }}>
-          Welcome to ScholarPrep!
-        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: '#0D1B2A' }}>Welcome to ScholarPrep!</div>
         <div style={{ fontSize: 15, color: '#5A6A7A' }}>Activating your subscription...</div>
         <div style={{ width: 36, height: 36, border: '3px solid rgba(13,27,42,0.1)', borderTop: '3px solid #0D1B2A', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -97,9 +90,14 @@ export default function SubscribePage() {
           <p style={{ color: '#5A6A7A', fontSize: 16, lineHeight: 1.6 }}>
             Keep access to unlimited practice tests, AI analysis, and full exam simulations.
           </p>
+          {user?.email && (
+            <div style={{ marginTop: 12, fontSize: 13, color: '#5A6A7A' }}>
+              Subscribing as: <strong style={{ color: '#0D1B2A' }}>{user.email}</strong>
+            </div>
+          )}
         </div>
 
-        {/* Badge sits OUTSIDE the card so it's never clipped */}
+        {/* Badge */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: -16, position: 'relative', zIndex: 2 }}>
           <div style={{ background: '#E8B84B', color: '#0D1B2A', padding: '6px 20px', borderRadius: 100, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Most popular
@@ -108,7 +106,6 @@ export default function SubscribePage() {
 
         {/* Plan card */}
         <div style={{ background: '#0D1B2A', borderRadius: 24, padding: '40px 40px 36px', marginBottom: 20, boxShadow: '0 24px 64px rgba(13,27,42,0.25)', position: 'relative' }}>
-
           <div style={{ textAlign: 'center', marginBottom: 28, marginTop: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Monthly subscription</div>
             <div style={{ fontSize: 56, fontWeight: 900, color: '#E8B84B', lineHeight: 1 }}>$9.99</div>
@@ -140,15 +137,11 @@ export default function SubscribePage() {
             </div>
           )}
 
-          <button
-            onClick={handleSubscribe}
-            disabled={loading}
-            style={{
-              width: '100%', padding: '16px 0', borderRadius: 100, fontSize: 17, fontWeight: 700,
-              background: '#E8B84B', color: '#0D1B2A', border: 'none', cursor: loading ? 'default' : 'pointer',
-              opacity: loading ? 0.7 : 1, transition: 'opacity 0.15s'
-            }}
-          >
+          <button onClick={handleSubscribe} disabled={loading} style={{
+            width: '100%', padding: '16px 0', borderRadius: 100, fontSize: 17, fontWeight: 700,
+            background: '#E8B84B', color: '#0D1B2A', border: 'none', cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.7 : 1, transition: 'opacity 0.15s'
+          }}>
             {loading ? 'Redirecting to checkout...' : 'Subscribe now — $9.99/month →'}
           </button>
 
@@ -157,7 +150,6 @@ export default function SubscribePage() {
           </div>
         </div>
 
-        {/* Back link */}
         <div style={{ textAlign: 'center' }}>
           <button onClick={() => navigate('/app')} style={{ fontSize: 13, color: '#5A6A7A', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
             ← Back to app
