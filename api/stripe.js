@@ -26,28 +26,26 @@ export default async function handler(req, res) {
         try {
           const { createClient } = require('@supabase/supabase-js');
 
-          // Use SUPABASE_URL (server-side) not REACT_APP_SUPABASE_URL (frontend only)
           const supabaseUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
           const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
           if (!supabaseUrl || !supabaseServiceKey) {
-            console.error('Missing Supabase env vars:', { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey });
+            console.error('Missing Supabase env vars');
             return res.json({ received: true, warning: 'Missing Supabase config' });
           }
 
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-          // Get customer email from session or retrieve from Stripe
-          let customerEmail = session.customer_email;
-          if (!customerEmail && session.customer) {
-            const customer = await stripe.customers.retrieve(session.customer);
-            customerEmail = customer.email;
-          }
+          // Get email from customer_details (populated after checkout)
+          // Falls back to customer_email or Stripe customer lookup
+          const customerEmail =
+            session.customer_details?.email ||
+            session.customer_email ||
+            await getStripeCustomerEmail(stripe, session.customer);
 
           console.log('Processing subscription for email:', customerEmail);
 
           if (customerEmail) {
-            // Find user by email and update their metadata
             const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
 
             if (listError) {
@@ -71,14 +69,16 @@ export default async function handler(req, res) {
               if (updateError) {
                 console.error('Error updating user:', updateError);
               } else {
-                console.log('Successfully updated subscription for user:', customerEmail);
+                console.log('Successfully subscribed user:', customerEmail);
               }
             } else {
-              console.error('User not found with email:', customerEmail);
+              console.error('No Supabase user found with email:', customerEmail);
             }
+          } else {
+            console.error('Could not determine customer email from session');
           }
         } catch (err) {
-          console.error('Failed to update user subscription:', err.message);
+          console.error('Webhook processing error:', err.message);
         }
       }
     }
@@ -107,7 +107,6 @@ export default async function handler(req, res) {
         success_url: successUrl || `${req.headers.origin}/subscribe?subscribed=true`,
         cancel_url: cancelUrl || `${req.headers.origin}/subscribe`,
         currency: 'aud',
-        // Collect customer email so webhook can find the user
         billing_address_collection: 'auto',
       });
     } else if (type === 'pdf') {
@@ -139,6 +138,18 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Stripe error:', error);
     res.status(500).json({ error: error.message });
+  }
+}
+
+// Get customer email from Stripe if not in session
+async function getStripeCustomerEmail(stripe, customerId) {
+  if (!customerId) return null;
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    return customer.email || null;
+  } catch (e) {
+    console.error('Could not retrieve Stripe customer:', e.message);
+    return null;
   }
 }
 
