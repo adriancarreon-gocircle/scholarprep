@@ -34,7 +34,6 @@ export function LoginPage() {
     setLoading(true);
 
     if (demoMode) {
-      // Demo mode — bypass auth
       setTimeout(() => navigate('/app'), 800);
       return;
     }
@@ -90,6 +89,7 @@ export function SignupPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -107,9 +107,48 @@ export function SignupPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate('/app');
+      // Show email verification message instead of redirecting
+      setEmailSent(true);
+      setLoading(false);
     }
   };
+
+  // Show email sent confirmation screen
+  if (emailSent) {
+    return (
+      <AuthLayout title="Check your email" subtitle="One more step to get started">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>📧</div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, color: '#0D1B2A', marginBottom: 12 }}>
+            Verify your email
+          </div>
+          <p style={{ fontSize: 15, color: '#5A6A7A', lineHeight: 1.7, marginBottom: 8 }}>
+            We've sent a verification link to:
+          </p>
+          <div style={{ background: '#FAF6EE', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 15, fontWeight: 700, color: '#0D1B2A' }}>
+            {email}
+          </div>
+          <p style={{ fontSize: 14, color: '#5A6A7A', lineHeight: 1.7, marginBottom: 24 }}>
+            Click the link in the email to confirm your account and start your <strong>7-day free trial</strong>. Check your spam folder if you don't see it within a minute.
+          </p>
+          <div style={{ background: '#E8F5EE', border: '1px solid #A8DCC0', borderRadius: 12, padding: '14px 18px', marginBottom: 24, fontSize: 13, color: '#2D6A4F', lineHeight: 1.6, textAlign: 'left' }}>
+            <strong>What's included in your free trial:</strong><br />
+            ✓ All 4 subjects — Maths, Reading, General Ability & Writing<br />
+            ✓ Unlimited questions from our AI question bank<br />
+            ✓ Full simulated timed exams — Years 1 to 11<br />
+            ✓ AI personalised analysis & progress tracking<br />
+            ✓ PDF test generator — just 15¢ per question
+          </div>
+          <button onClick={() => navigate('/login')} style={{
+            width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700,
+            background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer'
+          }}>
+            Go to login →
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title="Start your free trial" subtitle="7 days free — no credit card required">
@@ -119,7 +158,7 @@ export function SignupPage() {
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {['7 days free','All subjects','AI-powered'].map(b => (
+        {['7 days free', 'All subjects', 'AI-powered'].map(b => (
           <div key={b} style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700 }}>✓ {b}</div>
         ))}
       </div>
