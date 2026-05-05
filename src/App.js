@@ -12,6 +12,7 @@ import WritingPage from './pages/WritingPage';
 import ProgressPage from './pages/ProgressPage';
 import PDFGeneratorPage from './pages/PDFGeneratorPage';
 import SubscribePage from './pages/Subscribe';
+import ProfilePage from './pages/ProfilePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -34,6 +35,7 @@ function AppRoutes() {
       <Route path="/app/general" element={<ProtectedRoute><AppLayout><TestPage subject="general" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/writing" element={<ProtectedRoute><AppLayout><WritingPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/progress" element={<ProtectedRoute><AppLayout><ProgressPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><AppLayout><ProfilePage /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

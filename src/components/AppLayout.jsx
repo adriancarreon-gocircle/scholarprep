@@ -39,10 +39,7 @@ export default function AppLayout({ children }) {
       </button>
 
       {/* Overlay for mobile */}
-      <div
-        className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
-        onClick={closeSidebar}
-      />
+      <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={closeSidebar} />
 
       {/* SIDEBAR */}
       <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
@@ -96,6 +93,17 @@ export default function AppLayout({ children }) {
             borderLeft: isActive ? '3px solid #E8B84B' : '3px solid transparent'
           })}>
             <span style={{ fontSize: 16 }}>📄</span> PDF Generator
+          </NavLink>
+
+          <NavLink to="/profile" onClick={closeSidebar} style={({ isActive }) => ({
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 20px', fontSize: 14, fontWeight: 500,
+            color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+            background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+            textDecoration: 'none', transition: 'all 0.15s',
+            borderLeft: isActive ? '3px solid #E8B84B' : '3px solid transparent'
+          })}>
+            <span style={{ fontSize: 16 }}>👤</span> My Account
           </NavLink>
         </div>
 
