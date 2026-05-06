@@ -24,15 +24,21 @@ export default function AppLayout({ children }) {
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  const navLinkStyle = ({ isActive }) => ({
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 20px', fontSize: 14, fontWeight: 500,
+    color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+    background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+    textDecoration: 'none', transition: 'all 0.15s',
+    borderLeft: isActive ? '3px solid #A5B4FC' : '3px solid transparent',
+    fontFamily: 'Inter, DM Sans, sans-serif',
+  });
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
 
       {/* Mobile hamburger */}
-      <button
-        onClick={() => setSidebarOpen(o => !o)}
-        className="mobile-menu-btn"
-        aria-label="Toggle menu"
-      >
+      <button onClick={() => setSidebarOpen(o => !o)} className="mobile-menu-btn" aria-label="Toggle menu">
         <span style={{ transform: sidebarOpen ? 'rotate(45deg) translate(5px, 5px)' : 'none' }}></span>
         <span style={{ opacity: sidebarOpen ? 0 : 1 }}></span>
         <span style={{ transform: sidebarOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none' }}></span>
@@ -74,50 +80,38 @@ export default function AppLayout({ children }) {
         {/* Nav */}
         <div style={{ padding: '12px 0', flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '8px 20px 4px', fontFamily: 'Inter, DM Sans, sans-serif' }}>Practice</div>
+
           {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={closeSidebar}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 20px', fontSize: 14, fontWeight: 500,
-                color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
-                background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                textDecoration: 'none', transition: 'all 0.15s',
-                borderLeft: isActive ? '3px solid #A5B4FC' : '3px solid transparent',
-                fontFamily: 'Inter, DM Sans, sans-serif',
-              })}
-            >
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={closeSidebar} style={navLinkStyle}>
               <span style={{ fontSize: 16 }}>{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
 
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 20px 4px', fontFamily: 'Inter, DM Sans, sans-serif' }}>More</div>
+          {/* Simulated Exam — highlighted */}
+          <div style={{ margin: '8px 12px', background: 'rgba(165,180,252,0.12)', border: '1px solid rgba(165,180,252,0.2)', borderRadius: 10 }}>
+            <NavLink to="/app/simulated-exam" onClick={closeSidebar} style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', fontSize: 14, fontWeight: 600,
+              color: isActive ? '#fff' : '#A5B4FC',
+              background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
+              textDecoration: 'none', transition: 'all 0.15s',
+              borderRadius: 8,
+              fontFamily: 'Inter, DM Sans, sans-serif',
+            })}>
+              <span style={{ fontSize: 16 }}>🎓</span>
+              <span>Simulated Exam</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, background: '#F97316', color: '#fff', padding: '2px 6px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em' }}>New</span>
+            </NavLink>
+          </div>
 
-          <NavLink to="/pdf-generator" onClick={closeSidebar} style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 20px', fontSize: 14, fontWeight: 500,
-            color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
-            background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-            textDecoration: 'none', transition: 'all 0.15s',
-            borderLeft: isActive ? '3px solid #A5B4FC' : '3px solid transparent',
-            fontFamily: 'Inter, DM Sans, sans-serif',
-          })}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '12px 20px 4px', fontFamily: 'Inter, DM Sans, sans-serif' }}>More</div>
+
+          <NavLink to="/pdf-generator" onClick={closeSidebar} style={navLinkStyle}>
             <span style={{ fontSize: 16 }}>📄</span> PDF Generator
           </NavLink>
 
-          <NavLink to="/profile" onClick={closeSidebar} style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 20px', fontSize: 14, fontWeight: 500,
-            color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
-            background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-            textDecoration: 'none', transition: 'all 0.15s',
-            borderLeft: isActive ? '3px solid #A5B4FC' : '3px solid transparent',
-            fontFamily: 'Inter, DM Sans, sans-serif',
-          })}>
+          <NavLink to="/profile" onClick={closeSidebar} style={navLinkStyle}>
             <span style={{ fontSize: 16 }}>👤</span> My Account
           </NavLink>
         </div>
@@ -143,14 +137,9 @@ export default function AppLayout({ children }) {
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 8, fontFamily: 'Inter, DM Sans, sans-serif' }}>
             {demoMode ? '👤 Demo user' : user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student'}
           </div>
-          <button onClick={handleSignOut} style={{
-            fontSize: 12, color: 'rgba(255,255,255,0.3)',
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            fontFamily: 'Inter, DM Sans, sans-serif', transition: 'color 0.15s',
-          }}
+          <button onClick={handleSignOut} style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'Inter, DM Sans, sans-serif', transition: 'color 0.15s' }}
             onMouseEnter={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
-            onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.3)'}
-          >
+            onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.3)'}>
             Sign out →
           </button>
         </div>
