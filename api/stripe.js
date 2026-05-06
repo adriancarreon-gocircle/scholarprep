@@ -35,7 +35,6 @@ export default async function handler(req, res) {
 
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-          // Get email from customer_details
           const customerEmail =
             session.customer_details?.email ||
             session.customer_email ||
@@ -46,7 +45,6 @@ export default async function handler(req, res) {
           console.log('Webhook: processing subscription for:', customerEmail);
 
           if (customerEmail) {
-            // 1. Update Supabase user metadata
             const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
 
             if (!listError) {
@@ -65,7 +63,6 @@ export default async function handler(req, res) {
               }
             }
 
-            // 2. Send subscription confirmation email via Brevo
             await sendSubscriptionConfirmationEmail(customerEmail, customerName);
           }
         } catch (err) {
@@ -144,62 +141,61 @@ async function sendSubscriptionConfirmationEmail(email, name) {
         to: [{ email, name }],
         subject: 'Welcome to ScholarPrep — your subscription is active!',
         htmlContent: `
-<div style="font-family: 'DM Sans', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FAF6EE;">
-  
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F7FF;">
+
   <!-- Header -->
-  <div style="background: #0D1B2A; padding: 32px 40px; text-align: center;">
-    <div style="font-family: Georgia, serif; font-size: 28px; font-weight: 900; color: #fff;">
-      Scholar<span style="color: #E8B84B;">Prep</span>
+  <div style="background: #3730A3; padding: 32px 40px; text-align: center;">
+    <div style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 28px; font-weight: 900; color: #fff; letter-spacing: -0.5px;">
+      Scholar<span style="color: #A5B4FC;">Prep</span>
     </div>
-    <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 0.1em;">
+    <div style="font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 6px; letter-spacing: 0.1em; text-transform: uppercase;">
       ACER · AAST · EDUTEST · NAPLAN
     </div>
   </div>
 
   <!-- Body -->
-  <div style="padding: 40px; background: #fff; margin: 24px; border-radius: 16px; border: 1px solid rgba(13,27,42,0.08);">
-    <h1 style="font-family: Georgia, serif; font-size: 28px; font-weight: 900; color: #0D1B2A; margin: 0 0 16px;">
+  <div style="padding: 40px; background: #fff; margin: 24px; border-radius: 16px; border: 1px solid rgba(67,56,202,0.08); box-shadow: 0 4px 20px rgba(67,56,202,0.06);">
+    <h1 style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 14px; letter-spacing: -0.5px;">
       You're subscribed! 🎉
     </h1>
-    <p style="font-size: 16px; color: #5A6A7A; line-height: 1.7; margin: 0 0 16px;">
-      Hi ${firstName}, welcome to ScholarPrep Unlimited! Your subscription is now active and you have full access to everything.
+    <p style="font-size: 16px; color: #6B7280; line-height: 1.7; margin: 0 0 20px; font-family: 'Inter', Arial, sans-serif;">
+      Hi ${firstName}, welcome to ScholarPrep! Your subscription is now active and you have full access to everything.
     </p>
 
     <!-- What's included -->
-    <div style="background: #0D1B2A; border-radius: 16px; padding: 28px 32px; margin: 24px 0;">
-      <div style="font-size: 13px; font-weight: 700; color: #E8B84B; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">
+    <div style="background: #1E1B4B; border-radius: 16px; padding: 28px 32px; margin: 24px 0;">
+      <div style="font-size: 12px; font-weight: 700; color: #A5B4FC; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; font-family: 'Inter', Arial, sans-serif;">
         Your subscription includes
       </div>
       <div style="display: grid; gap: 10px;">
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;Unlimited questions from our AI question bank</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;All 4 subjects — Maths, Reading, General Ability & Writing</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;Full simulated timed exams — Years 1 to 11</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;AI personalised strengths & weaknesses analysis</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;Progress Report Dashboard</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;PDF test generator — just 15¢ per question</div>
-        <div style="color: rgba(255,255,255,0.75); font-size: 14px;">✓ &nbsp;$9.99/month · cancel anytime</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;Unlimited questions — fresh every session</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;All 4 subjects — Maths, Reading, General Ability & Writing</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;Full simulated timed exams — Years 1 to 11</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;Progress Report Dashboard — strengths & weaknesses</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;PDF test generator — just 15¢ per question</div>
+        <div style="color: rgba(255,255,255,0.75); font-size: 14px; font-family: 'Inter', Arial, sans-serif;">✓ &nbsp;$9.99/month · cancel anytime</div>
       </div>
     </div>
 
     <!-- CTA Button -->
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="https://www.scholarprep.com.au/app" style="background: #E8B84B; color: #0D1B2A; padding: 16px 40px; border-radius: 100px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-block;">
+    <div style="text-align: center; margin: 36px 0;">
+      <a href="https://www.scholarprep.com.au/app" style="background: #4338CA; color: #ffffff; padding: 16px 40px; border-radius: 100px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-block; font-family: 'Inter', Arial, sans-serif; letter-spacing: -0.2px;">
         Start practising now →
       </a>
     </div>
 
-    <p style="font-size: 14px; color: #5A6A7A; line-height: 1.7; margin: 0;">
-      You can manage or cancel your subscription anytime from your 
-      <a href="https://www.scholarprep.com.au/profile" style="color: #E8B84B; text-decoration: none; font-weight: 600;">Account page</a>.
+    <p style="font-size: 14px; color: #6B7280; line-height: 1.7; margin: 0; font-family: 'Inter', Arial, sans-serif;">
+      You can manage or cancel your subscription anytime from your
+      <a href="https://www.scholarprep.com.au/profile" style="color: #4338CA; text-decoration: none; font-weight: 600;">Account page</a>.
     </p>
   </div>
 
   <!-- Footer -->
   <div style="padding: 20px 24px; text-align: center;">
-    <div style="font-size: 12px; color: #9AA5B0; line-height: 1.6;">
+    <div style="font-size: 12px; color: #9CA3AF; line-height: 1.6; font-family: 'Inter', Arial, sans-serif;">
       © 2026 ScholarPrep — a Go Circle Pty Ltd company<br/>
       Built for Australian primary and secondary school families<br/>
-      <a href="https://www.scholarprep.com.au" style="color: #E8B84B; text-decoration: none;">www.scholarprep.com.au</a>
+      <a href="https://www.scholarprep.com.au" style="color: #4338CA; text-decoration: none;">www.scholarprep.com.au</a>
     </div>
   </div>
 
