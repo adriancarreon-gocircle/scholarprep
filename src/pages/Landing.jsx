@@ -641,14 +641,21 @@ export default function Landing() {
 
       {/* ── FOOTER ── */}
       <footer style={{ background: '#111827', borderTop: '1px solid rgba(255,255,255,0.05)', padding: '32px 40px' }}>
-        <div style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: -0.5 }}>
-            Scholar<span style={{ color: '#818CF8' }}>Prep</span>
+        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: -0.5 }}>
+              Scholar<span style={{ color: '#818CF8' }}>Prep</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+              © 2026 ScholarPrep — a Go Circle Pty Ltd company. Built for Australian primary and secondary school families.
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontFamily: 'Inter, sans-serif' }}>ACER · AAST · Edutest · NAPLAN</div>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-            © 2026 ScholarPrep — a Go Circle Pty Ltd company. Built for Australian primary and secondary school families.
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.18)', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
+              ScholarPrep is an independent educational platform and is not affiliated with, endorsed by, or associated with ACARA, the NSW Department of Education, the Victorian Department of Education, or any government body. NAPLAN is a registered trademark of ACARA. ACER, AAST and Edutest are independent testing organisations. Selective entry programs are administered by state education departments. All practice questions on this platform are independently created and are not sourced from or based on official exam papers. ScholarPrep provides practice materials for educational purposes only and does not guarantee exam outcomes, scores, or placement results.
+            </p>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontFamily: 'Inter, sans-serif' }}>ACER · AAST · Edutest · NAPLAN</div>
         </div>
       </footer>
 
