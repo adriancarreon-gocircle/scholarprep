@@ -106,6 +106,10 @@ export default function Landing() {
           .nav-burger { display: flex !important; }
           .pricing-grid { grid-template-columns: 1fr !important; }
           .dashboard-mockup { transform: none !important; }
+          .dash-topic-grid { grid-template-columns: 1fr 80px !important; }
+          .dash-feedback { display: none !important; }
+          .dash-header-score { display: none !important; }
+          .dash-header-feedback { display: none !important; }
         }
         @media (min-width: 769px) { .nav-burger { display: none !important; } }
       `}</style>
@@ -330,16 +334,16 @@ export default function Landing() {
               </div>
 
               {/* Column headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', gap: 0, padding: '10px 24px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="dash-topic-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 100px 1fr', gap: 0, padding: '10px 16px', background: '#F9FAFB', borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   Topic
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4338CA', display: 'inline-block' }}></span> Your score
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #9CA3AF', display: 'inline-block', marginLeft: 6 }}></span> National avg
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4338CA', display: 'inline-block' }}></span> Score
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', border: '2px solid #9CA3AF', display: 'inline-block', marginLeft: 4 }}></span> Avg
                   </span>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>Score</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Feedback</div>
+                <div className="dash-header-score" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>Score</div>
+                <div className="dash-feedback dash-header-feedback" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Feedback</div>
               </div>
 
               {/* Topic rows */}
@@ -348,7 +352,7 @@ export default function Landing() {
                 const studentPos = `${t.pct}%`;
                 const nationalPos = `${nationalAvg}%`;
                 return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', gap: 0, padding: '16px 24px', background: '#fff', borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
+                  <div key={i} className="dash-topic-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 100px 1fr', gap: 0, padding: '14px 16px', background: '#fff', borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
 
                     {/* Band chart */}
                     <div>
@@ -383,7 +387,7 @@ export default function Landing() {
                     </div>
 
                     {/* Feedback */}
-                    <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', paddingLeft: 8 }}>{t.feedback}</div>
+                    <div className="dash-feedback" style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', paddingLeft: 8 }}>{t.feedback}</div>
                   </div>
                 );
               })}
