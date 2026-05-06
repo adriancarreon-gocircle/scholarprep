@@ -4,6 +4,8 @@ import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilit
 import { saveTestResult } from '../lib/progress';
 
 // ── Exam definitions ──────────────────────────────────────────────────────────
+// Note: Real exam question counts shown as 'realQuestions' for reference.
+// Default counts are reduced to avoid API timeouts — users can adjust with +/− buttons.
 const EXAM_CONFIGS = {
   acer: {
     name: 'ACER',
@@ -13,9 +15,9 @@ const EXAM_CONFIGS = {
     icon: '🎓',
     description: 'The most widely used selective entry test in Australia, used by Melbourne High, Mac.Robertson Girls\', Suzanne Cory and many others.',
     sections: [
-      { id: 'maths_quant', name: 'Mathematics & Quantitative Reasoning', type: 'mathematics', duration: 60, questions: 65, icon: '🔢' },
+      { id: 'maths_quant', name: 'Mathematics & Quantitative Reasoning', type: 'mathematics', duration: 60, questions: 20, realQuestions: 65, icon: '🔢' },
       { id: 'break1', name: 'Break', type: 'break', duration: 20 },
-      { id: 'reading_verbal', name: 'Reading & Verbal Reasoning', type: 'reading', duration: 55, questions: 65, icon: '📖' },
+      { id: 'reading_verbal', name: 'Reading & Verbal Reasoning', type: 'reading', duration: 55, questions: 15, realQuestions: 65, icon: '📖' },
       { id: 'break2', name: 'Short Break', type: 'break', duration: 5 },
       { id: 'writing', name: 'Writing', type: 'writing', duration: 40, questions: 1, icon: '✏️' },
     ]
@@ -28,13 +30,13 @@ const EXAM_CONFIGS = {
     icon: '📚',
     description: 'Used by many independent schools for academic scholarship selection across Australia.',
     sections: [
-      { id: 'general', name: 'General Ability', type: 'general', duration: 45, questions: 60, icon: '🧩', note: 'Abstract Reasoning and Problem Solving' },
+      { id: 'general', name: 'General Ability', type: 'general', duration: 45, questions: 20, realQuestions: 60, icon: '🧩', note: 'Abstract Reasoning and Problem Solving' },
       { id: 'break1', name: 'Break', type: 'break', duration: 20 },
       { id: 'writing', name: 'Writing', type: 'writing', duration: 25, questions: 1, icon: '✏️' },
       { id: 'break2', name: 'Break', type: 'break', duration: 20 },
-      { id: 'reading', name: 'Reading', type: 'reading', duration: 45, questions: 45, icon: '📖', note: '9 stories, 5 questions each' },
+      { id: 'reading', name: 'Reading', type: 'reading', duration: 45, questions: 15, realQuestions: 45, icon: '📖', note: '9 stories, 5 questions each' },
       { id: 'break3', name: 'Break', type: 'break', duration: 20 },
-      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 45, questions: 45, icon: '🔢', note: 'Mathematics Achievement and Reasoning' },
+      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 45, questions: 20, realQuestions: 45, icon: '🔢', note: 'Mathematics Achievement and Reasoning' },
     ]
   },
   edutest: {
@@ -45,13 +47,13 @@ const EXAM_CONFIGS = {
     icon: '🏫',
     description: 'Used by many Victorian independent schools and some government selective entry programs.',
     sections: [
-      { id: 'verbal', name: 'Verbal Reasoning', type: 'general', duration: 30, questions: 45, icon: '🧩' },
+      { id: 'verbal', name: 'Verbal Reasoning', type: 'general', duration: 30, questions: 15, realQuestions: 45, icon: '🧩' },
       { id: 'break1', name: 'Break', type: 'break', duration: 20 },
-      { id: 'numerical', name: 'Numerical Reasoning', type: 'mathematics', duration: 30, questions: 35, icon: '🔢' },
+      { id: 'numerical', name: 'Numerical Reasoning', type: 'mathematics', duration: 30, questions: 15, realQuestions: 35, icon: '🔢' },
       { id: 'break2', name: 'Break', type: 'break', duration: 20 },
-      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 30, questions: 30, icon: '📖' },
+      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 30, questions: 15, realQuestions: 30, icon: '📖' },
       { id: 'break3', name: 'Break', type: 'break', duration: 20 },
-      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 45, questions: 35, icon: '🔢' },
+      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 45, questions: 15, realQuestions: 35, icon: '🔢' },
       { id: 'break4', name: 'Break', type: 'break', duration: 20 },
       { id: 'writing', name: 'Written Expression', type: 'writing', duration: 30, questions: 1, icon: '✏️' },
     ]
@@ -66,11 +68,11 @@ const EXAM_CONFIGS = {
     sections: [
       { id: 'writing', name: 'Writing', type: 'writing', duration: 40, questions: 1, icon: '✏️' },
       { id: 'break1', name: 'Break', type: 'break', duration: 20 },
-      { id: 'reading', name: 'Reading', type: 'reading', duration: 45, questions: 45, icon: '📖', note: '9 stories, 5 questions each' },
+      { id: 'reading', name: 'Reading', type: 'reading', duration: 45, questions: 15, realQuestions: 45, icon: '📖', note: '9 stories, 5 questions each' },
       { id: 'break2', name: 'Break', type: 'break', duration: 20 },
-      { id: 'conventions', name: 'Conventions of Language', type: 'general', duration: 45, questions: 50, icon: '🧩' },
+      { id: 'conventions', name: 'Conventions of Language', type: 'general', duration: 45, questions: 20, realQuestions: 50, icon: '🧩' },
       { id: 'break3', name: 'Break', type: 'break', duration: 20 },
-      { id: 'numeracy', name: 'Numeracy', type: 'mathematics', duration: 45, questions: 36, icon: '🔢' },
+      { id: 'numeracy', name: 'Numeracy', type: 'mathematics', duration: 45, questions: 20, realQuestions: 36, icon: '🔢' },
     ]
   }
 };
@@ -218,7 +220,9 @@ function SetupScreen({ onStart, yearLevel }) {
                   </div>
                   {s.type !== 'writing' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginRight: 4 }}>Questions:</span>
+                      <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginRight: 4 }}>
+                        Questions{s.realQuestions ? ` (real: ${s.realQuestions})` : ''}:
+                      </span>
                       <button onClick={() => updateSection(i, 'questions', s.questions - 5)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>−</button>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', minWidth: 28, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{s.questions}</span>
                       <button onClick={() => updateSection(i, 'questions', s.questions + 5)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>+</button>
@@ -256,6 +260,9 @@ function SetupScreen({ onStart, yearLevel }) {
           </div>
 
           {/* Start button */}
+          <div style={{ background: '#EEF2FF', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+            💡 <strong>Tip:</strong> Default question counts are set lower for faster generation. The real question counts are shown in brackets — you can increase using the + buttons, but larger counts take longer to generate (up to 40 seconds per section).
+          </div>
           <button onClick={() => onStart(selectedExam, customSections, reviewMode)} style={{
             width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
             background: exam.color, color: '#fff', border: 'none', cursor: 'pointer',
