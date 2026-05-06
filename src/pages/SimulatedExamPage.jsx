@@ -4,8 +4,6 @@ import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilit
 import { saveTestResult } from '../lib/progress';
 
 // ── Exam definitions ──────────────────────────────────────────────────────────
-// Note: Real exam question counts shown as 'realQuestions' for reference.
-// Default counts are reduced to avoid API timeouts — users can adjust with +/− buttons.
 const EXAM_CONFIGS = {
   acer: {
     name: 'ACER',
@@ -101,16 +99,76 @@ const formatTime = (secs) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+// ── Shared: Exit Dialog ───────────────────────────────────────────────────────
+function ExitDialog({ onConfirm, onCancel }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '100%', textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>🚪</div>
+        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Exit exam?</div>
+        <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+          Your progress on this section will be lost. Are you sure you want to exit the exam?
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: '12px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            Keep going
+          </button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: '12px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#EF4444', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            Exit exam
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Shared: Pause Overlay ─────────────────────────────────────────────────────
+function PauseOverlay({ onResume, color }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 40, maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⏸</div>
+        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Section paused</div>
+        <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+          Your timer is paused. Take a moment and resume when you're ready.
+        </p>
+        <button onClick={onResume} style={{ width: '100%', padding: '14px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: color, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: `0 4px 16px ${color}40` }}>
+          Resume section →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Shared: Section Controls (pause + exit buttons) ───────────────────────────
+function SectionControls({ timed, paused, onPause, onExit, color }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {timed && (
+        <button onClick={onPause} style={{
+          padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600,
+          background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0',
+          cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 4,
+        }}>⏸ Pause</button>
+      )}
+      <button onClick={onExit} style={{
+        padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600,
+        background: '#FFF1F2', color: '#EF4444', border: '1px solid #FCA5A5',
+        cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+      }}>✕ Exit</button>
+    </div>
+  );
+}
+
 // ── Setup Screen ──────────────────────────────────────────────────────────────
 function SetupScreen({ onStart, yearLevel }) {
   const [selectedExam, setSelectedExam] = useState(null);
-  const [reviewMode, setReviewMode] = useState('end'); // 'each' | 'end'
+  const [reviewMode, setReviewMode] = useState('end');
   const [customSections, setCustomSections] = useState(null);
 
   const handleSelectExam = (key) => {
     setSelectedExam(key);
-    const exam = EXAM_CONFIGS[key];
-    setCustomSections(exam.sections.map(s => ({ ...s })));
+    setCustomSections(EXAM_CONFIGS[key].sections.map(s => ({ ...s })));
   };
 
   const updateSection = (idx, field, value) => {
@@ -118,9 +176,7 @@ function SetupScreen({ onStart, yearLevel }) {
   };
 
   const resetToDefaults = () => {
-    if (selectedExam) {
-      setCustomSections(EXAM_CONFIGS[selectedExam].sections.map(s => ({ ...s })));
-    }
+    if (selectedExam) setCustomSections(EXAM_CONFIGS[selectedExam].sections.map(s => ({ ...s })));
   };
 
   const exam = selectedExam ? EXAM_CONFIGS[selectedExam] : null;
@@ -131,28 +187,18 @@ function SetupScreen({ onStart, yearLevel }) {
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 32 }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 }}>
-          Simulated Exam
-        </h1>
-        <p style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
-          Full exam simulation with timed sections and breaks — just like the real test centre.
-        </p>
+        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 }}>Simulated Exam</h1>
+        <p style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>Full exam simulation with timed sections and breaks — just like the real test centre.</p>
       </div>
 
-      {/* Exam selector */}
       {!selectedExam && (
         <>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Choose your exam</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
             {Object.entries(EXAM_CONFIGS).map(([key, cfg]) => (
-              <button key={key} onClick={() => handleSelectExam(key)} style={{
-                background: '#fff', borderRadius: 16, padding: '20px 24px',
-                border: '1.5px solid #E5E7EB', cursor: 'pointer', textAlign: 'left',
-                transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-              }}
+              <button key={key} onClick={() => handleSelectExam(key)} style={{ background: '#fff', borderRadius: 16, padding: '20px 24px', border: '1.5px solid #E5E7EB', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = cfg.color; e.currentTarget.style.boxShadow = `0 4px 16px ${cfg.color}20`; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; }}
-              >
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: cfg.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{cfg.icon}</div>
                   <div>
@@ -163,9 +209,7 @@ function SetupScreen({ onStart, yearLevel }) {
                 <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, margin: '0 0 12px', fontFamily: 'Inter, sans-serif' }}>{cfg.description}</p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {cfg.sections.filter(s => s.type !== 'break').map(s => (
-                    <span key={s.id} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: cfg.lightBg, color: cfg.color, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
-                      {s.name}
-                    </span>
+                    <span key={s.id} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: cfg.lightBg, color: cfg.color, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{s.name}</span>
                   ))}
                 </div>
               </button>
@@ -176,14 +220,10 @@ function SetupScreen({ onStart, yearLevel }) {
 
       {selectedExam && exam && customSections && (
         <>
-          {/* Back button */}
-          <button onClick={() => { setSelectedExam(null); setCustomSections(null); }} style={{ background: 'none', border: 'none', fontSize: 14, color: '#64748B', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 20, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            ← Back to exam selection
-          </button>
+          <button onClick={() => { setSelectedExam(null); setCustomSections(null); }} style={{ background: 'none', border: 'none', fontSize: 14, color: '#64748B', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 20, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>← Back to exam selection</button>
 
-          {/* Selected exam header */}
           <div style={{ background: '#fff', borderRadius: 16, padding: '20px 24px', marginBottom: 16, border: `1.5px solid ${exam.color}30`, boxShadow: `0 4px 20px ${exam.color}10` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: exam.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{exam.icon}</div>
               <div>
                 <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>{exam.fullName}</div>
@@ -192,13 +232,10 @@ function SetupScreen({ onStart, yearLevel }) {
             </div>
           </div>
 
-          {/* Customise sections */}
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid #E5E7EB' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Customise sections</div>
-              <button onClick={resetToDefaults} style={{ fontSize: 12, color: exam.color, background: exam.lightBg, border: 'none', borderRadius: 100, padding: '4px 14px', cursor: 'pointer', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
-                Reset to defaults
-              </button>
+              <button onClick={resetToDefaults} style={{ fontSize: 12, color: exam.color, background: exam.lightBg, border: 'none', borderRadius: 100, padding: '4px 14px', cursor: 'pointer', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>Reset to defaults</button>
             </div>
             {customSections.map((s, i) => (
               s.type === 'break' ? (
@@ -220,9 +257,7 @@ function SetupScreen({ onStart, yearLevel }) {
                   </div>
                   {s.type !== 'writing' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginRight: 4 }}>
-                        Questions{s.realQuestions ? ` (real: ${s.realQuestions})` : ''}:
-                      </span>
+                      <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginRight: 4 }}>Questions{s.realQuestions ? ` (real: ${s.realQuestions})` : ''}:</span>
                       <button onClick={() => updateSection(i, 'questions', s.questions - 5)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>−</button>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', minWidth: 28, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{s.questions}</span>
                       <button onClick={() => updateSection(i, 'questions', s.questions + 5)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>+</button>
@@ -239,7 +274,6 @@ function SetupScreen({ onStart, yearLevel }) {
             ))}
           </div>
 
-          {/* Review mode */}
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid #E5E7EB' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 14, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Answer review mode</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -247,10 +281,7 @@ function SetupScreen({ onStart, yearLevel }) {
                 { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers and explanations at the end only. Most realistic.' },
                 { key: 'each', icon: '💡', title: 'Review as I go', desc: 'See the correct answer and explanation after each question.' },
               ].map(m => (
-                <button key={m.key} onClick={() => setReviewMode(m.key)} style={{
-                  padding: '14px 16px', borderRadius: 12, border: `2px solid ${reviewMode === m.key ? exam.color : '#E5E7EB'}`,
-                  background: reviewMode === m.key ? exam.lightBg : '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-                }}>
+                <button key={m.key} onClick={() => setReviewMode(m.key)} style={{ padding: '14px 16px', borderRadius: 12, border: `2px solid ${reviewMode === m.key ? exam.color : '#E5E7EB'}`, background: reviewMode === m.key ? exam.lightBg : '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                   <div style={{ fontSize: 20, marginBottom: 6 }}>{m.icon}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: reviewMode === m.key ? exam.color : '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 4 }}>{m.title}</div>
                   <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>{m.desc}</div>
@@ -259,16 +290,10 @@ function SetupScreen({ onStart, yearLevel }) {
             </div>
           </div>
 
-          {/* Start button */}
           <div style={{ background: '#EEF2FF', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
-            💡 <strong>Tip:</strong> Default question counts are set lower for faster generation. The real question counts are shown in brackets — you can increase using the + buttons, but larger counts take longer to generate (up to 40 seconds per section).
+            💡 <strong>Tip:</strong> Default question counts are set lower for faster generation. Real counts shown in brackets — use + to increase, but larger counts take longer to generate.
           </div>
-          <button onClick={() => onStart(selectedExam, customSections, reviewMode)} style={{
-            width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
-            background: exam.color, color: '#fff', border: 'none', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', boxShadow: `0 4px 20px ${exam.color}40`,
-            transition: 'all 0.2s',
-          }}>
+          <button onClick={() => onStart(selectedExam, customSections, reviewMode)} style={{ width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700, background: exam.color, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: `0 4px 20px ${exam.color}40`, transition: 'all 0.2s' }}>
             Start {exam.name} exam →
           </button>
           <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
@@ -281,9 +306,10 @@ function SetupScreen({ onStart, yearLevel }) {
 }
 
 // ── Break Screen ──────────────────────────────────────────────────────────────
-function BreakScreen({ section, nextSection, examColor, onFinish }) {
+function BreakScreen({ section, nextSection, examColor, onFinish, onExit }) {
   const [timeLeft, setTimeLeft] = useState(section.duration * 60);
   const [minutesPassed, setMinutesPassed] = useState(0);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   useEffect(() => {
     if (timeLeft <= 0) { onFinish(); return; }
@@ -302,6 +328,13 @@ function BreakScreen({ section, nextSection, examColor, onFinish }) {
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', padding: 32, textAlign: 'center' }}>
+      {showExitDialog && <ExitDialog onConfirm={onExit} onCancel={() => setShowExitDialog(false)} />}
+
+      {/* Exit button top right */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={() => setShowExitDialog(true)} style={{ padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#FFF1F2', color: '#EF4444', border: '1px solid #FCA5A5', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✕ Exit exam</button>
+      </div>
+
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 24px' }}>☕</div>
       <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 26, fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>{section.name}</h2>
       <p style={{ fontSize: 15, color: '#64748B', marginBottom: 32, fontFamily: 'Inter, sans-serif' }}>
@@ -309,7 +342,6 @@ function BreakScreen({ section, nextSection, examColor, onFinish }) {
         {nextSection && <><br />Next up: <strong style={{ color: '#0F172A' }}>{nextSection.name}</strong></>}
       </p>
 
-      {/* Circular timer */}
       <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto 32px' }}>
         <svg width="160" height="160" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx="80" cy="80" r="70" fill="none" stroke="#F3F4F6" strokeWidth="8" />
@@ -339,13 +371,15 @@ function BreakScreen({ section, nextSection, examColor, onFinish }) {
 }
 
 // ── Section Quiz Screen ───────────────────────────────────────────────────────
-function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComplete }) {
+function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComplete, onExit }) {
   const [questions, setQuestions] = useState([]);
   const [passage, setPassage] = useState(null);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState({});
   const [revealed, setRevealed] = useState({});
   const [timeLeft, setTimeLeft] = useState(section.duration * 60);
+  const [paused, setPaused] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dots, setDots] = useState('');
@@ -356,22 +390,17 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    generateQuestions();
-  }, []);
+  useEffect(() => { generateQuestions(); }, []);
 
   const generateQuestions = async () => {
     try {
       if (section.type === 'mathematics') {
-        const qs = await generateMathsQuestions(yearLevel, section.questions);
-        setQuestions(qs);
+        setQuestions(await generateMathsQuestions(yearLevel, section.questions));
       } else if (section.type === 'reading') {
         const data = await generateReadingQuestions(yearLevel, section.questions);
-        setPassage(data.passage);
-        setQuestions(data.questions);
+        setPassage(data.passage); setQuestions(data.questions);
       } else if (section.type === 'general') {
-        const qs = await generateGeneralAbilityQuestions(yearLevel, section.questions);
-        setQuestions(qs);
+        setQuestions(await generateGeneralAbilityQuestions(yearLevel, section.questions));
       }
       setLoading(false);
     } catch (e) {
@@ -381,7 +410,7 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
   };
 
   useEffect(() => {
-    if (loading || timeLeft <= 0) return;
+    if (loading || paused) return;
     const t = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) { clearInterval(t); if (!finishedRef.current) handleFinish(); return 0; }
@@ -389,7 +418,7 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [loading]);
+  }, [loading, paused]);
 
   const handleFinish = useCallback(() => {
     if (finishedRef.current) return;
@@ -426,20 +455,30 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
       <div style={{ maxWidth: 480, margin: '60px auto', padding: 32, textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
         <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 12 }}>{error}</div>
-        <button onClick={generateQuestions} style={{ padding: '12px 28px', borderRadius: 100, background: examColor, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>Try again</button>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button onClick={generateQuestions} style={{ padding: '12px 28px', borderRadius: 100, background: examColor, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>Try again</button>
+          <button onClick={() => setShowExitDialog(true)} style={{ padding: '12px 28px', borderRadius: 100, background: '#FFF1F2', color: '#EF4444', border: '1px solid #FCA5A5', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>Exit exam</button>
+        </div>
+        {showExitDialog && <ExitDialog onConfirm={onExit} onCancel={() => setShowExitDialog(false)} />}
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
+      {showExitDialog && <ExitDialog onConfirm={onExit} onCancel={() => setShowExitDialog(false)} />}
+      {paused && <PauseOverlay onResume={() => setPaused(false)} color={examColor} />}
+
       {/* Section header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
           {section.name} · Q{current + 1} of {questions.length}
         </div>
-        <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : examColor, padding: '6px 14px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', border: `1px solid ${timeLeft < 300 ? '#FDA4AF' : '#C7D2FE'}` }}>
-          ⏱ {formatTime(timeLeft)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : examColor, padding: '6px 14px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', border: `1px solid ${timeLeft < 300 ? '#FDA4AF' : '#C7D2FE'}` }}>
+            ⏱ {formatTime(timeLeft)}
+          </div>
+          <SectionControls timed={true} paused={paused} onPause={() => setPaused(true)} onExit={() => setShowExitDialog(true)} color={examColor} />
         </div>
       </div>
 
@@ -448,7 +487,6 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
         <div style={{ width: `${progress}%`, height: '100%', background: examColor, borderRadius: 2, transition: 'width 0.3s' }} />
       </div>
 
-      {/* Passage */}
       {passage && current === 0 && (
         <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 10, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{passage.title}</div>
@@ -462,7 +500,6 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
         </details>
       )}
 
-      {/* Question */}
       {q && (
         <div style={{ background: '#fff', borderRadius: 20, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
           <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 18, fontFamily: 'Inter, sans-serif' }}>{q.question}</div>
@@ -496,7 +533,6 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
         </div>
       )}
 
-      {/* Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: examColor, border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Previous</button>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -516,10 +552,12 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
 }
 
 // ── Writing Section Screen ────────────────────────────────────────────────────
-function WritingSectionScreen({ section, examColor, yearLevel, onComplete }) {
+function WritingSectionScreen({ section, examColor, yearLevel, onComplete, onExit }) {
   const [prompt, setPrompt] = useState(null);
   const [response, setResponse] = useState('');
   const [timeLeft, setTimeLeft] = useState(section.duration * 60);
+  const [paused, setPaused] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [assessing, setAssessing] = useState(false);
   const [dots, setDots] = useState('');
@@ -534,7 +572,7 @@ function WritingSectionScreen({ section, examColor, yearLevel, onComplete }) {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || paused) return;
     const t = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) { clearInterval(t); handleSubmit(); return 0; }
@@ -542,7 +580,7 @@ function WritingSectionScreen({ section, examColor, yearLevel, onComplete }) {
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [loading]);
+  }, [loading, paused]);
 
   const handleSubmit = async () => {
     if (assessing) return;
@@ -580,10 +618,16 @@ function WritingSectionScreen({ section, examColor, yearLevel, onComplete }) {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
+      {showExitDialog && <ExitDialog onConfirm={onExit} onCancel={() => setShowExitDialog(false)} />}
+      {paused && <PauseOverlay onResume={() => setPaused(false)} color={examColor} />}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{section.name}</div>
-        <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : examColor, padding: '6px 14px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
-          ⏱ {formatTime(timeLeft)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : examColor, padding: '6px 14px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
+            ⏱ {formatTime(timeLeft)}
+          </div>
+          <SectionControls timed={true} paused={paused} onPause={() => setPaused(true)} onExit={() => setShowExitDialog(true)} color={examColor} />
         </div>
       </div>
 
@@ -616,7 +660,6 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: 32 }}>
-      {/* Overall score */}
       <div style={{ background: '#fff', borderRadius: 24, padding: 36, textAlign: 'center', marginBottom: 24, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 20px rgba(67,56,202,0.08)' }}>
         <div style={{ width: 56, height: 56, borderRadius: 16, background: exam.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 16px' }}>{exam.icon}</div>
         <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 700, color: '#94A3B8', marginBottom: 8 }}>{exam.name} Simulated Exam</div>
@@ -625,7 +668,6 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
         <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{totalCorrect} correct out of {totalQs} questions</div>
       </div>
 
-      {/* Per section results */}
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Section breakdown</div>
 
       {results.map((r, i) => (
@@ -643,7 +685,6 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
             )}
           </div>
 
-          {/* Writing assessment */}
           {r.writing && r.assessment && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -668,7 +709,6 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
             </div>
           )}
 
-          {/* Question review in exam mode */}
           {!r.writing && reviewMode === 'end' && r.questions && (
             <div style={{ marginTop: 14 }}>
               <details>
@@ -701,9 +741,7 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
           Try another exam →
         </button>
       </div>
-      <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-        Results saved to your Progress Report Dashboard
-      </div>
+      <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Results saved to your Progress Report Dashboard</div>
     </div>
   );
 }
@@ -711,7 +749,7 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SimulatedExamPage() {
   const { yearLevel } = useAuth();
-  const [phase, setPhase] = useState('setup'); // setup | exam | done
+  const [phase, setPhase] = useState('setup');
   const [examKey, setExamKey] = useState(null);
   const [sections, setSections] = useState([]);
   const [reviewMode, setReviewMode] = useState('end');
@@ -719,39 +757,29 @@ export default function SimulatedExamPage() {
   const [results, setResults] = useState([]);
 
   const handleStart = (key, customSections, mode) => {
-    setExamKey(key);
-    setSections(customSections);
-    setReviewMode(mode);
-    setCurrentSectionIdx(0);
-    setResults([]);
-    setPhase('exam');
+    setExamKey(key); setSections(customSections); setReviewMode(mode);
+    setCurrentSectionIdx(0); setResults([]); setPhase('exam');
   };
 
   const handleSectionComplete = (result) => {
     const newResults = [...results, result];
     setResults(newResults);
     const next = currentSectionIdx + 1;
-    if (next >= sections.length) {
-      setPhase('done');
-    } else {
-      setCurrentSectionIdx(next);
-    }
+    if (next >= sections.length) setPhase('done');
+    else setCurrentSectionIdx(next);
   };
 
-  const handleRetry = () => {
-    setPhase('setup');
-    setExamKey(null);
-    setSections([]);
-    setResults([]);
-    setCurrentSectionIdx(0);
+  const handleExit = () => {
+    setPhase('setup'); setExamKey(null); setSections([]); setResults([]); setCurrentSectionIdx(0);
   };
+
+  const handleRetry = () => handleExit();
 
   const exam = examKey ? EXAM_CONFIGS[examKey] : null;
   const currentSection = sections[currentSectionIdx];
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
-      {/* Page header */}
       <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px', display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎓</div>
         <div>
@@ -759,21 +787,13 @@ export default function SimulatedExamPage() {
             {phase === 'exam' && exam ? `${exam.name} — ${currentSection?.name || ''}` : 'Simulated Exam'}
           </div>
           <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>
-            {phase === 'exam' && exam
-              ? `Section ${currentSectionIdx + 1} of ${sections.length} · Year ${yearLevel}`
-              : `Full exam simulation · Year ${yearLevel}`}
+            {phase === 'exam' && exam ? `Section ${currentSectionIdx + 1} of ${sections.length} · Year ${yearLevel}` : `Full exam simulation · Year ${yearLevel}`}
           </div>
         </div>
-
-        {/* Section progress pills */}
         {phase === 'exam' && sections.length > 0 && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {sections.map((s, i) => (
-              <div key={i} style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: i < currentSectionIdx ? '#10B981' : i === currentSectionIdx ? (exam?.color || '#4338CA') : '#E5E7EB',
-                transition: 'background 0.3s',
-              }} />
+              <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < currentSectionIdx ? '#10B981' : i === currentSectionIdx ? (exam?.color || '#4338CA') : '#E5E7EB', transition: 'background 0.3s' }} />
             ))}
           </div>
         )}
@@ -783,43 +803,17 @@ export default function SimulatedExamPage() {
 
       {phase === 'exam' && currentSection && exam && (
         currentSection.type === 'break' ? (
-          <BreakScreen
-            section={currentSection}
-            nextSection={sections[currentSectionIdx + 1]}
-            examColor={exam.color}
-            onFinish={() => {
-              const next = currentSectionIdx + 1;
-              if (next >= sections.length) setPhase('done');
-              else setCurrentSectionIdx(next);
-            }}
-          />
+          <BreakScreen section={currentSection} nextSection={sections[currentSectionIdx + 1]} examColor={exam.color}
+            onFinish={() => { const next = currentSectionIdx + 1; if (next >= sections.length) setPhase('done'); else setCurrentSectionIdx(next); }}
+            onExit={handleExit} />
         ) : currentSection.type === 'writing' ? (
-          <WritingSectionScreen
-            section={currentSection}
-            examColor={exam.color}
-            yearLevel={yearLevel}
-            onComplete={handleSectionComplete}
-          />
+          <WritingSectionScreen section={currentSection} examColor={exam.color} yearLevel={yearLevel} onComplete={handleSectionComplete} onExit={handleExit} />
         ) : (
-          <SectionQuizScreen
-            section={currentSection}
-            examColor={exam.color}
-            reviewMode={reviewMode}
-            yearLevel={yearLevel}
-            onComplete={handleSectionComplete}
-          />
+          <SectionQuizScreen section={currentSection} examColor={exam.color} reviewMode={reviewMode} yearLevel={yearLevel} onComplete={handleSectionComplete} onExit={handleExit} />
         )
       )}
 
-      {phase === 'done' && (
-        <ResultsScreen
-          examKey={examKey}
-          sections={sections}
-          results={results}
-          reviewMode={reviewMode}
-          onRetry={handleRetry}
-        />
-      )}
+      {phase === 'done' && <ResultsScreen examKey={examKey} sections={sections} results={results} reviewMode={reviewMode} onRetry={handleRetry} />}
     </div>
   );
 }
