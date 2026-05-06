@@ -55,6 +55,7 @@ function PauseOverlay({ onResume, color }) {
 function SetupScreen({ subject, yearLevel, onStart }) {
   const [qCount, setQCount] = useState(10);
   const [timer, setTimer] = useState(0);
+  const [reviewMode, setReviewMode] = useState('each');
   const cfg = SUBJECT_CONFIG[subject];
 
   return (
@@ -82,7 +83,7 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Time limit</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[{ l: 'No timer', v: 0 }, { l: '10 min', v: 600 }, { l: '20 min', v: 1200 }, { l: '30 min', v: 1800 }, { l: '45 min', v: 2700 }].map(t => (
@@ -98,7 +99,29 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         </div>
       </div>
 
-      <button onClick={() => onStart(qCount, timer)} style={{
+      {/* Answer review mode */}
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Answer review</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {[
+            { key: 'each', icon: '💡', title: 'Review as I go', desc: 'See the correct answer and explanation after each question.' },
+            { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers and explanations at the end only.' },
+          ].map(m => (
+            <button key={m.key} onClick={() => setReviewMode(m.key)} style={{
+              padding: '14px 16px', borderRadius: 12,
+              border: `2px solid ${reviewMode === m.key ? cfg.color : '#E5E7EB'}`,
+              background: reviewMode === m.key ? cfg.lightBg : '#fff',
+              cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+            }}>
+              <div style={{ fontSize: 20, marginBottom: 6 }}>{m.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: reviewMode === m.key ? cfg.color : '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 4 }}>{m.title}</div>
+              <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={() => onStart(qCount, timer, reviewMode)} style={{
         width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
         background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
         boxShadow: '0 4px 20px rgba(67,56,202,0.3)', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
@@ -132,7 +155,7 @@ function LoadingScreen({ subject }) {
 }
 
 // ── Quiz Screen ───────────────────────────────────────────────────────────────
-function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, onFinish, onExit }) {
+function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewMode, onFinish, onExit }) {
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState({});
   const [revealed, setRevealed] = useState({});
@@ -164,7 +187,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, onFinis
   const handleSelect = (letter) => {
     if (revealed[current]) return;
     setSelected(s => ({ ...s, [current]: letter }));
-    setRevealed(r => ({ ...r, [current]: true }));
+    if (reviewMode === 'each') setRevealed(r => ({ ...r, [current]: true }));
   };
 
   const formatTime = (secs) => {
@@ -339,10 +362,11 @@ export default function TestPage({ subject }) {
   const [result, setResult] = useState(null);
   const [selected, setSelected] = useState({});
   const [error, setError] = useState('');
+  const [reviewMode, setReviewMode] = useState('each');
   const cfg = SUBJECT_CONFIG[subject];
 
-  const handleStart = async (count, timer) => {
-    setPhase('loading'); setError(''); setTimerSecs(timer);
+  const handleStart = async (count, timer, mode) => {
+    setPhase('loading'); setError(''); setTimerSecs(timer); setReviewMode(mode);
     try {
       const data = await cfg.generate(yearLevel, count);
       if (subject === 'reading') { setPassage(data.passage); setQuestions(data.questions); }
@@ -380,7 +404,7 @@ export default function TestPage({ subject }) {
       {phase === 'quiz' && (
         <QuizScreen
           subject={subject} questions={questions} passage={passage}
-          timerSecs={timerSecs} yearLevel={yearLevel}
+          timerSecs={timerSecs} yearLevel={yearLevel} reviewMode={reviewMode}
           onFinish={handleFinish} onExit={handleExit}
         />
       )}
