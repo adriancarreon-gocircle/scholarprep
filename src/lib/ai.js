@@ -76,6 +76,36 @@ export const assessWriting = async (studentText, prompt, type, yearLevel) => {
   return JSON.parse(raw);
 };
 
+// Word count targets by time allocation
+const wordCountForMins = (mins) => {
+  if (mins <= 15) return 200;
+  if (mins <= 20) return 280;
+  if (mins <= 30) return 400;
+  return 550; // 40 mins
+};
+
+export const generateIdealAnswer = async (prompt, type, yearLevel, timeMins) => {
+  const wordCount = wordCountForMins(timeMins);
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and examiner for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You write model answers demonstrating what a top-scoring Year ${yearLevel} student response looks like. Always respond with ONLY valid JSON, no other text.`;
+  const user = `Write an ideal ${type} response for a Year ${yearLevel} Australian scholarship exam writing task.
+
+Writing prompt: "${prompt}"
+
+This is a model answer for a ${timeMins}-minute writing task (approximately ${wordCount} words).
+
+Requirements:
+- Write at the level of an excellent Year ${yearLevel} student — not a university student, but the very best Year ${yearLevel} writing
+- Aim for approximately ${wordCount} words
+- For narrative: strong opening hook, vivid description, clear structure, satisfying resolution
+- For persuasive: clear thesis, 2-3 well-reasoned arguments with evidence/examples, strong conclusion
+- Use varied sentence structure and rich vocabulary appropriate for Year ${yearLevel}
+- Score worthy on all 5 criteria: Ideas & content, Structure, Language, Sentence structure, Punctuation
+
+Return ONLY this JSON: {"title":"a title for the response (required for narrative, optional for persuasive)","text":"the full ideal response as a single string with paragraph breaks using \\n\\n","wordCount":${wordCount},"highlights":["key strength 1 — what makes this response excellent","key strength 2","key strength 3","key strength 4"]}`;
+  const raw = await callClaude(system, user);
+  return JSON.parse(raw);
+};
+
 export const generatePDFQuestions = async (subject, count, yearLevel) => {
   if (subject === 'mathematics') return await generateMathsQuestions(yearLevel, count);
   if (subject === 'reading') return await generateReadingQuestions(yearLevel, count);
