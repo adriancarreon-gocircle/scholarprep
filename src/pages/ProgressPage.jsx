@@ -271,7 +271,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
               </span>
             </div>
             <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
-            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
+            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Feedback</div>
           </div>
 
           {/* Topic rows */}
@@ -280,12 +280,12 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
           ))}
 
           <div style={{ padding: '20px 24px' }}>
-            {/* AI Summary */}
+            {/* Analysis Summary */}
             <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>🤖 AI Analysis — {subject.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>📊 Analysis — {subject.label}</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>
                 {(() => {
-                  if (avg === null) return 'Complete a test to get your AI analysis.';
+                  if (avg === null) return 'Complete a test to see your diagnostic analysis.';
                   const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
                   const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
                   const vsNat = avg - subject.nationalAvg;
@@ -446,9 +446,9 @@ export default function ProgressPage() {
               );
             })}
 
-            {/* Overall AI recommendation */}
+            {/* Overall recommendation */}
             <div style={{ background: '#0D1B2A', borderRadius: 16, padding: 24 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🎯 Overall AI recommendation</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🎯 Overall recommendation</div>
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8 }}>
                 {(() => {
                   const avgs = subjects.map(s => ({ label: s.label, avg: getSubjectAverage(s.key), nationalAvg: s.nationalAvg })).filter(s => s.avg !== null);

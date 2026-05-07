@@ -7,7 +7,7 @@ const subjects = [
   { key: 'mathematics', label: 'Mathematics', icon: '🔢', color: '#E8B84B', bg: '#FEF3D0', path: '/app/maths', desc: 'Number, algebra, measurement & more' },
   { key: 'reading', label: 'Reading Comprehension', icon: '📖', color: '#52B788', bg: '#E8F5EE', path: '/app/reading', desc: 'Passages, inference & vocabulary' },
   { key: 'general', label: 'General Ability', icon: '🧩', color: '#7B61FF', bg: '#EEF0FF', path: '/app/general', desc: 'Verbal & non-verbal reasoning' },
-  { key: 'writing', label: 'Writing', icon: '✏️', color: '#E07A5F', bg: '#FEE8E2', path: '/app/writing', desc: 'Narrative & persuasive with AI feedback' },
+  { key: 'writing', label: 'Writing', icon: '✏️', color: '#E07A5F', bg: '#FEE8E2', path: '/app/writing', desc: 'Narrative & persuasive with detailed feedback' },
 ];
 
 export default function Home() {
