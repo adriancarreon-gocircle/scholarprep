@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, hasAccess, getTrialDaysLeft, isSubscribed } from '../lib/supabase';
+import { migrateLocalToSupabase } from '../lib/progress';
 
 const AuthContext = createContext({});
 
@@ -12,10 +13,18 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      // Trigger migration if user is already logged in
+      if (session?.user) {
+        migrateLocalToSupabase();
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // Trigger migration on sign in
+      if (_event === 'SIGNED_IN' && session?.user) {
+        migrateLocalToSupabase();
+      }
     });
 
     // Load year level from localStorage
@@ -38,7 +47,6 @@ export const AuthProvider = ({ children }) => {
     hasAccess: user ? hasAccess(user) : false,
     isSubscribed: user ? isSubscribed(user) : false,
     trialDaysLeft: user ? getTrialDaysLeft(user) : 0,
-    // For demo mode when Supabase isn't connected
     demoMode: !process.env.REACT_APP_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL === 'https://your-project.supabase.co'
   };
 

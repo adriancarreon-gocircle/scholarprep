@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions } from '../lib/progress';
@@ -271,7 +271,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
               </span>
             </div>
             <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
-            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Feedback</div>
+            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
           </div>
 
           {/* Topic rows */}
@@ -280,12 +280,12 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
           ))}
 
           <div style={{ padding: '20px 24px' }}>
-            {/* Analysis Summary */}
+            {/* AI Summary */}
             <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>📊 Analysis — {subject.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>🤖 AI Analysis — {subject.label}</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>
                 {(() => {
-                  if (avg === null) return 'Complete a test to see your diagnostic analysis.';
+                  if (avg === null) return 'Complete a test to get your AI analysis.';
                   const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
                   const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
                   const vsNat = avg - subject.nationalAvg;
@@ -338,10 +338,38 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProgressPage() {
   const navigate = useNavigate();
-  const { yearLevel } = useAuth();
-  const progress = getProgress();
-  const weekly = getWeeklyStats();
-  const recent = getRecentSessions(50);
+  const { yearLevel, user } = useAuth();
+
+  const [progress, setProgress] = useState({ sessions: [], subjectStats: {} });
+  const [weekly, setWeekly] = useState({ testsCompleted: 0, avgScore: 0, timeSpent: 0 });
+  const [recent, setRecent] = useState([]);
+  const [subjectAverages, setSubjectAverages] = useState({});
+  const [loadingData, setLoadingData] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingData(true);
+      try {
+        const [progressData, weeklyData, recentData, ...avgs] = await Promise.all([
+          getProgress(),
+          getWeeklyStats(),
+          getRecentSessions(50),
+          ...subjects.map(s => getSubjectAverage(s.key))
+        ]);
+        setProgress(progressData);
+        setWeekly(weeklyData);
+        setRecent(recentData);
+        const avgMap = {};
+        subjects.forEach((s, i) => { avgMap[s.key] = avgs[i]; });
+        setSubjectAverages(avgMap);
+      } catch (e) {
+        console.error('Failed to load progress data:', e);
+      }
+      setLoadingData(false);
+    };
+    loadData();
+  }, [user]);
+
   const totalTests = progress.sessions.length;
   const overallAvg = totalTests > 0
     ? Math.round(progress.sessions.reduce((s, sess) => s + (sess.score || sess.percentage || 0), 0) / totalTests)
@@ -369,36 +397,46 @@ export default function ProgressPage() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  if (loadingData) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 16 }}>
+        <div style={{ width: 36, height: 36, border: '3px solid #EEF2FF', borderTop: '3px solid #4338CA', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ fontSize: 14, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Loading your progress...</div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid rgba(13,27,42,0.08)', padding: '20px 32px' }}>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900, color: '#0D1B2A' }}>📊 Progress Report Dashboard</div>
-        <div style={{ fontSize: 14, color: '#5A6A7A', marginTop: 2 }}>Track your strengths and weaknesses across all subjects and topics</div>
+      <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px' }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 900, color: '#0F172A', letterSpacing: -0.5 }}>📊 Progress Report Dashboard</div>
+        <div style={{ fontSize: 14, color: '#64748B', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Track your strengths and weaknesses across all subjects and topics</div>
       </div>
 
       <div style={{ padding: 32 }}>
         {totalTests === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900, color: '#0D1B2A', marginBottom: 8 }}>No results yet</div>
-            <div style={{ fontSize: 15, color: '#5A6A7A', marginBottom: 24 }}>Complete your first practice test to start tracking your progress</div>
-            <button onClick={() => navigate('/app/maths')} style={{ background: '#0D1B2A', color: '#fff', padding: '12px 28px', borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 900, color: '#0F172A', marginBottom: 8 }}>No results yet</div>
+            <div style={{ fontSize: 15, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>Complete your first practice test to start tracking your progress</div>
+            <button onClick={() => navigate('/app/maths')} style={{ background: '#4338CA', color: '#fff', padding: '12px 28px', borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Start practising →
             </button>
           </div>
         ) : (
           <>
-            {/* ── Subject Summary Panel ── */}
+            {/* Subject Summary Panel */}
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Subject summary</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Subject summary</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 }}>
               {subjects.map(s => (
                 <SubjectSummaryCard
                   key={s.key}
                   subject={s}
-                  avg={getSubjectAverage(s.key)}
+                  avg={subjectAverages[s.key]}
                   totalQuestions={getTotalQuestions(s.key)}
                   onClick={() => {
                     const stats = progress.subjectStats[s.key];
@@ -419,16 +457,16 @@ export default function ProgressPage() {
                 { label: 'Tests this week', value: weekly.testsCompleted },
                 { label: 'Overall average', value: overallAvg !== null ? `${overallAvg}% ${getGrade(overallAvg)}` : '—' },
               ].map((s, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid rgba(13,27,42,0.08)' }}>
-                  <div style={{ fontSize: 11, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 4 }}>{s.label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0D1B2A' }}>{s.value}</div>
+                <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
+                  <div style={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
             {/* Subject detail cards */}
             {subjects.map(s => {
-              const avg = getSubjectAverage(s.key);
+              const avg = subjectAverages[s.key];
               const stats = progress.subjectStats[s.key];
               if (!stats || (stats.attempts || 0) === 0) return null;
               const topicScores = getTopicScores(s.key, avg);
@@ -447,11 +485,11 @@ export default function ProgressPage() {
             })}
 
             {/* Overall recommendation */}
-            <div style={{ background: '#0D1B2A', borderRadius: 16, padding: 24 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>🎯 Overall recommendation</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8 }}>
+            <div style={{ background: '#1E1B4B', borderRadius: 16, padding: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#A5B4FC', marginBottom: 8, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>🎯 Overall recommendation</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, fontFamily: 'Inter, sans-serif' }}>
                 {(() => {
-                  const avgs = subjects.map(s => ({ label: s.label, avg: getSubjectAverage(s.key), nationalAvg: s.nationalAvg })).filter(s => s.avg !== null);
+                  const avgs = subjects.map(s => ({ label: s.label, avg: subjectAverages[s.key], nationalAvg: s.nationalAvg })).filter(s => s.avg !== null && s.avg !== undefined);
                   if (avgs.length === 0) return 'Complete more tests to get personalised recommendations.';
                   const weakest = [...avgs].sort((a, b) => a.avg - b.avg)[0];
                   const strongest = [...avgs].sort((a, b) => b.avg - a.avg)[0];
