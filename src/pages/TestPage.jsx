@@ -180,7 +180,10 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
   const handleFinish = useCallback(async () => {
     setFinished(true);
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
-    const result = await saveTestResult(subject, yearLevel, correct, questions.length, questions);
+    const total = questions.length;
+    const score = Math.round((correct / total) * 100);
+    const result = { correct, total, score };
+    await saveTestResult(subject, yearLevel, correct, total, questions);
     onFinish(result, selected);
   }, [questions, selected, subject, yearLevel, onFinish]);
 
