@@ -304,23 +304,30 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
             {/* Test history */}
             {sessions.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Test history</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Test history</div>
+                  {sessions.length > 10 && (
+                    <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{sessions.length} sessions — scroll to see all</div>
+                  )}
+                </div>
                 <div style={{ borderRadius: 12, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', background: '#FAF6EE', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     <div>Date</div><div>Year</div><div>Result</div><div>Score</div><div>Grade</div>
                   </div>
-                  {sessions.map((s, i) => {
-                    const score = s.score || s.percentage || 0;
-                    return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', padding: '10px 14px', fontSize: 13, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
-                        <div style={{ color: '#5A6A7A', fontSize: 12 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                        <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
-                        <div style={{ color: '#5A6A7A', fontSize: 12 }}>{s.correct !== undefined ? `${s.correct} / ${s.total} correct` : '—'}</div>
-                        <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
-                        <div style={{ fontWeight: 800, color: getGradeColor(score) }}>{getGrade(score)}</div>
-                      </div>
-                    );
-                  })}
+                  <div style={{ maxHeight: sessions.length > 10 ? '440px' : 'none', overflowY: sessions.length > 10 ? 'auto' : 'visible' }}>
+                    {sessions.map((s, i) => {
+                      const score = s.score || s.percentage || 0;
+                      return (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', padding: '10px 14px', fontSize: 13, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
+                          <div style={{ color: '#5A6A7A', fontSize: 12 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                          <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
+                          <div style={{ color: '#5A6A7A', fontSize: 12 }}>{s.correct !== undefined ? `${s.correct} / ${s.total} correct` : '—'}</div>
+                          <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
+                          <div style={{ fontWeight: 800, color: getGradeColor(score) }}>{getGrade(score)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
