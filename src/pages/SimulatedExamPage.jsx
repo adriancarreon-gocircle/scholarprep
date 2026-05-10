@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateWritingPrompt, assessWriting } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
@@ -748,7 +749,8 @@ function ResultsScreen({ examKey, sections, results, reviewMode, onRetry }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SimulatedExamPage() {
-  const { yearLevel } = useAuth();
+  const { yearLevel, hasAccess } = useAuth();
+  const navigate = useNavigate();
   const [phase, setPhase] = useState('setup');
   const [examKey, setExamKey] = useState(null);
   const [sections, setSections] = useState([]);
@@ -799,9 +801,29 @@ export default function SimulatedExamPage() {
         )}
       </div>
 
-      {phase === 'setup' && <SetupScreen onStart={handleStart} yearLevel={yearLevel} />}
+      {/* Trial expired upgrade wall */}
+      {!hasAccess && (
+        <div style={{ maxWidth: 560, margin: '60px auto', padding: 32, textAlign: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 24, padding: 40, border: '1px solid rgba(67,56,202,0.1)', boxShadow: '0 4px 24px rgba(67,56,202,0.08)' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Your free trial has ended</div>
+            <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+              Subscribe to access full simulated exams for ACER, AAST, Edutest and NAPLAN — all for just $9.99/month.
+            </p>
+            <button onClick={() => navigate('/subscribe')} style={{ width: '100%', padding: '15px', borderRadius: 100, fontSize: 16, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)', marginBottom: 12 }}>
+              Subscribe for $9.99/month →
+            </button>
+            <button onClick={() => navigate('/app/progress')} style={{ width: '100%', padding: '13px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              View my Progress Dashboard
+            </button>
+            <div style={{ marginTop: 16, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Cancel anytime · No lock-in contracts</div>
+          </div>
+        </div>
+      )}
 
-      {phase === 'exam' && currentSection && exam && (
+      {hasAccess && phase === 'setup' && <SetupScreen onStart={handleStart} yearLevel={yearLevel} />}
+
+      {hasAccess && phase === 'exam' && currentSection && exam && (
         currentSection.type === 'break' ? (
           <BreakScreen section={currentSection} nextSection={sections[currentSectionIdx + 1]} examColor={exam.color}
             onFinish={() => { const next = currentSectionIdx + 1; if (next >= sections.length) setPhase('done'); else setCurrentSectionIdx(next); }}
@@ -813,7 +835,7 @@ export default function SimulatedExamPage() {
         )
       )}
 
-      {phase === 'done' && <ResultsScreen examKey={examKey} sections={sections} results={results} reviewMode={reviewMode} onRetry={handleRetry} />}
+      {hasAccess && phase === 'done' && <ResultsScreen examKey={examKey} sections={sections} results={results} reviewMode={reviewMode} onRetry={handleRetry} />}
     </div>
   );
 }

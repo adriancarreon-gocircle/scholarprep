@@ -356,7 +356,7 @@ function ResultsScreen({ subject, questions, selected, result, onRetry }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function TestPage({ subject }) {
-  const { yearLevel } = useAuth();
+  const { yearLevel, hasAccess, isSubscribed, trialDaysLeft } = useAuth();
   const navigate = useNavigate();
   const [phase, setPhase] = useState('setup');
   const [questions, setQuestions] = useState([]);
@@ -396,22 +396,44 @@ export default function TestPage({ subject }) {
         </div>
       </div>
 
-      {error && (
+      {/* Trial expired upgrade wall */}
+      {!hasAccess && (
+        <div style={{ maxWidth: 560, margin: '60px auto', padding: 32, textAlign: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 24, padding: 40, border: '1px solid rgba(67,56,202,0.1)', boxShadow: '0 4px 24px rgba(67,56,202,0.08)' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+            <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Your free trial has ended</div>
+            <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+              Subscribe to keep practising with unlimited questions, full simulated exams and your Progress Report Dashboard — all for just $9.99/month.
+            </p>
+            <button onClick={() => navigate('/subscribe')} style={{ width: '100%', padding: '15px', borderRadius: 100, fontSize: 16, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)', marginBottom: 12 }}>
+              Subscribe for $9.99/month →
+            </button>
+            <button onClick={() => navigate('/app/progress')} style={{ width: '100%', padding: '13px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              View my Progress Dashboard
+            </button>
+            <div style={{ marginTop: 16, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+              Cancel anytime · No lock-in contracts
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasAccess && error && (
         <div style={{ margin: 24, padding: '14px 18px', background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 14, fontSize: 14, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>
           ⚠️ {error}
         </div>
       )}
 
-      {phase === 'setup' && <SetupScreen subject={subject} yearLevel={yearLevel} onStart={handleStart} />}
-      {phase === 'loading' && <LoadingScreen subject={subject} />}
-      {phase === 'quiz' && (
+      {hasAccess && phase === 'setup' && <SetupScreen subject={subject} yearLevel={yearLevel} onStart={handleStart} />}
+      {hasAccess && phase === 'loading' && <LoadingScreen subject={subject} />}
+      {hasAccess && phase === 'quiz' && (
         <QuizScreen
           subject={subject} questions={questions} passage={passage}
           timerSecs={timerSecs} yearLevel={yearLevel} reviewMode={reviewMode}
           onFinish={handleFinish} onExit={handleExit}
         />
       )}
-      {phase === 'results' && <ResultsScreen subject={subject} questions={questions} selected={selected} result={result} onRetry={handleRetry} />}
+      {hasAccess && phase === 'results' && <ResultsScreen subject={subject} questions={questions} selected={selected} result={result} onRetry={handleRetry} />}
     </div>
   );
 }

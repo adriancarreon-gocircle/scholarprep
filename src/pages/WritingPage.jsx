@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateWritingPrompt, assessWriting, generateIdealAnswer } from '../lib/ai';
 import { saveWritingResult } from '../lib/progress';
@@ -177,7 +178,8 @@ function IdealAnswerDialog({ prompt, type, yearLevel, onClose }) {
 
 // ── Main WritingPage ──────────────────────────────────────────────────────────
 export default function WritingPage() {
-  const { yearLevel } = useAuth();
+  const { yearLevel, hasAccess } = useAuth();
+  const navigate = useNavigate();
   const [phase, setPhase] = useState('setup');
   const [type, setType] = useState('narrative');
   const [prompt, setPrompt] = useState(null);
@@ -274,14 +276,35 @@ export default function WritingPage() {
       </div>
 
       <div style={{ padding: 32, maxWidth: 760, margin: '0 auto' }}>
-        {error && (
+
+        {/* Trial expired upgrade wall */}
+        {!hasAccess && (
+          <div style={{ textAlign: 'center', paddingTop: 40 }}>
+            <div style={{ background: '#fff', borderRadius: 24, padding: 40, border: '1px solid rgba(67,56,202,0.1)', boxShadow: '0 4px 24px rgba(67,56,202,0.08)' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+              <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Your free trial has ended</div>
+              <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>
+                Subscribe to keep practising with unlimited writing tasks, detailed feedback and your Progress Report Dashboard — all for just $9.99/month.
+              </p>
+              <button onClick={() => navigate('/subscribe')} style={{ width: '100%', padding: '15px', borderRadius: 100, fontSize: 16, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)', marginBottom: 12 }}>
+                Subscribe for $9.99/month →
+              </button>
+              <button onClick={() => navigate('/app/progress')} style={{ width: '100%', padding: '13px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                View my Progress Dashboard
+              </button>
+              <div style={{ marginTop: 16, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Cancel anytime · No lock-in contracts</div>
+            </div>
+          </div>
+        )}
+
+        {hasAccess && error && (
           <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>
             ⚠️ {error}
           </div>
         )}
 
         {/* ── SETUP ── */}
-        {phase === 'setup' && (
+        {hasAccess && phase === 'setup' && (
           <div>
             <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Writing type</div>
@@ -327,7 +350,7 @@ export default function WritingPage() {
         )}
 
         {/* ── WRITING ── */}
-        {phase === 'writing' && prompt && (
+        {hasAccess && phase === 'writing' && prompt && (
           <div>
             {/* Prompt card */}
             <div style={{ background: '#3730A3', borderRadius: 16, padding: 24, marginBottom: 20 }}>
@@ -408,7 +431,7 @@ export default function WritingPage() {
         )}
 
         {/* ── ASSESSING ── */}
-        {phase === 'assessing' && (
+        {hasAccess && phase === 'assessing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 360, gap: 20, textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF1F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>✏️</div>
             <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A' }}>Assessing your writing...</div>
@@ -421,7 +444,7 @@ export default function WritingPage() {
         )}
 
         {/* ── FEEDBACK ── */}
-        {phase === 'feedback' && feedback && (
+        {hasAccess && phase === 'feedback' && feedback && (
           <div>
             {/* Score hero */}
             <div style={{ background: 'linear-gradient(135deg, #3730A3, #4338CA)', borderRadius: 20, padding: 32, marginBottom: 20, textAlign: 'center' }}>
