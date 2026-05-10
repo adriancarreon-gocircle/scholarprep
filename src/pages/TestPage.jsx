@@ -177,10 +177,10 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
     return () => clearInterval(t);
   }, [timerSecs, finished, paused]);
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback(async () => {
     setFinished(true);
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
-    const result = saveTestResult(subject, yearLevel, correct, questions.length, questions);
+    const result = await saveTestResult(subject, yearLevel, correct, questions.length, questions);
     onFinish(result, selected);
   }, [questions, selected, subject, yearLevel, onFinish]);
 

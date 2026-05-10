@@ -420,12 +420,12 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
     return () => clearInterval(t);
   }, [loading, paused]);
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback(async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
     const pct = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
-    saveTestResult(section.type, yearLevel, correct, questions.length, questions);
+    await saveTestResult(section.type, yearLevel, correct, questions.length, questions);
     onComplete({ sectionId: section.id, sectionName: section.name, correct, total: questions.length, pct, questions, selected });
   }, [questions, selected, section, yearLevel, onComplete]);
 

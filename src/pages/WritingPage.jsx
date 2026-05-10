@@ -223,7 +223,7 @@ export default function WritingPage() {
     try {
       const result = await assessWriting(response, prompt.prompt, type, yearLevel);
       setFeedback(result);
-      saveWritingResult(yearLevel, type, result.totalScore, result.maxTotal, result);
+      await saveWritingResult(yearLevel, type, result.totalScore, result.maxTotal, result);
       setPhase('feedback');
     } catch (e) {
       setError('Failed to assess writing. Please try again.');
