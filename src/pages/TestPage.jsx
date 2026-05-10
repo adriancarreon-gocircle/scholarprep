@@ -183,7 +183,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
     const total = questions.length;
     const score = Math.round((correct / total) * 100);
     const result = { correct, total, score };
-    await saveTestResult(subject, yearLevel, correct, total, questions);
+    await saveTestResult(subject, yearLevel, correct, total, questions, selected);
     onFinish(result, selected);
   }, [questions, selected, subject, yearLevel, onFinish]);
 

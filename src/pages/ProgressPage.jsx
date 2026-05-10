@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions } from '../lib/progress';
+import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions, getTopicScoresForSubject } from '../lib/progress';
 
 const subjects = [
   {
@@ -344,6 +344,7 @@ export default function ProgressPage() {
   const [weekly, setWeekly] = useState({ testsCompleted: 0, avgScore: 0, timeSpent: 0 });
   const [recent, setRecent] = useState([]);
   const [subjectAverages, setSubjectAverages] = useState({});
+  const [allTopicScores, setAllTopicScores] = useState({});
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -362,6 +363,13 @@ export default function ProgressPage() {
         const avgMap = {};
         subjects.forEach((s, i) => { avgMap[s.key] = avgs[i]; });
         setSubjectAverages(avgMap);
+
+        // Load real topic scores for all subjects
+        const topicData = {};
+        await Promise.all(subjects.map(async s => {
+          topicData[s.key] = await getTopicScoresForSubject(s.key);
+        }));
+        setAllTopicScores(topicData);
       } catch (e) {
         console.error('Failed to load progress data:', e);
       }
@@ -382,11 +390,19 @@ export default function ProgressPage() {
   };
 
   const getTopicScores = (subjectKey, avg) => {
-    if (avg === null) return [];
+    const realScores = allTopicScores[subjectKey];
     const subject = subjects.find(s => s.key === subjectKey);
     if (!subject) return [];
-    const seed = subjectKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return subject.topics.map((_, i) => {
+
+    return subject.topics.map(topic => {
+      // Use real score if available, otherwise fall back to estimated from avg
+      if (realScores && realScores[topic.key] !== undefined) {
+        return realScores[topic.key];
+      }
+      // Fallback estimate if no real data yet for this topic
+      if (avg === null) return 0;
+      const seed = subjectKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const i = subject.topics.indexOf(topic);
       const variance = ((seed * (i + 1) * 7) % 30) - 15;
       return Math.min(100, Math.max(5, Math.round(avg + variance)));
     });

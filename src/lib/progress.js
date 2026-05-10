@@ -40,6 +40,68 @@ const saveLocalProgress = (progress) => {
   }
 };
 
+// ── Topic score helpers ───────────────────────────────────────────────────────
+
+// Extract per-topic correct/total from a questions array
+const extractTopicScores = (questions, selected) => {
+  const topicMap = {};
+  questions.forEach((q, i) => {
+    const topic = q.topic;
+    if (!topic) return;
+    if (!topicMap[topic]) topicMap[topic] = { correct: 0, total: 0 };
+    topicMap[topic].total += 1;
+    if (selected && selected[i] === q.correct) topicMap[topic].correct += 1;
+    else if (!selected) {
+      // If no selected map (simulated exam finish), count all as attempted
+      topicMap[topic].correct += 0;
+    }
+  });
+  return topicMap;
+};
+
+// Upsert topic scores to Supabase (increment existing counts)
+const saveTopicScores = async (userId, subject, topicMap) => {
+  if (!userId || !topicMap || Object.keys(topicMap).length === 0) return;
+  try {
+    for (const [topicKey, scores] of Object.entries(topicMap)) {
+      // Try to get existing row
+      const { data: existing } = await supabase
+        .from('topic_scores')
+        .select('id, correct, total')
+        .eq('user_id', userId)
+        .eq('subject', subject)
+        .eq('topic_key', topicKey)
+        .single();
+
+      if (existing) {
+        // Update — increment counts
+        await supabase
+          .from('topic_scores')
+          .update({
+            correct: existing.correct + scores.correct,
+            total: existing.total + scores.total,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+      } else {
+        // Insert new
+        await supabase
+          .from('topic_scores')
+          .insert({
+            user_id: userId,
+            subject,
+            topic_key: topicKey,
+            correct: scores.correct,
+            total: scores.total,
+            updated_at: new Date().toISOString(),
+          });
+      }
+    }
+  } catch (e) {
+    console.error('saveTopicScores error:', e);
+  }
+};
+
 // ── One-time migration: localStorage → Supabase ───────────────────────────────
 
 export const migrateLocalToSupabase = async () => {
@@ -47,20 +109,17 @@ export const migrateLocalToSupabase = async () => {
     const user = await getCurrentUser();
     if (!user) return;
 
-    // Only migrate once per device
     const alreadyMigrated = localStorage.getItem(MIGRATED_KEY);
     if (alreadyMigrated) return;
 
     const local = getLocalProgress();
     if (!local.sessions || local.sessions.length === 0) {
-      // Nothing to migrate — mark as done so we don't check again
       localStorage.setItem(MIGRATED_KEY, 'true');
       return;
     }
 
     console.log(`Migrating ${local.sessions.length} sessions to Supabase...`);
 
-    // Upload each local session to Supabase
     const rows = local.sessions.map(s => ({
       user_id: user.id,
       subject: s.subject || 'mathematics',
@@ -75,19 +134,12 @@ export const migrateLocalToSupabase = async () => {
       date: s.date || new Date().toISOString(),
     }));
 
-    const { error } = await supabase
-      .from('progress_sessions')
-      .insert(rows);
+    const { error } = await supabase.from('progress_sessions').insert(rows);
+    if (error) { console.error('Migration error:', error); return; }
 
-    if (error) {
-      console.error('Migration error:', error);
-      return;
-    }
-
-    // Mark migration done and clear localStorage sessions
     localStorage.setItem(MIGRATED_KEY, 'true');
     localStorage.removeItem(STORAGE_KEY);
-    console.log('Migration complete — localStorage data moved to Supabase.');
+    console.log('Migration complete.');
   } catch (e) {
     console.error('Migration failed:', e);
   }
@@ -95,7 +147,7 @@ export const migrateLocalToSupabase = async () => {
 
 // ── Save test result ──────────────────────────────────────────────────────────
 
-export const saveTestResult = async (subject, yearLevel, correct, total, questions) => {
+export const saveTestResult = async (subject, yearLevel, correct, total, questions, selected) => {
   const session = {
     subject,
     yearLevel,
@@ -110,8 +162,8 @@ export const saveTestResult = async (subject, yearLevel, correct, total, questio
     const user = await getCurrentUser();
 
     if (user) {
-      // Save to Supabase
-      const { error } = await supabase.from('progress_sessions').insert({
+      // Save session
+      await supabase.from('progress_sessions').insert({
         user_id: user.id,
         subject,
         year_level: yearLevel,
@@ -121,7 +173,12 @@ export const saveTestResult = async (subject, yearLevel, correct, total, questio
         questions: JSON.stringify(questions || []),
         date: session.date,
       });
-      if (error) console.error('Supabase save error:', error);
+
+      // Save per-topic scores if questions have topic tags
+      if (questions && questions.length > 0 && questions[0]?.topic) {
+        const topicMap = extractTopicScores(questions, selected);
+        await saveTopicScores(user.id, subject, topicMap);
+      }
     } else {
       // Fallback to localStorage for demo mode
       const progress = getLocalProgress();
@@ -160,7 +217,7 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
     const user = await getCurrentUser();
 
     if (user) {
-      const { error } = await supabase.from('progress_sessions').insert({
+      await supabase.from('progress_sessions').insert({
         user_id: user.id,
         subject: 'writing',
         year_level: yearLevel,
@@ -170,7 +227,23 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
         feedback: JSON.stringify(feedback || {}),
         date: session.date,
       });
-      if (error) console.error('Supabase writing save error:', error);
+
+      // Save writing criteria as topic scores
+      if (feedback?.criteria) {
+        const topicKeyMap = {
+          'Ideas and content': 'ideas',
+          'Structure and organisation': 'structure',
+          'Language and vocabulary': 'language',
+          'Sentence structure': 'sentences',
+          'Punctuation and spelling': 'punctuation',
+        };
+        const topicMap = {};
+        feedback.criteria.forEach(c => {
+          const key = topicKeyMap[c.name];
+          if (key) topicMap[key] = { correct: c.score, total: c.maxScore };
+        });
+        await saveTopicScores(user.id, 'writing', topicMap);
+      }
     } else {
       const progress = getLocalProgress();
       progress.sessions.unshift({ id: Date.now(), ...session });
@@ -193,12 +266,11 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
   return session;
 };
 
-// ── Get all sessions (Supabase or localStorage) ───────────────────────────────
+// ── Get all sessions ──────────────────────────────────────────────────────────
 
 const getAllSessions = async () => {
   try {
     const user = await getCurrentUser();
-
     if (user) {
       const { data, error } = await supabase
         .from('progress_sessions')
@@ -207,12 +279,8 @@ const getAllSessions = async () => {
         .order('date', { ascending: false })
         .limit(200);
 
-      if (error) {
-        console.error('Supabase fetch error:', error);
-        return getLocalProgress().sessions;
-      }
+      if (error) return getLocalProgress().sessions;
 
-      // Normalise Supabase rows to match local session shape
       return (data || []).map(row => ({
         id: row.id,
         subject: row.subject,
@@ -230,8 +298,35 @@ const getAllSessions = async () => {
       return getLocalProgress().sessions;
     }
   } catch (e) {
-    console.error('getAllSessions error:', e);
     return getLocalProgress().sessions;
+  }
+};
+
+// ── Get topic scores for a subject ───────────────────────────────────────────
+
+export const getTopicScoresForSubject = async (subject) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return {};
+
+    const { data, error } = await supabase
+      .from('topic_scores')
+      .select('topic_key, correct, total')
+      .eq('user_id', user.id)
+      .eq('subject', subject);
+
+    if (error || !data) return {};
+
+    const result = {};
+    data.forEach(row => {
+      if (row.total > 0) {
+        result[row.topic_key] = Math.round((row.correct / row.total) * 100);
+      }
+    });
+    return result;
+  } catch (e) {
+    console.error('getTopicScoresForSubject error:', e);
+    return {};
   }
 };
 
@@ -242,7 +337,6 @@ export const getProgress = async () => {
   const progress = getDefaultProgress();
   progress.sessions = sessions;
 
-  // Rebuild subjectStats from sessions
   sessions.forEach(s => {
     const subj = s.subject;
     if (subj === 'writing') {
@@ -252,9 +346,6 @@ export const getProgress = async () => {
       progress.subjectStats.writing.attempts += 1;
       progress.subjectStats.writing.totalScore += (s.score || 0);
       progress.subjectStats.writing.maxScore += (s.maxScore || 25);
-      if (progress.subjectStats.writing.submissions.length < 20) {
-        progress.subjectStats.writing.submissions.push(s);
-      }
     } else {
       if (!progress.subjectStats[subj]) {
         progress.subjectStats[subj] = { attempts: 0, totalCorrect: 0, totalQuestions: 0, topics: {} };
@@ -275,7 +366,7 @@ export const getSubjectAverage = async (subject) => {
     if (user) {
       const { data, error } = await supabase
         .from('progress_sessions')
-        .select('correct, total, score, percentage, subject')
+        .select('correct, total, score, percentage')
         .eq('user_id', user.id)
         .eq('subject', subject);
 
@@ -293,7 +384,6 @@ export const getSubjectAverage = async (subject) => {
       const totalQs = valid.reduce((sum, r) => sum + (r.total || 0), 0);
       return Math.round((totalCorrect / totalQs) * 100);
     } else {
-      // Fallback for demo mode
       const progress = getLocalProgress();
       const stats = progress.subjectStats[subject];
       if (!stats) return null;
@@ -305,7 +395,6 @@ export const getSubjectAverage = async (subject) => {
       return Math.round((stats.totalCorrect / stats.totalQuestions) * 100);
     }
   } catch (e) {
-    console.error('getSubjectAverage error:', e);
     return null;
   }
 };

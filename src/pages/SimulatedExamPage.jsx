@@ -425,7 +425,7 @@ function SectionQuizScreen({ section, examColor, reviewMode, yearLevel, onComple
     finishedRef.current = true;
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
     const pct = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
-    await saveTestResult(section.type, yearLevel, correct, questions.length, questions);
+    await saveTestResult(section.type, yearLevel, correct, questions.length, questions, selected);
     onComplete({ sectionId: section.id, sectionName: section.name, correct, total: questions.length, pct, questions, selected });
   }, [questions, selected, section, yearLevel, onComplete]);
 

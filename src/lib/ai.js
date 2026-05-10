@@ -14,17 +14,23 @@ const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondar
 
 export const generateMathsQuestions = async (yearLevel, count) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create challenging multiple-choice maths questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
-  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Style: real-world word problems involving money, time, distance, fractions, percentages, geometry, averages, order of operations. Difficulty must be appropriate for Year ${yearLevel}. Each question has exactly 4 options (A,B,C,D), one correct answer, and a concise explanation.
+  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Style: real-world word problems involving money, time, distance, fractions, percentages, geometry, averages, order of operations. Difficulty must be appropriate for Year ${yearLevel}. Each question has exactly 4 options (A,B,C,D), one correct answer, a concise explanation, and a topic tag.
+
+TOPIC TAGS — assign exactly one of these to each question:
+- "number" — number operations, addition, subtraction, multiplication, division, averages, order of operations
+- "fractions" — fractions, decimals, mixed numbers
+- "percentages" — percentages, ratios, proportions
+- "geometry" — shapes, area, perimeter, angles, 2D/3D figures
+- "measurement" — time, money, length, mass, volume, temperature, conversion
+- "wordproblems" — multi-step word problems combining multiple operations
 
 EXPLANATION RULES — follow these exactly:
 - State the answer in 1-2 sentences maximum
-- Show the key calculation step(s) directly: e.g. "3 × $12.50 = $37.50. $37.50 + $4.75 = $42.25. Change from $56 = $13.75."
+- Show the key calculation step(s) directly
 - Never second-guess or re-check your own working
-- Never say "wait", "let me recalculate", "correction:", or second-guess the question
-- Never question whether the problem has an error
 - Be direct and confident — just state the method and the result
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation"}]}`;
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number"}]}`;
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
   return parsed.questions;
@@ -34,30 +40,42 @@ export const generateReadingQuestions = async (yearLevel, count) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
   const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Create an interesting passage (${yearLevel <= 6 ? '150-300' : '250-450'} words, Australian context where possible) at a difficulty appropriate for Year ${yearLevel}, then ${count} multiple-choice questions testing literal comprehension, inference, vocabulary, main idea, and author's purpose.
 
+TOPIC TAGS — assign exactly one of these to each question:
+- "literal" — directly stated facts from the passage
+- "inference" — reading between the lines, implied meaning
+- "vocabulary" — word meaning, synonyms, context clues
+- "mainidea" — main idea, theme, summary
+- "purpose" — author's purpose, tone, perspective
+- "texttype" — text structure, features, genre
+
 EXPLANATION RULES — follow these exactly:
 - State why the correct answer is right in 1-2 sentences maximum
 - Reference the specific part of the passage that supports the answer
-- Never second-guess or re-check your own reasoning
-- Never say "wait", "actually", "correction:", or question whether the passage is ambiguous
-- Be direct and confident — just state the evidence and the conclusion
+- Be direct and confident
 
-Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation"}]}`;
+Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal"}]}`;
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
 };
 
 export const generateGeneralAbilityQuestions = async (yearLevel, count) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
-  const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Mix these types: verbal analogies, number sequences, letter patterns, odd one out, logic problems, word relationships, coding problems. Difficulty must be appropriate for Year ${yearLevel}. Each has exactly 4 options (A,B,C,D), one correct answer, and a concise explanation.
+  const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Mix these types: verbal analogies, number sequences, letter patterns, odd one out, logic problems, spatial reasoning. Difficulty must be appropriate for Year ${yearLevel}. Each has exactly 4 options (A,B,C,D), one correct answer, a concise explanation, and a topic tag.
+
+TOPIC TAGS — assign exactly one of these to each question:
+- "analogies" — verbal analogies, word relationships
+- "sequences" — number sequences, patterns in numbers
+- "letters" — letter patterns, alphabet sequences
+- "oddoneout" — odd one out, which does not belong
+- "logic" — logic problems, deductive reasoning, coding problems
+- "spatial" — spatial reasoning, visual patterns, rotating shapes
 
 EXPLANATION RULES — follow these exactly:
 - State the pattern or rule, then confirm the answer in 1-2 sentences maximum
-- e.g. "Each number increases by 7: 3, 10, 17, 24. The next is 31."
 - Never second-guess or re-check your own reasoning
-- Never say "wait", "actually", "correction:", or express uncertainty about the pattern
-- Be direct and confident — just state the rule and the result
+- Be direct and confident
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation"}]}`;
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"analogies"}]}`;
   const raw = await callClaude(system, user);
   return JSON.parse(raw).questions;
 };
@@ -81,7 +99,7 @@ const wordCountForMins = (mins) => {
   if (mins <= 15) return 200;
   if (mins <= 20) return 280;
   if (mins <= 30) return 400;
-  return 550; // 40 mins
+  return 550;
 };
 
 export const generateIdealAnswer = async (prompt, type, yearLevel, timeMins) => {
