@@ -100,6 +100,7 @@ export default function Landing() {
           .hero-grid { grid-template-columns: 1fr !important; }
           .hero-screenshot { display: none !important; }
           .hero-mobile-mockup { display: block !important; }
+          .hero-desktop-cta { display: none !important; }
           .feature-row { grid-template-columns: 1fr !important; gap: 40px !important; padding: 60px 0 !important; }
           .stats-grid { grid-template-columns: 1fr 1fr !important; }
           .nav-links-d { display: none !important; }
@@ -111,7 +112,6 @@ export default function Landing() {
           .dash-feedback { display: none !important; }
           .dash-header-score { display: none !important; }
           .dash-header-feedback { display: none !important; }
-          .hero-mobile-cta { order: 2 !important; margin-top: 24px !important; }
         }
         @media (min-width: 769px) { .nav-burger { display: none !important; } .hero-mobile-mockup { display: none !important; } }
       `}</style>
@@ -151,9 +151,9 @@ export default function Landing() {
       {/* ── HERO ── */}
       <section style={{ paddingTop: 100, paddingBottom: 0, background: '#fff', overflow: 'hidden' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
-          <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '55% 45%', gap: 40, alignItems: 'flex-end' }}>
+          <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '55% 45%', gap: 40, alignItems: 'flex-start' }}>
 
-            <div style={{ paddingBottom: 80 }}>
+            <div style={{ paddingTop: 20, paddingBottom: 80 }}>
               <div className="fade-1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F5F3FF', border: '1px solid #DDD6FE', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, marginBottom: 28, textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>
                 ✦ Trusted by Australian families
               </div>
@@ -164,11 +164,12 @@ export default function Landing() {
               <p className="fade-3" style={{ fontSize: 18, lineHeight: 1.8, color: '#6B7280', marginBottom: 36, maxWidth: 560, fontFamily: 'Inter, sans-serif' }}>
                 Strengthen your child's Maths, English, Writing and reasoning skills — and prepare for ACER, AAST, Edutest, NAPLAN and selective entry high schools. Unlimited practice questions, detailed feedback analysis, with full simulated exams for Years 1 to 11.
               </p>
-              <div className="fade-4 hero-mobile-cta" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+              {/* Desktop CTA — hidden on mobile */}
+              <div className="fade-4 hero-desktop-cta" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
                 <button onClick={() => navigate('/signup')} className="cta-primary" style={{ padding: '15px 32px', fontSize: 16 }}>Start free — 7 days →</button>
                 <button onClick={() => navigate('/login')} className="cta-secondary" style={{ padding: '15px 24px', fontSize: 15 }}>Log in</button>
               </div>
-              <div className="fade-4" style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>
+              <div className="fade-4 hero-desktop-cta" style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>
                 {['No credit card required', 'Full access for 7 days', 'Cancel anytime'].map(t => (
                   <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ color: '#10B981', fontWeight: 700 }}>✓</span> {t}
@@ -223,9 +224,9 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* App mockup — mobile only, shown below text */}
-          <div className="hero-mobile-mockup" style={{ display: 'none', marginTop: 32, marginBottom: 0 }}>
-            <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 0 0 1px #F3F4F6, 0 20px 60px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          {/* App mockup — mobile only, shown below text with CTA below */}
+          <div className="hero-mobile-mockup" style={{ display: 'none', marginTop: 28, marginBottom: 0 }}>
+            <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 0 0 1px #F3F4F6, 0 20px 60px rgba(0,0,0,0.1)', overflow: 'hidden', marginBottom: 28 }}>
               <div style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ display: 'flex', gap: 5 }}>
                   {['#FF5F57', '#FFBD2E', '#28CA41'].map((c, i) => <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />)}
@@ -249,6 +250,18 @@ export default function Landing() {
                     <span style={{ fontWeight: o.s ? 600 : 400 }}>{o.t}</span>
                     {o.s && <span style={{ marginLeft: 'auto' }}>✓</span>}
                   </div>
+                ))}
+              </div>
+            </div>
+            {/* Mobile CTA — below mockup */}
+            <div style={{ padding: '0 0 40px' }}>
+              <button onClick={() => navigate('/signup')} className="cta-primary" style={{ width: '100%', padding: '15px', fontSize: 16, justifyContent: 'center', marginBottom: 10 }}>Start free — 7 days →</button>
+              <button onClick={() => navigate('/login')} className="cta-secondary" style={{ width: '100%', padding: '13px', fontSize: 15, justifyContent: 'center', marginBottom: 16 }}>Log in</button>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#9CA3AF', fontFamily: 'Inter, sans-serif', justifyContent: 'center' }}>
+                {['No credit card required', 'Full access for 7 days', 'Cancel anytime'].map(t => (
+                  <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: '#10B981', fontWeight: 700 }}>✓</span> {t}
+                  </span>
                 ))}
               </div>
             </div>
