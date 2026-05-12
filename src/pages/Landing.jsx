@@ -99,6 +99,7 @@ export default function Landing() {
         @media (max-width: 768px) {
           .hero-grid { grid-template-columns: 1fr !important; }
           .hero-screenshot { display: none !important; }
+          .hero-mobile-mockup { display: block !important; }
           .feature-row { grid-template-columns: 1fr !important; gap: 40px !important; padding: 60px 0 !important; }
           .stats-grid { grid-template-columns: 1fr 1fr !important; }
           .nav-links-d { display: none !important; }
@@ -110,8 +111,9 @@ export default function Landing() {
           .dash-feedback { display: none !important; }
           .dash-header-score { display: none !important; }
           .dash-header-feedback { display: none !important; }
+          .hero-mobile-cta { order: 2 !important; margin-top: 24px !important; }
         }
-        @media (min-width: 769px) { .nav-burger { display: none !important; } }
+        @media (min-width: 769px) { .nav-burger { display: none !important; } .hero-mobile-mockup { display: none !important; } }
       `}</style>
 
       {/* ── NAV ── */}
@@ -148,21 +150,21 @@ export default function Landing() {
 
       {/* ── HERO ── */}
       <section style={{ paddingTop: 100, paddingBottom: 0, background: '#fff', overflow: 'hidden' }}>
-        <div style={{ maxWidth: 1160, margin: '0 auto', padding: '0 40px' }}>
-          <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'flex-end' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
+          <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '55% 45%', gap: 40, alignItems: 'flex-end' }}>
 
             <div style={{ paddingBottom: 80 }}>
-              <div className="fade-1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F5F3FF', border: '1px solid #DDD6FE', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, marginBottom: 32, textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>
+              <div className="fade-1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F5F3FF', border: '1px solid #DDD6FE', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, marginBottom: 28, textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>
                 ✦ Trusted by Australian families
               </div>
-              <h1 className="fade-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(36px, 5vw, 66px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: -2, color: '#111827', marginBottom: 24 }}>
-                The smarter way to prepare and have better results for every<br />
+              <h1 className="fade-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(42px, 5.5vw, 72px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: -1, color: '#111827', marginBottom: 28, wordSpacing: '0.05em' }}>
+                The smarter way to prepare and have better results for every{' '}
                 <span style={{ background: 'linear-gradient(135deg, #4338CA, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Australian student.</span>
               </h1>
-              <p className="fade-3" style={{ fontSize: 17, lineHeight: 1.75, color: '#6B7280', marginBottom: 40, maxWidth: 460, fontFamily: 'Inter, sans-serif' }}>
+              <p className="fade-3" style={{ fontSize: 18, lineHeight: 1.8, color: '#6B7280', marginBottom: 36, maxWidth: 560, fontFamily: 'Inter, sans-serif' }}>
                 Strengthen your child's Maths, English, Writing and reasoning skills — and prepare for ACER, AAST, Edutest, NAPLAN and selective entry high schools. Unlimited practice questions, detailed feedback analysis, with full simulated exams for Years 1 to 11.
               </p>
-              <div className="fade-4" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 32 }}>
+              <div className="fade-4 hero-mobile-cta" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
                 <button onClick={() => navigate('/signup')} className="cta-primary" style={{ padding: '15px 32px', fontSize: 16 }}>Start free — 7 days →</button>
                 <button onClick={() => navigate('/login')} className="cta-secondary" style={{ padding: '15px 24px', fontSize: 15 }}>Log in</button>
               </div>
@@ -175,23 +177,23 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* App mockup */}
-            <div className="hero-screenshot" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
-              <div style={{ position: 'absolute', top: 40, left: -10, zIndex: 3, background: '#fff', borderRadius: 16, padding: '12px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10, animation: 'float2 5s ease-in-out infinite', border: '1px solid #F3F4F6' }}>
+            {/* App mockup — desktop only */}
+            <div className="hero-screenshot" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 60 }}>
+              <div style={{ position: 'absolute', top: 20, left: -10, zIndex: 3, background: '#fff', borderRadius: 16, padding: '12px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10, animation: 'float2 5s ease-in-out infinite', border: '1px solid #F3F4F6' }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📈</div>
                 <div>
                   <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>Progress this week</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#10B981', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>+18% improvement</div>
                 </div>
               </div>
-              <div style={{ position: 'absolute', top: 60, right: -20, zIndex: 3, background: '#fff', borderRadius: 16, padding: '12px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10, animation: 'float2 5s 1.5s ease-in-out infinite', border: '1px solid #F3F4F6' }}>
+              <div style={{ position: 'absolute', top: 40, right: -10, zIndex: 3, background: '#fff', borderRadius: 16, padding: '12px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10, animation: 'float2 5s 1.5s ease-in-out infinite', border: '1px solid #F3F4F6' }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏆</div>
                 <div>
                   <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>Last score</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#4338CA', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>92% · Maths</div>
                 </div>
               </div>
-              <div style={{ background: '#fff', borderRadius: '24px 24px 0 0', boxShadow: '0 0 0 1px #F3F4F6, 0 40px 100px rgba(0,0,0,0.12)', overflow: 'hidden', width: '100%', maxWidth: 480 }}>
+              <div style={{ background: '#fff', borderRadius: '24px 24px 0 0', boxShadow: '0 0 0 1px #F3F4F6, 0 40px 100px rgba(0,0,0,0.12)', overflow: 'hidden', width: '100%', maxWidth: 460 }}>
                 <div style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {['#FF5F57', '#FFBD2E', '#28CA41'].map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: c }} />)}
@@ -217,6 +219,37 @@ export default function Landing() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* App mockup — mobile only, shown below text */}
+          <div className="hero-mobile-mockup" style={{ display: 'none', marginTop: 32, marginBottom: 0 }}>
+            <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 0 0 1px #F3F4F6, 0 20px 60px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <div style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  {['#FF5F57', '#FFBD2E', '#28CA41'].map((c, i) => <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />)}
+                </div>
+                <div style={{ flex: 1, background: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 11, color: '#9CA3AF', fontFamily: 'Inter, sans-serif', border: '1px solid #E5E7EB', marginLeft: 6 }}>scholarprep.com.au/app/maths</div>
+              </div>
+              <div style={{ padding: 16, background: '#F5F7FF' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', fontFamily: 'Inter, sans-serif' }}>Question 3 of 10 · Mathematics</div>
+                  <div style={{ background: '#EEF2FF', color: '#4338CA', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>⏱ 14:22</div>
+                </div>
+                <div style={{ height: 3, background: '#E5E7EB', borderRadius: 2, marginBottom: 14, overflow: 'hidden' }}>
+                  <div style={{ width: '30%', height: '100%', background: '#4338CA', borderRadius: 2 }} />
+                </div>
+                <div style={{ background: '#fff', borderRadius: 12, padding: 14, fontSize: 13, color: '#111827', lineHeight: 1.6, marginBottom: 10, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>
+                  Adam's car travels at 70 km/h. How far has it traveled from 9am to 3:30pm?
+                </div>
+                {[{ l: 'A', t: '225 km', s: false }, { l: 'B', t: '455 km', s: true }, { l: 'C', t: '570 km', s: false }].map(o => (
+                  <div key={o.l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, marginBottom: 6, background: o.s ? '#ECFDF5' : '#fff', border: `1.5px solid ${o.s ? '#6EE7B7' : '#E5E7EB'}`, fontSize: 13, color: o.s ? '#059669' : '#4B5563', fontFamily: 'Inter, sans-serif' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, background: o.s ? '#059669' : '#F3F4F6', color: o.s ? '#fff' : '#6B7280' }}>{o.l}</div>
+                    <span style={{ fontWeight: o.s ? 600 : 400 }}>{o.t}</span>
+                    {o.s && <span style={{ marginLeft: 'auto' }}>✓</span>}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
