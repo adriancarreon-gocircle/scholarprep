@@ -156,11 +156,11 @@ export default function Landing() {
                 ✦ Trusted by Australian families
               </div>
               <h1 className="fade-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(36px, 5vw, 66px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: -2, color: '#111827', marginBottom: 24 }}>
-                The exam prep for every<br />
+                The smarter way to prepare and have better results for every<br />
                 <span style={{ background: 'linear-gradient(135deg, #4338CA, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Australian student.</span>
               </h1>
               <p className="fade-3" style={{ fontSize: 17, lineHeight: 1.75, color: '#6B7280', marginBottom: 40, maxWidth: 460, fontFamily: 'Inter, sans-serif' }}>
-                Prepare for ACER, AAST, Edutest, NAPLAN and selective entry high schools with fresh practice questions, personalised feedback and full simulated exams — for Years 1 to 11.
+                Strengthen your child's Maths, English, Writing and reasoning skills — and prepare for ACER, AAST, Edutest, NAPLAN and selective entry high schools. Unlimited practice questions, detailed feedback analysis, with full simulated exams for Years 1 to 11.
               </p>
               <div className="fade-4" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 32 }}>
                 <button onClick={() => navigate('/signup')} className="cta-primary" style={{ padding: '15px 32px', fontSize: 16 }}>Start free — 7 days →</button>
