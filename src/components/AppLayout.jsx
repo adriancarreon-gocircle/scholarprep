@@ -96,12 +96,26 @@ export default function AppLayout({ children }) {
               color: isActive ? '#fff' : '#A5B4FC',
               background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
               textDecoration: 'none', transition: 'all 0.15s',
-              borderRadius: 8,
-              fontFamily: 'Inter, DM Sans, sans-serif',
+              borderRadius: 8, fontFamily: 'Inter, DM Sans, sans-serif',
             })}>
               <span style={{ fontSize: 16 }}>🎓</span>
               <span>Simulated Exam</span>
               <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, background: '#F97316', color: '#fff', padding: '2px 6px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em' }}>New</span>
+            </NavLink>
+          </div>
+
+          {/* Custom Test */}
+          <div style={{ margin: '4px 12px', background: 'rgba(165,180,252,0.08)', border: '1px solid rgba(165,180,252,0.15)', borderRadius: 10 }}>
+            <NavLink to="/app/custom-test" onClick={closeSidebar} style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', fontSize: 14, fontWeight: 600,
+              color: isActive ? '#fff' : '#A5B4FC',
+              background: isActive ? 'rgba(255,255,255,0.12)' : 'transparent',
+              textDecoration: 'none', transition: 'all 0.15s',
+              borderRadius: 8, fontFamily: 'Inter, DM Sans, sans-serif',
+            })}>
+              <span style={{ fontSize: 16 }}>🎯</span>
+              <span>Custom Test</span>
             </NavLink>
           </div>
 
