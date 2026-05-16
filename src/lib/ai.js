@@ -344,9 +344,35 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"o
 
 // ── Writing ───────────────────────────────────────────────────────────────────
 
+const WRITING_THEMES = [
+  { theme: 'Environment', narrative: 'a story involving nature, wildlife, or an environmental challenge', persuasive: 'argue for or against an environmental issue such as recycling, protecting forests, or reducing plastic' },
+  { theme: 'Science', narrative: 'a story involving a scientific discovery, experiment, or invention', persuasive: 'argue for or against a scientific topic such as space exploration, genetic engineering, or renewable energy' },
+  { theme: 'Technology', narrative: 'a story involving technology — robots, computers, the future, or a new invention', persuasive: 'argue for or against a technology topic such as screen time limits, social media, or self-driving cars' },
+  { theme: 'Community & Social', narrative: 'a story about helping others, community spirit, or making a difference', persuasive: 'argue for or against a social issue such as volunteering, school uniforms, or community projects' },
+  { theme: 'History & Adventure', narrative: 'a historical fiction story or an adventure set in the past', persuasive: 'argue why learning history is important or whether a historical event was right or wrong' },
+  { theme: 'Sport & Competition', narrative: 'a story about a sports event, a competition, or overcoming a challenge', persuasive: 'argue for or against a topic related to sport such as competitive sport for children, e-sports, or physical education' },
+  { theme: 'Friendship & Belonging', narrative: 'a story about friendship, fitting in, or overcoming loneliness', persuasive: 'argue for or against a social topic such as the importance of friendship, teamwork, or inclusion' },
+  { theme: 'Animals & Nature', narrative: 'a story told from an animal\'s perspective or about a child and an animal', persuasive: 'argue for or against keeping animals in zoos, animal rights, or protecting endangered species' },
+  { theme: 'Mystery & Imagination', narrative: 'a mystery story or an imaginative tale involving fantasy, magic, or the unknown', persuasive: 'argue for or against the value of imagination, reading fiction, or creative thinking in schools' },
+  { theme: 'Travel & Discovery', narrative: 'a story about an exciting journey, exploring a new place, or making an unexpected discovery', persuasive: 'argue for or against travel, cultural exchange, or studying overseas' },
+];
+
 export const generateWritingPrompt = async (type, yearLevel) => {
+  // Pick a random theme each call so writing prompts always vary
+  const themeObj = WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
+  const themeInstruction = type === 'narrative'
+    ? `The prompt must be about: ${themeObj.narrative}`
+    : `The prompt must be about: ${themeObj.persuasive}`;
+
   const system = `You are an Australian ${schoolLevel(yearLevel)} writing exam designer for scholarship and selective entry tests. Always respond with ONLY valid JSON, no other text.`;
-  const user = `Generate a ${type} writing prompt for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Return ONLY this JSON: {"prompt":"the full writing prompt","type":"${type}","time":25,"criteria":["Ideas and content","Structure and organisation","Language and vocabulary","Sentence structure","Punctuation and spelling"]}`;
+  const user = `Generate a ${type} writing prompt for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+
+THEME: ${themeObj.theme}
+${themeInstruction}
+
+The prompt must be original, engaging and appropriate for Year ${yearLevel}. Do NOT use vegetable gardens, lemonade stands, or other overused generic prompts.
+
+Return ONLY this JSON: {"prompt":"the full writing prompt","type":"${type}","time":25,"criteria":["Ideas and content","Structure and organisation","Language and vocabulary","Sentence structure","Punctuation and spelling"]}`;
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
 };
