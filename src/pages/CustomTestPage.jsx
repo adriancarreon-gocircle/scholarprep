@@ -7,19 +7,122 @@ import { saveTestResult } from '../lib/progress';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MATHS_TOPICS = [
-  { key: 'number', label: 'Numbers & Counting' },
-  { key: 'addition', label: 'Addition' },
-  { key: 'subtraction', label: 'Subtraction' },
-  { key: 'multiplication', label: 'Multiplication' },
-  { key: 'division', label: 'Division' },
-  { key: 'fractions', label: 'Fractions' },
-  { key: 'decimals', label: 'Decimals' },
-  { key: 'percentages', label: 'Percentages' },
-  { key: 'geometry', label: 'Geometry & Shapes' },
-  { key: 'measurement', label: 'Measurement' },
-  { key: 'algebra', label: 'Algebra' },
-  { key: 'statistics', label: 'Statistics & Averages' },
-  { key: 'wordproblems', label: 'Word Problems' },
+  {
+    key: 'number', label: 'Numbers & Counting',
+    questionTypes: [
+      { key: 'evenodd', label: 'Even or odd numbers' },
+      { key: 'wordform', label: 'Write numbers in word form' },
+      { key: 'placevalue', label: 'Place value' },
+      { key: 'ordering', label: 'Order / compare numbers' },
+      { key: 'rounding', label: 'Rounding numbers' },
+      { key: 'greaterthan', label: 'Greater than / less than' },
+    ]
+  },
+  {
+    key: 'addition', label: 'Addition',
+    questionTypes: [
+      { key: 'addbasic', label: 'Basic addition (1–2 digit)' },
+      { key: 'addlarge', label: 'Adding larger numbers (3–5 digit)' },
+      { key: 'addworded', label: 'Worded addition problems' },
+    ]
+  },
+  {
+    key: 'subtraction', label: 'Subtraction',
+    questionTypes: [
+      { key: 'subbasic', label: 'Basic subtraction (1–2 digit)' },
+      { key: 'sublarge', label: 'Subtracting larger numbers (3–5 digit)' },
+      { key: 'subworded', label: 'Worded subtraction problems' },
+    ]
+  },
+  {
+    key: 'multiplication', label: 'Multiplication',
+    questionTypes: [
+      { key: 'timestables', label: 'Times tables (2×–12×)' },
+      { key: 'multisingle', label: 'Multiply by 1 digit' },
+      { key: 'multimulti', label: 'Multiply by 2+ digits' },
+      { key: 'multiworded', label: 'Worded multiplication problems' },
+    ]
+  },
+  {
+    key: 'division', label: 'Division',
+    questionTypes: [
+      { key: 'divbasic', label: 'Basic division facts' },
+      { key: 'divremainder', label: 'Division with remainders' },
+      { key: 'divworded', label: 'Worded division problems' },
+    ]
+  },
+  {
+    key: 'fractions', label: 'Fractions',
+    questionTypes: [
+      { key: 'fracbasic', label: 'Basic fractions (shaded parts, halves, quarters)' },
+      { key: 'fracequiv', label: 'Equivalent fractions' },
+      { key: 'fraccompare', label: 'Compare fractions' },
+      { key: 'fracworded', label: 'Worded fraction problems' },
+    ]
+  },
+  {
+    key: 'decimals', label: 'Decimals',
+    questionTypes: [
+      { key: 'decconvert', label: 'Convert fractions to decimals' },
+      { key: 'deccompare', label: 'Compare / order decimals' },
+      { key: 'decarith', label: 'Add / subtract / multiply decimals' },
+    ]
+  },
+  {
+    key: 'percentages', label: 'Percentages',
+    questionTypes: [
+      { key: 'pctbasic', label: 'Percentage of a number' },
+      { key: 'pctconvert', label: 'Convert fractions / decimals to percentages' },
+      { key: 'pctworded', label: 'Worded percentage problems (discounts, GST)' },
+      { key: 'pctchange', label: 'Percentage increase / decrease' },
+    ]
+  },
+  {
+    key: 'geometry', label: 'Geometry & Shapes',
+    questionTypes: [
+      { key: 'geo2d', label: '2D shapes (sides, corners, names)' },
+      { key: 'geo3d', label: '3D shapes (faces, edges, vertices)' },
+      { key: 'geoangles', label: 'Angles (straight line, right angle, triangle, polygon)' },
+      { key: 'geosymmetry', label: 'Lines of symmetry' },
+    ]
+  },
+  {
+    key: 'measurement', label: 'Measurement',
+    questionTypes: [
+      { key: 'meastime', label: 'Time (reading clocks, time calculations)' },
+      { key: 'measmoney', label: 'Money (making change, prices)' },
+      { key: 'measlength', label: 'Length / distance conversions' },
+      { key: 'measarea', label: 'Area and perimeter' },
+      { key: 'measvolume', label: 'Volume and capacity' },
+    ]
+  },
+  {
+    key: 'algebra', label: 'Algebra',
+    questionTypes: [
+      { key: 'algexpr', label: 'Simplify expressions' },
+      { key: 'algsolve', label: 'Solve for x' },
+      { key: 'algexpand', label: 'Expand brackets' },
+      { key: 'algsubst', label: 'Substitute values' },
+      { key: 'algfactor', label: 'Factorise expressions' },
+    ]
+  },
+  {
+    key: 'statistics', label: 'Statistics & Averages',
+    questionTypes: [
+      { key: 'statmean', label: 'Mean (average)' },
+      { key: 'statmedmode', label: 'Median, mode and range' },
+      { key: 'statgraph', label: 'Reading graphs and data' },
+      { key: 'statworded', label: 'Worded statistics problems' },
+    ]
+  },
+  {
+    key: 'wordproblems', label: 'Word Problems',
+    questionTypes: [
+      { key: 'wprates', label: 'Rates (speed, pay rate)' },
+      { key: 'wpratio', label: 'Ratio and proportion' },
+      { key: 'wpmulti', label: 'Multi-step mixed problems' },
+    ]
+  },
 ];
 
 const GA_TOPICS = [
@@ -112,6 +215,10 @@ function BuilderScreen({ onSaveAndStart, onSaveOnly, editingTest }) {
   const [mathsTopics, setMathsTopics] = useState(
     editingTest?.mathsTopics || MATHS_TOPICS.reduce((acc, t) => ({ ...acc, [t.key]: 0 }), {})
   );
+  const [mathsQuestionTypes, setMathsQuestionTypes] = useState(
+    editingTest?.mathsQuestionTypes || {}
+  );
+  const [expandedTopics, setExpandedTopics] = useState({});
 
   // Reading config
   const [passages, setPassages] = useState(editingTest?.passages || 2);
@@ -122,7 +229,8 @@ function BuilderScreen({ onSaveAndStart, onSaveOnly, editingTest }) {
     editingTest?.gaTopics || GA_TOPICS.reduce((acc, t) => ({ ...acc, [t.key]: 0 }), {})
   );
 
-  const totalMathsQuestions = Object.values(mathsTopics).reduce((sum, n) => sum + n, 0);
+  const totalQtQuestions = Object.values(mathsQuestionTypes).reduce((sum, n) => sum + n, 0);
+  const totalMathsQuestions = totalQtQuestions > 0 ? totalQtQuestions : Object.values(mathsTopics).reduce((sum, n) => sum + n, 0);
   const totalGaQuestions = Object.values(gaTopics).reduce((sum, n) => sum + n, 0);
   const totalReadingQuestions = passages * questionsPerPassage;
 
@@ -139,6 +247,7 @@ function BuilderScreen({ onSaveAndStart, onSaveOnly, editingTest }) {
     timerSecs,
     reviewMode,
     mathsTopics: subject === 'mathematics' ? mathsTopics : null,
+    mathsQuestionTypes: subject === 'mathematics' ? mathsQuestionTypes : null,
     passages: subject === 'reading' ? passages : null,
     questionsPerPassage: subject === 'reading' ? questionsPerPassage : null,
     gaTopics: subject === 'general' ? gaTopics : null,
@@ -176,22 +285,76 @@ function BuilderScreen({ onSaveAndStart, onSaveOnly, editingTest }) {
       {/* Step 2: Topic config */}
       {subject === 'mathematics' && (
         <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Topics & questions</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#4338CA', fontFamily: 'Inter, sans-serif' }}>Total: {totalMathsQuestions} questions</div>
           </div>
-          {MATHS_TOPICS.map(t => (
-            <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #F8FAFC' }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{t.label}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => setMathsTopics(p => ({ ...p, [t.key]: Math.max(0, p[t.key] - 1) }))}
-                  style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                <span style={{ fontSize: 15, fontWeight: 700, color: mathsTopics[t.key] > 0 ? '#4338CA' : '#94A3B8', minWidth: 24, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{mathsTopics[t.key]}</span>
-                <button onClick={() => setMathsTopics(p => ({ ...p, [t.key]: p[t.key] + 1 }))}
-                  style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+          <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16, fontFamily: 'Inter, sans-serif' }}>
+            Click ▶ to expand a topic and choose specific question types
+          </div>
+          {MATHS_TOPICS.map(t => {
+            const isExpanded = expandedTopics[t.key];
+            const topicCount = mathsTopics[t.key] || 0;
+            const selectedTypes = t.questionTypes.filter(qt => mathsQuestionTypes[`${t.key}__${qt.key}`] > 0);
+            return (
+              <div key={t.key} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                {/* Topic row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0' }}>
+                  {/* Expand toggle */}
+                  <button
+                    onClick={() => setExpandedTopics(p => ({ ...p, [t.key]: !p[t.key] }))}
+                    style={{ width: 24, height: 24, borderRadius: 6, border: '1.5px solid #E5E7EB', background: isExpanded ? '#EEF2FF' : '#F8F9FF', cursor: 'pointer', fontSize: 10, color: isExpanded ? '#4338CA' : '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
+                  >
+                    {isExpanded ? '▼' : '▶'}
+                  </button>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{t.label}</div>
+                    {selectedTypes.length > 0 && (
+                      <div style={{ fontSize: 11, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
+                        {selectedTypes.map(qt => `${qt.label} (${mathsQuestionTypes[`${t.key}__${qt.key}`]})`).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                  {/* +/- for total topic questions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => setMathsTopics(p => ({ ...p, [t.key]: Math.max(0, p[t.key] - 1) }))}
+                      style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: topicCount > 0 ? '#4338CA' : '#94A3B8', minWidth: 24, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{topicCount}</span>
+                    <button onClick={() => setMathsTopics(p => ({ ...p, [t.key]: p[t.key] + 1 }))}
+                      style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  </div>
+                </div>
+
+                {/* Expanded question types */}
+                {isExpanded && (
+                  <div style={{ background: '#F8FAFF', borderRadius: 10, padding: '8px 12px', marginBottom: 8, border: '1px solid #EEF2FF' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
+                      Optional: pick specific question types
+                    </div>
+                    {t.questionTypes.map(qt => {
+                      const qtKey = `${t.key}__${qt.key}`;
+                      const qtCount = mathsQuestionTypes[qtKey] || 0;
+                      return (
+                        <div key={qt.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 4px', borderBottom: '1px solid #EEF2FF' }}>
+                          <div style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', flex: 1 }}>{qt.label}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button onClick={() => setMathsQuestionTypes(p => ({ ...p, [qtKey]: Math.max(0, (p[qtKey] || 0) - 1) }))}
+                              style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: qtCount > 0 ? '#4338CA' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{qtCount}</span>
+                            <button onClick={() => setMathsQuestionTypes(p => ({ ...p, [qtKey]: (p[qtKey] || 0) + 1 }))}
+                              style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 8, fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>
+                      Leave all at 0 to let the test pick any question type from this topic automatically.
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -443,14 +606,31 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
   const generateAllQuestions = async () => {
     try {
       if (test.subject === 'mathematics') {
-        // Generate per topic and combine
         const allQuestions = [];
-        const topicEntries = Object.entries(test.mathsTopics).filter(([, count]) => count > 0);
-        for (const [topicKey, count] of topicEntries) {
-          const qs = await generateMathsQuestions(yearLevel, count);
-          // Force topic tag on each question
-          const tagged = qs.slice(0, count).map(q => ({ ...q, topic: topicKey }));
-          allQuestions.push(...tagged);
+        // Check if any specific question types are selected
+        const qtEntries = test.mathsQuestionTypes
+          ? Object.entries(test.mathsQuestionTypes).filter(([, count]) => count > 0)
+          : [];
+
+        if (qtEntries.length > 0) {
+          // Generate per specific question type
+          for (const [qtKey, count] of qtEntries) {
+            const [topicKey] = qtKey.split('__');
+            const topic = MATHS_TOPICS.find(t => t.key === topicKey);
+            const qt = topic?.questionTypes.find(q => q.key === qtKey.split('__')[1]);
+            const focusLabel = qt ? `${topic.label} — ${qt.label}` : null;
+            const qs = await generateMathsQuestions(yearLevel, count, focusLabel);
+            const tagged = qs.slice(0, count).map(q => ({ ...q, topic: topicKey }));
+            allQuestions.push(...tagged);
+          }
+        } else {
+          // Generate per topic (no specific question type selected)
+          const topicEntries = Object.entries(test.mathsTopics).filter(([, count]) => count > 0);
+          for (const [topicKey, count] of topicEntries) {
+            const qs = await generateMathsQuestions(yearLevel, count);
+            const tagged = qs.slice(0, count).map(q => ({ ...q, topic: topicKey }));
+            allQuestions.push(...tagged);
+          }
         }
         setQuestions(allQuestions);
       } else if (test.subject === 'reading') {

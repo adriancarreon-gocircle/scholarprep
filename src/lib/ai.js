@@ -209,17 +209,20 @@ ${yearLevel >= 9 ? `Advanced (Year 9-11):
 
 // ── Generate Maths Questions ──────────────────────────────────────────────────
 
-export const generateMathsQuestions = async (yearLevel, count) => {
+export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus) => {
   const blueprint = getMathsBlueprint(yearLevel);
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
-  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+  const focusInstruction = questionTypeFocus
+    ? `\nFOCUS: Generate questions specifically of this type: "${questionTypeFocus}". All ${count} questions must be of this exact type.`
+    : '';
 
+  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+${focusInstruction}
 ${blueprint}
 
 RULES:
-- Use the question types above as your guide — generate fresh variations of these types
-- Vary the mix of question types across the ${count} questions (don't repeat the same type more than 2-3 times)
+- Use the question types above as your guide — generate fresh variations of these types${questionTypeFocus ? `\n- ALL questions must be of the focused type: "${questionTypeFocus}"` : '\n- Vary the mix of question types across the questions (don\'t repeat the same type more than 2-3 times)'}
 - Difficulty must be appropriate for Year ${yearLevel}
 - All questions must be answerable from text only (no images needed)
 - Each question has exactly 4 options (A, B, C, D), one correct answer, a concise explanation, and a topic tag
