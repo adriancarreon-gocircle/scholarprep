@@ -253,9 +253,32 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"o
 
 // ── Generate Reading Questions ────────────────────────────────────────────────
 
+// ── Generate Reading Questions ────────────────────────────────────────────────
+
+const READING_THEMES = [
+  'Environment (e.g. climate change, wildlife conservation, ecosystems, pollution)',
+  'Science (e.g. space exploration, the human body, inventions, experiments)',
+  'Technology (e.g. robots, the internet, artificial intelligence, gadgets)',
+  'Social Studies (e.g. communities, cultures, traditions, how society works)',
+  'Poetry (a short poem with questions about meaning, imagery and language)',
+  'History (e.g. ancient civilisations, historical events, famous people from the past)',
+  'Fiction / Narrative (a short story with characters, setting, conflict and resolution)',
+  'Geography (e.g. landforms, countries, weather patterns, natural wonders)',
+  'Sports (e.g. an athlete biography, a sports event, sporting rules or history)',
+  'Arts (e.g. music, painting, dance, theatre, a famous artist or performer)',
+];
+
 export const generateReadingQuestions = async (yearLevel, count) => {
+  // Pick a random theme each call so passages always vary
+  const theme = READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
+
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
-  const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam. Create an interesting passage (${yearLevel <= 6 ? '150-300' : '250-450'} words, Australian context where possible) at a difficulty appropriate for Year ${yearLevel}, then ${count} multiple-choice questions testing literal comprehension, inference, vocabulary, main idea, and author's purpose.
+  const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+
+THEME FOR THIS PASSAGE: ${theme}
+You MUST write the passage on this specific theme. Do NOT default to common topics like the Great Barrier Reef, kangaroos or typical Australian wildlife unless the theme specifically calls for it.
+
+Create an original, engaging passage (${yearLevel <= 6 ? '150-300' : '250-450'} words) on the theme above, written at a difficulty appropriate for Year ${yearLevel}. Then write ${count} multiple-choice questions testing a mix of question types.
 
 TOPIC TAGS — assign exactly one of these to each question:
 - "literal" — directly stated facts from the passage
@@ -270,9 +293,12 @@ EXPLANATION RULES:
 - Reference the specific part of the passage that supports the answer
 - Be direct and confident
 
-Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal"}]}`;
+Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks using \\n\\n"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal"}]}`;
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
+};
+const raw = await callClaude(system, user);
+return JSON.parse(raw);
 };
 
 // ── Generate General Ability Questions ────────────────────────────────────────
