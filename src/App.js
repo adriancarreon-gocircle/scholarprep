@@ -15,6 +15,7 @@ import SubscribePage from './pages/Subscribe';
 import ProfilePage from './pages/ProfilePage';
 import SimulatedExamPage from './pages/SimulatedExamPage';
 import CustomTestPage from './pages/CustomTestPage';
+import SupportPage from './pages/SupportPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -39,6 +40,7 @@ function AppRoutes() {
       <Route path="/app/progress" element={<ProtectedRoute><AppLayout><ProgressPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/simulated-exam" element={<ProtectedRoute><AppLayout><SimulatedExamPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/custom-test" element={<ProtectedRoute><AppLayout><CustomTestPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/support" element={<SupportPage />} />
       <Route path="/profile" element={<ProtectedRoute><AppLayout><ProfilePage /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

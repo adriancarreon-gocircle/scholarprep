@@ -130,6 +130,7 @@ export default function Landing() {
         </div>
         <div className="nav-links-d" style={{ display: 'flex', gap: 32 }}>
           {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+          <a href="/support" className="nav-link">Support</a>
         </div>
         <div className="nav-cta-d" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => navigate('/login')} style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: '#6B7280', cursor: 'pointer', padding: '8px 14px', fontFamily: 'Inter, sans-serif' }}>Log in</button>
@@ -696,10 +697,21 @@ export default function Landing() {
             <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: -0.5 }}>
               Scholar<span style={{ color: '#818CF8' }}>Prep</span>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-              © 2026 ScholarPrep — a Go Circle Pty Ltd company. Built for Australian primary and secondary school families.
+            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+              <a href="/support" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+                onMouseEnter={e => e.target.style.color = '#818CF8'}
+                onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}>
+                💬 Contact Support
+              </a>
+              <a href="mailto:hello@scholarprep.com.au" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+                onMouseEnter={e => e.target.style.color = '#818CF8'}
+                onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}>
+                hello@scholarprep.com.au
+              </a>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontFamily: 'Inter, sans-serif' }}>ACER · AAST · Edutest · NAPLAN</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+              © 2026 ScholarPrep — a Go Circle Pty Ltd company.
+            </div>
           </div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.18)', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>

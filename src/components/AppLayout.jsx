@@ -128,6 +128,10 @@ export default function AppLayout({ children }) {
           <NavLink to="/profile" onClick={closeSidebar} style={navLinkStyle}>
             <span style={{ fontSize: 16 }}>👤</span> My Account
           </NavLink>
+
+          <NavLink to="/support" onClick={closeSidebar} style={navLinkStyle}>
+            <span style={{ fontSize: 16 }}>💬</span> Support
+          </NavLink>
         </div>
 
         {/* Trial banner */}
