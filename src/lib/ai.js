@@ -297,9 +297,6 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
 };
-const raw = await callClaude(system, user);
-return JSON.parse(raw);
-};
 
 // ── Generate General Ability Questions ────────────────────────────────────────
 

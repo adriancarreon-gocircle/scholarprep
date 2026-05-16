@@ -49,7 +49,7 @@ const loadSavedTests = () => {
 };
 
 const saveTests = (tests) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tests)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tests)); } catch { }
 };
 
 // ── Utility ───────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function BuilderScreen({ onSaveAndStart, onSaveOnly, editingTest }) {
 
   const totalQuestions = subject === 'mathematics' ? totalMathsQuestions
     : subject === 'reading' ? totalReadingQuestions
-    : totalGaQuestions;
+      : totalGaQuestions;
 
   const isValid = subject && totalQuestions > 0 && testName.trim();
 
@@ -662,15 +662,15 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const userAnswer = selected[i];
-        const correct = userAnswer === q.correct;
+        const isCorrect = userAnswer === q.correct;
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', marginBottom: 10, border: '1px solid rgba(67,56,202,0.06)', display: 'flex', gap: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: correct ? '#ECFDF5' : '#FFF1F2', color: correct ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{correct ? '✓' : '✗'}</div>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isCorrect ? '#ECFDF5' : '#FFF1F2', color: isCorrect ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{isCorrect ? '✓' : '✗'}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#0F172A', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
-              {!correct && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You answered: <strong>{userAnswer ? `${userAnswer}. ${q.options[userAnswer]}` : 'Not answered'}</strong></div>}
-              <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', marginBottom: correct ? 0 : 4 }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
-              {!correct && q.explanation && <div style={{ fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '8px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
+              {!isCorrect && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You answered: <strong>{userAnswer ? `${userAnswer}. ${q.options[userAnswer]}` : 'Not answered'}</strong></div>}
+              <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', marginBottom: isCorrect ? 0 : 4 }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
+              {!isCorrect && q.explanation && <div style={{ fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '8px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
             </div>
           </div>
         );
