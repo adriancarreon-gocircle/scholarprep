@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
+import QuestionVisual from '../components/QuestionVisual';
 
 const SUBJECT_CONFIG = {
   mathematics: { label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF', generate: generateMathsQuestions },
@@ -258,6 +259,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
 
       {/* Question card */}
       <div style={{ background: '#fff', borderRadius: 20, padding: 28, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 16px rgba(67,56,202,0.06)' }}>
+        {q?.visual && <QuestionVisual visual={q.visual} />}
         <div style={{ fontSize: 15, fontWeight: 600, color: '#0F172A', lineHeight: 1.7, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>{q?.question}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {q && Object.entries(q.options).map(([letter, text]) => {

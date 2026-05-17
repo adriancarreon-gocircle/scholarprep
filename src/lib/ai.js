@@ -221,8 +221,35 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
 ${focusInstruction}
 ${blueprint}
 
-RULES:
-- Use the question types above as your guide — generate fresh variations of these types${questionTypeFocus ? `\n- ALL questions must be of the focused type: "${questionTypeFocus}"` : '\n- Vary the mix of question types across the questions (don\'t repeat the same type more than 2-3 times)'}
+VISUAL QUESTIONS — for certain question types, include a "visual" field with structured data to render a diagram. Use visuals for these types:
+
+For STATISTICS questions (bar charts, line graphs, pie charts):
+{"visual":{"type":"barchart","title":"Books Read Per Month","data":[{"label":"Jan","value":4},{"label":"Feb","value":7},{"label":"Mar","value":10},{"label":"Apr","value":6}],"yLabel":"Books","color":"#4338CA"}}
+
+{"visual":{"type":"linegraph","title":"Temperature Over a Week","data":[{"label":"Mon","value":18},{"label":"Tue","value":22},{"label":"Wed","value":25},{"label":"Thu","value":20},{"label":"Fri","value":16}],"yLabel":"°C","color":"#059669"}}
+
+{"visual":{"type":"piechart","title":"Favourite Sports","data":[{"label":"Soccer","value":40},{"label":"Cricket","value":25},{"label":"Tennis","value":20},{"label":"Other","value":15}]}}
+
+For GEOMETRY questions (area, perimeter, angles):
+{"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":12,"height":8},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"triangle","title":"Find the area","dimensions":{"base":10,"height":6},"color":"#059669"}}
+{"visual":{"type":"shape","shape":"circle","title":"Find the circumference","dimensions":{"diameter":14,"radius":7},"color":"#F97316"}}
+
+For MONEY questions (Year 1-6):
+{"visual":{"type":"money","title":"How much money is shown?","coins":[{"denom":"$1","count":2},{"denom":"50c","count":1},{"denom":"20c","count":2}],"notes":[]}}
+{"visual":{"type":"money","title":"Count the money","notes":[{"denom":"$10","count":1},{"denom":"$5","count":1}],"coins":[{"denom":"$2","count":1},{"denom":"50c","count":2}]}}
+
+For COUNTING questions (Year 1-4):
+{"visual":{"type":"counting","title":"How many apples are there?","object":"apple","groups":[{"count":5,"showCount":false},{"count":3,"showCount":false}]}}
+{"visual":{"type":"counting","title":"Count the objects in each group","groups":[{"label":"Group A","count":4,"emoji":"⭐","showCount":false},{"label":"Group B","count":7,"emoji":"⭐","showCount":false}]}}
+
+RULES FOR VISUALS:
+- Only add a visual when it genuinely helps the question (statistics, geometry shapes, money, counting)
+- Do NOT add visuals to algebra, number operations, fractions without shapes, or worded time problems
+- Make sure the question text references the visual (e.g. "Using the bar chart above..." or "Look at the shape below...")
+- The correct answer must be determinable from the visual data provided
+
+
 - Difficulty must be appropriate for Year ${yearLevel}
 - All questions must be answerable from text only (no images needed)
 - Each question has exactly 4 options (A, B, C, D), one correct answer, a concise explanation, and a topic tag
@@ -247,7 +274,9 @@ EXPLANATION RULES:
 - Show the key calculation step(s) directly
 - Never second-guess or re-check — be direct and confident
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number"}]}`;
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number","visual":null}]}
+
+For questions with visuals, replace null with the visual object. For questions without visuals, use null or omit the field.`;
 
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);

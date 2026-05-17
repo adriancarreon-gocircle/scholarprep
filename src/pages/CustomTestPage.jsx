@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
+import QuestionVisual from '../components/QuestionVisual';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -770,6 +771,7 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
       {/* Question */}
       {q && (
         <div style={{ background: '#fff', borderRadius: 20, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+          {q.visual && <QuestionVisual visual={q.visual} />}
           <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 18, fontFamily: 'Inter, sans-serif' }}>{q.question}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {Object.entries(q.options).map(([letter, text]) => {
