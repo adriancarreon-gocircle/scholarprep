@@ -230,10 +230,24 @@ For STATISTICS questions (bar charts, line graphs, pie charts):
 
 {"visual":{"type":"piechart","title":"Favourite Sports","data":[{"label":"Soccer","value":40},{"label":"Cricket","value":25},{"label":"Tennis","value":20},{"label":"Other","value":15}]}}
 
-For GEOMETRY questions (area, perimeter, angles):
+For GEOMETRY/PERIMETER questions — vary shapes by year level:
+- Year 1-2: rectangles and squares with labelled sides
+- Year 3-4: triangles with labelled sides, irregular quadrilaterals
+- Year 5-6: compound shapes (L-shape, T-shape) with multiple labelled sides
+- NEVER generate only rectangles — always vary the shape type
+
 {"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":12,"height":8},"color":"#4338CA"}}
 {"visual":{"type":"shape","shape":"triangle","title":"Find the area","dimensions":{"base":10,"height":6},"color":"#059669"}}
-{"visual":{"type":"shape","shape":"circle","title":"Find the circumference","dimensions":{"diameter":14,"radius":7},"color":"#F97316"}}
+{"visual":{"type":"shape","shape":"lshape","title":"Find the perimeter","dimensions":{"parts":[{"label":"6cm","x":80,"y":165},{"label":"4cm","x":258,"y":70},{"label":"3cm","x":170,"y":115},{"label":"2cm","x":135,"y":165},{"label":"3cm","x":40,"y":95},{"label":"4cm","x":120,"y":35}]},"color":"#4338CA"}}
+
+For COUNTING CUBES questions — always include a visual:
+{"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
+
+For THERMOMETER questions — always include a visual:
+{"visual":{"type":"thermometer","title":"What temperature is shown?","value":35,"unit":"C","min":0,"max":50,"color":"#EF4444"}}
+{"visual":{"type":"thermometer","title":"What temperature is shown?","value":98,"unit":"F","min":32,"max":120,"color":"#EF4444"}}
+
+CRITICAL — Chart question text: ALWAYS write "the bar chart ABOVE" or "the chart ABOVE" — NEVER "below", because the visual renders ABOVE the question text.
 
 For MONEY questions (Year 1-6):
 {"visual":{"type":"money","title":"How much money is shown?","coins":[{"denom":"$1","count":2},{"denom":"50c","count":1},{"denom":"20c","count":2}],"notes":[]}}
@@ -332,38 +346,52 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
 
 // ── Generate General Ability Questions ────────────────────────────────────────
 
-export const generateGeneralAbilityQuestions = async (yearLevel, count) => {
+export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
+
+  const focusInstruction = questionTypeFocus
+    ? `\nFOCUS: Generate questions specifically of this type: "${questionTypeFocus}". All ${count} questions must be of this exact type.\n`
+    : '';
+
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+${focusInstruction}
+QUESTION TYPES — use the following from the question bank. CRITICALLY IMPORTANT: vary the mix — do NOT generate all the same type:
 
-QUESTION TYPES — use the following from the question bank:
+Number Patterns — MUST USE A VARIETY of these pattern types, not just +100:
+- Single digit steps: go up by 2,3,4,5,6,7,8,9 (e.g. "25, 32, 39, 46, ___?" goes up by 7; "13, 17, 21, 25, ___?" goes up by 4)
+- Doubling: multiply by 2 each time (e.g. "4, 8, 16, 32, ___?")
+- Tripling: multiply by 3 each time (e.g. "4, 12, 36, 108, ___?")
+- Up and down: alternating add and subtract (e.g. "3, 6, 5, 8, 7, 10, ___?" goes +3,-1,+3,-1; "2, 5, 4, 7, 6, 9, ___?")
+- Fibonacci-style: add previous two numbers (e.g. "1, 1, 2, 3, 5, 8, ___?")
+- Subtract steps: go down by 3,4,5,6,7 (e.g. "50, 44, 38, 32, ___?" goes down by 6)
+- Fill in missing: "436, 438, ___, 442, ___, 446" (goes up by 2)
+- Hundreds/thousands only when mixing with other types
 
-Number Patterns (vary these):
-- Count on by ones, twos, fives, tens, hundreds, thousands (e.g. "525, 526, 527, ___?")
-- Count on by tens (e.g. "717, 727, 737, ___?")
-- Count on by hundreds (e.g. "380, 480, 580, ___?")
-- Fill in missing numbers (e.g. "436, 438, ___, 442, ___, 446")
-- Complex patterns up to 100,000 (e.g. "30,800, 40,800, 50,800, ___?")
-- Patterns that go up or down by different amounts
+STRICT RULE: If generating ${count} pattern questions, use AT LEAST 3 different pattern types above. Never generate more than 2 questions with the same pattern type (e.g. never 3 +100 questions in a row).
 
 Verbal Reasoning (vary these):
 - Word analogies (e.g. "Hot is to cold as day is to ___?")
 - Odd one out from a list of words
 - Word relationships (e.g. "Doctor is to hospital as teacher is to ___?")
+- Synonyms (e.g. "What word means the same as 'large'?")
+- Antonyms (e.g. "What is the opposite of 'brave'?")
 - Letter patterns (e.g. "A, C, E, G, ___?")
 
 Logic Problems:
-- Simple deduction (e.g. "All cats are animals. Fluffy is a cat. Is Fluffy an animal?")
-- Coding (e.g. "If A=1, B=2, C=3, what word is represented by 8-5-12-12-15?")
-- Logic grids (e.g. "Tom is taller than Sam. Sam is taller than Ben. Who is shortest?")
+- Draw conclusions (e.g. "All boys play soccer. Sam is a boy. What can we conclude?")
+- Coding (e.g. "If A=1, B=2, C=3, what word is 8-5-12-12-15?")
+- Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
+- Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
 
 TOPIC TAGS — assign exactly one:
 - "sequences" — number sequences and patterns
 - "analogies" — word analogies and relationships
 - "letters" — letter patterns and sequences
 - "oddoneout" — odd one out
-- "logic" — logic problems and deduction
+- "logic" — logic problems, deduction, ordering, find info
 - "coding" — coding and decoding
+- "synonyms" — synonyms
+- "antonyms" — antonyms
 
 EXPLANATION RULES:
 - State the pattern or rule clearly in 1-2 sentences

@@ -235,19 +235,19 @@ function MoneyVisual({ visual }) {
   const { coins = [], notes = [], title } = visual;
 
   const COIN_STYLES = {
-    '5c':   { r: 18, fill: '#C0C0C0', stroke: '#999', label: '5c' },
-    '10c':  { r: 18, fill: '#C0C0C0', stroke: '#999', label: '10c' },
-    '20c':  { r: 21, fill: '#C0C0C0', stroke: '#999', label: '20c' },
-    '50c':  { r: 24, fill: '#C0C0C0', stroke: '#999', label: '50c' },
-    '$1':   { r: 22, fill: '#DAA520', stroke: '#B8860B', label: '$1' },
-    '$2':   { r: 20, fill: '#DAA520', stroke: '#B8860B', label: '$2' },
+    '5c': { r: 18, fill: '#C0C0C0', stroke: '#999', label: '5c' },
+    '10c': { r: 18, fill: '#C0C0C0', stroke: '#999', label: '10c' },
+    '20c': { r: 21, fill: '#C0C0C0', stroke: '#999', label: '20c' },
+    '50c': { r: 24, fill: '#C0C0C0', stroke: '#999', label: '50c' },
+    '$1': { r: 22, fill: '#DAA520', stroke: '#B8860B', label: '$1' },
+    '$2': { r: 20, fill: '#DAA520', stroke: '#B8860B', label: '$2' },
   };
 
   const NOTE_STYLES = {
-    '$5':   { fill: '#C8E6C9', stroke: '#66BB6A', label: '$5' },
-    '$10':  { fill: '#B3E5FC', stroke: '#29B6F6', label: '$10' },
-    '$20':  { fill: '#FFF9C4', stroke: '#FDD835', label: '$20' },
-    '$50':  { fill: '#FFCCBC', stroke: '#FF7043', label: '$50' },
+    '$5': { fill: '#C8E6C9', stroke: '#66BB6A', label: '$5' },
+    '$10': { fill: '#B3E5FC', stroke: '#29B6F6', label: '$10' },
+    '$20': { fill: '#FFF9C4', stroke: '#FDD835', label: '$20' },
+    '$50': { fill: '#FFCCBC', stroke: '#FF7043', label: '$50' },
     '$100': { fill: '#E1BEE7', stroke: '#AB47BC', label: '$100' },
   };
 
@@ -365,19 +365,179 @@ function NumberLine({ visual }) {
   );
 }
 
-// ── Main Export ───────────────────────────────────────────────────────────────
+// ── Thermometer ───────────────────────────────────────────────────────────────
+
+function Thermometer({ visual }) {
+  const { value, unit = 'C', min = 0, max = 50, title, color = '#EF4444' } = visual;
+  const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const bulbY = 160;
+  const tubeTop = 20;
+  const tubeH = bulbY - tubeTop - 10;
+  const fillH = pct * tubeH;
+  const fillY = bulbY - 10 - fillH;
+
+  // Generate tick marks
+  const ticks = [];
+  const tickCount = 10;
+  for (let i = 0; i <= tickCount; i++) {
+    const tickVal = min + (i / tickCount) * (max - min);
+    const tickY = bulbY - 10 - (i / tickCount) * tubeH;
+    const isMajor = i % 2 === 0;
+    ticks.push({ val: Math.round(tickVal), y: tickY, major: isMajor });
+  }
+
+  return (
+    <div style={{ background: '#FFF5F5', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(239,68,68,0.15)', textAlign: 'center' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>{title}</div>}
+      <svg width={120} height={190} viewBox="0 0 120 190" style={{ display: 'block', margin: '0 auto' }}>
+        {/* Tube outline */}
+        <rect x={52} y={tubeTop} width={16} height={tubeH + 10} rx={8} fill="#fff" stroke="#CBD5E1" strokeWidth={2} />
+        {/* Mercury fill */}
+        <rect x={56} y={fillY} width={8} height={fillH} rx={2} fill={color} />
+        {/* Bulb */}
+        <circle cx={60} cy={bulbY + 10} r={14} fill={color} stroke={color} strokeWidth={2} />
+        {/* Tick marks */}
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={t.major ? 40 : 44} y1={t.y} x2={52} y2={t.y} stroke="#94A3B8" strokeWidth={t.major ? 1.5 : 1} />
+            {t.major && <text x={36} y={t.y + 4} fontSize={10} fill="#374151" textAnchor="end" fontFamily="Inter, sans-serif">{t.val}°</text>}
+          </g>
+        ))}
+        {/* Unit label */}
+        <text x={80} y={30} fontSize={13} fontWeight="700" fill={color} fontFamily="Inter, sans-serif">{unit === 'C' ? '°C' : '°F'}</text>
+      </svg>
+    </div>
+  );
+}
+
+// ── 3D Cubes ──────────────────────────────────────────────────────────────────
+
+function CubesVisual({ visual }) {
+  const { dimensions = {}, title, color = '#4338CA' } = visual;
+  const { length = 3, width = 2, height = 2 } = dimensions;
+
+  // Isometric cube drawing
+  const cubeW = 28;
+  const cubeH = 16;
+  const isoX = cubeW;
+  const isoY = cubeH;
+
+  const darkColor = color;
+  const midColor = color + 'CC';
+  const lightColor = color + '66';
+
+  // Calculate total grid size
+  const totalW = (length + width) * (cubeW / 2) + 40;
+  const totalH = (length + width) * (cubeH / 2) + height * cubeH + 40;
+
+  // Draw a single isometric cube at grid position
+  const drawCube = (gx, gy, gz) => {
+    const ox = 20 + (gx - gy) * (cubeW / 2) + width * (cubeW / 2);
+    const oy = totalH - 20 - gz * cubeH - (gx + gy) * (cubeH / 2);
+
+    const topPoints = [
+      [ox, oy - cubeH / 2],
+      [ox + cubeW / 2, oy],
+      [ox, oy + cubeH / 2],
+      [ox - cubeW / 2, oy],
+    ].map(p => p.join(',')).join(' ');
+
+    const rightPoints = [
+      [ox, oy + cubeH / 2],
+      [ox + cubeW / 2, oy],
+      [ox + cubeW / 2, oy + cubeH],
+      [ox, oy + cubeH * 1.5],
+    ].map(p => p.join(',')).join(' ');
+
+    const leftPoints = [
+      [ox, oy + cubeH / 2],
+      [ox - cubeW / 2, oy],
+      [ox - cubeW / 2, oy + cubeH],
+      [ox, oy + cubeH * 1.5],
+    ].map(p => p.join(',')).join(' ');
+
+    return (
+      <g key={`${gx}-${gy}-${gz}`}>
+        <polygon points={leftPoints} fill={lightColor} stroke="#fff" strokeWidth={1} />
+        <polygon points={rightPoints} fill={midColor} stroke="#fff" strokeWidth={1} />
+        <polygon points={topPoints} fill={darkColor} stroke="#fff" strokeWidth={1} />
+      </g>
+    );
+  };
+
+  const cubes = [];
+  for (let z = 0; z < height; z++) {
+    for (let x = 0; x < length; x++) {
+      for (let y = 0; y < width; y++) {
+        cubes.push(drawCube(x, y, z));
+      }
+    }
+  }
+
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)', textAlign: 'center' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>{title}</div>}
+      <svg width="100%" viewBox={`0 0 ${totalW} ${totalH}`} style={{ maxWidth: 320, display: 'block', margin: '0 auto', overflow: 'visible' }}>
+        {cubes}
+      </svg>
+      <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 4 }}>
+        Length: {length} · Width: {width} · Height: {height}
+      </div>
+    </div>
+  );
+}
+
+// ── L-Shape / Compound Shape ──────────────────────────────────────────────────
+
+function LShape({ visual }) {
+  const { dimensions = {}, title, color = '#4338CA' } = visual;
+  const { parts = [] } = dimensions;
+
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{title}</div>}
+      <svg width="100%" viewBox="0 0 280 180" style={{ maxWidth: 320, display: 'block', margin: '0 auto' }}>
+        {/* L-shape */}
+        <polygon points="40,20 200,20 200,90 130,90 130,160 40,160" fill={`${color}15`} stroke={color} strokeWidth={2.5} />
+        {/* Right angle markers */}
+        <polyline points="200,78 188,78 188,90" fill="none" stroke={color} strokeWidth={1.5} />
+        <polyline points="118,90 118,102 130,102" fill="none" stroke={color} strokeWidth={1.5} />
+        <polyline points="40,148 52,148 52,160" fill="none" stroke={color} strokeWidth={1.5} />
+        <polyline points="40,32 52,32 52,20" fill="none" stroke={color} strokeWidth={1.5} />
+        {/* Labels */}
+        {parts.map((p, i) => (
+          <text key={i} x={p.x} y={p.y} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">{p.label}</text>
+        ))}
+        {/* Default labels if none provided */}
+        {parts.length === 0 && <>
+          <text x={120} y={12} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">8cm</text>
+          <text x={210} y={55} fontSize={12} fontWeight="700" fill={color} textAnchor="start" fontFamily="Inter, sans-serif">4cm</text>
+          <text x={168} y={105} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">4cm</text>
+          <text x={120} y={135} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">3cm</text>
+          <text x={28} y={95} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif" transform="rotate(-90,28,95)">8cm</text>
+          <text x={145} y={130} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif" transform="rotate(-90,145,130)">4cm</text>
+        </>}
+      </svg>
+    </div>
+  );
+}
+
+
 
 export default function QuestionVisual({ visual }) {
   if (!visual || !visual.type) return null;
 
   switch (visual.type) {
-    case 'barchart':     return <BarChart visual={visual} />;
-    case 'linegraph':    return <LineGraph visual={visual} />;
-    case 'piechart':     return <PieChart visual={visual} />;
-    case 'shape':        return <ShapeDiagram visual={visual} />;
-    case 'money':        return <MoneyVisual visual={visual} />;
-    case 'counting':     return <CountingObjects visual={visual} />;
-    case 'numberline':   return <NumberLine visual={visual} />;
-    default:             return null;
+    case 'barchart': return <BarChart visual={visual} />;
+    case 'linegraph': return <LineGraph visual={visual} />;
+    case 'piechart': return <PieChart visual={visual} />;
+    case 'shape': return <ShapeDiagram visual={visual} />;
+    case 'lshape': return <LShape visual={visual} />;
+    case 'money': return <MoneyVisual visual={visual} />;
+    case 'counting': return <CountingObjects visual={visual} />;
+    case 'numberline': return <NumberLine visual={visual} />;
+    case 'thermometer': return <Thermometer visual={visual} />;
+    case 'cubes': return <CubesVisual visual={visual} />;
+    default: return null;
   }
 }

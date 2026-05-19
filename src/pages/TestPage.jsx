@@ -53,11 +53,45 @@ function PauseOverlay({ onResume, color }) {
 }
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
+// Topic data for SetupScreen topic picker (Maths and GA only — reading uses passages)
+const TOPIC_PICKER = {
+  mathematics: [
+    { key: 'number', label: 'Numbers' }, { key: 'addition', label: 'Addition' },
+    { key: 'subtraction', label: 'Subtraction' }, { key: 'multiplication', label: 'Multiplication' },
+    { key: 'division', label: 'Division' }, { key: 'fractions', label: 'Fractions' },
+    { key: 'decimal', label: 'Decimals' }, { key: 'percentage', label: 'Percentages' },
+    { key: 'conversion', label: 'Conversion' }, { key: 'money', label: 'Money' },
+    { key: 'time', label: 'Time' }, { key: 'length', label: 'Length' },
+    { key: 'volume', label: 'Volume & Weight' }, { key: 'perimeter', label: 'Perimeter' },
+    { key: 'area', label: 'Area' }, { key: 'angles', label: 'Angles' },
+    { key: 'factors', label: 'Factors & Multiples' }, { key: 'rate', label: 'Rates' },
+    { key: 'average', label: 'Averages' }, { key: 'circle', label: 'Circles' },
+    { key: 'charts', label: 'Charts & Data' }, { key: 'algebra', label: 'Algebra' },
+    { key: 'geometry', label: 'Shapes' },
+  ],
+  general: [
+    { key: 'sequences', label: 'Number Patterns' }, { key: 'analogies', label: 'Word Analogies' },
+    { key: 'oddoneout', label: 'Odd One Out' }, { key: 'letters', label: 'Letter Patterns' },
+    { key: 'logic', label: 'Logic & Reasoning' }, { key: 'coding', label: 'Coding' },
+    { key: 'synonyms', label: 'Synonyms' }, { key: 'antonyms', label: 'Antonyms' },
+  ],
+  reading: [],
+};
+
 function SetupScreen({ subject, yearLevel, onStart }) {
   const [qCount, setQCount] = useState(10);
   const [timer, setTimer] = useState(0);
   const [reviewMode, setReviewMode] = useState('each');
+  const [showTopicPicker, setShowTopicPicker] = useState(false);
+  const [topicCounts, setTopicCounts] = useState({});
   const cfg = SUBJECT_CONFIG[subject];
+  const topics = TOPIC_PICKER[subject] || [];
+
+  const topicTotal = Object.values(topicCounts).reduce((s, n) => s + n, 0);
+  const usingTopics = topicTotal > 0;
+  const effectiveCount = usingTopics ? topicTotal : qCount;
+
+  const setTopicCount = (key, count) => setTopicCounts(p => ({ ...p, [key]: Math.max(0, count) }));
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>
@@ -67,22 +101,68 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         <div style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, DM Sans, sans-serif' }}>Fresh questions · Year {yearLevel} level</div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Number of questions</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[5, 10, 15, 20, 30].map(n => (
-            <button key={n} onClick={() => setQCount(n)} style={{
-              padding: '9px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              background: qCount === n ? cfg.color : '#F8F9FF',
-              color: qCount === n ? '#fff' : '#64748B',
-              border: qCount === n ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
-              transition: 'all 0.15s',
-              boxShadow: qCount === n ? `0 4px 12px ${cfg.color}40` : 'none',
-              fontFamily: 'Inter, sans-serif',
-            }}>{n}</button>
-          ))}
+      {/* Number of questions — only shown when not using topic picker */}
+      {!usingTopics && (
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Number of questions</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[5, 10, 15, 20, 30].map(n => (
+              <button key={n} onClick={() => setQCount(n)} style={{
+                padding: '9px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                background: qCount === n ? cfg.color : '#F8F9FF',
+                color: qCount === n ? '#fff' : '#64748B',
+                border: qCount === n ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
+                transition: 'all 0.15s',
+                boxShadow: qCount === n ? `0 4px 12px ${cfg.color}40` : 'none',
+                fontFamily: 'Inter, sans-serif',
+              }}>{n}</button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Topic picker — for Maths and GA */}
+      {topics.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: `1px solid ${showTopicPicker ? cfg.color + '40' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTopicPicker ? 16 : 0 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Pick specific topics</div>
+              {usingTopics && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>}
+              {!usingTopics && !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or use random mix above</div>}
+            </div>
+            <button
+              onClick={() => setShowTopicPicker(p => !p)}
+              style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showTopicPicker ? cfg.lightBg : '#F8F9FF', color: showTopicPicker ? cfg.color : '#64748B', border: `1.5px solid ${showTopicPicker ? cfg.color : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+            >
+              {showTopicPicker ? '▲ Hide' : '▼ Choose topics'}
+            </button>
+          </div>
+          {showTopicPicker && (
+            <div>
+              {usingTopics && (
+                <button onClick={() => setTopicCounts({})} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>
+                  ✕ Clear all topics
+                </button>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {topics.map(t => {
+                  const count = topicCounts[t.key] || 0;
+                  return (
+                    <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid #F8FAFC' }}>
+                      <span style={{ fontSize: 13, fontWeight: count > 0 ? 700 : 500, color: count > 0 ? cfg.color : '#374151', fontFamily: 'Inter, sans-serif' }}>{t.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button onClick={() => setTopicCount(t.key, count - 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? cfg.color : '#94A3B8', minWidth: 22, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
+                        <button onClick={() => setTopicCount(t.key, count + 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Time limit</div>
@@ -122,7 +202,7 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         </div>
       </div>
 
-      <button onClick={() => onStart(qCount, timer, reviewMode)} style={{
+      <button onClick={() => onStart(effectiveCount, timer, reviewMode, usingTopics ? topicCounts : null)} style={{
         width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
         background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
         boxShadow: '0 4px 20px rgba(67,56,202,0.3)', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
@@ -370,12 +450,30 @@ export default function TestPage({ subject }) {
   const [reviewMode, setReviewMode] = useState('each');
   const cfg = SUBJECT_CONFIG[subject];
 
-  const handleStart = async (count, timer, mode) => {
+  const handleStart = async (count, timer, mode, topicCounts) => {
     setPhase('loading'); setError(''); setTimerSecs(timer); setReviewMode(mode);
     try {
-      const data = await cfg.generate(yearLevel, count);
+      let data;
+      if (topicCounts && Object.keys(topicCounts).length > 0) {
+        // Topic-specific generation — generate per topic and combine
+        const allQs = [];
+        for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
+          if (!topicCount) continue;
+          const focusLabel = `${topicKey} topic — ${topicCount} questions, vary the question types`;
+          if (subject === 'mathematics') {
+            const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
+            allQs.push(...qs.map(q => ({ ...q, topic: topicKey })));
+          } else if (subject === 'general') {
+            const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
+            allQs.push(...qs.map(q => ({ ...q, topic: topicKey })));
+          }
+        }
+        data = allQs;
+      } else {
+        data = await cfg.generate(yearLevel, count);
+      }
       if (subject === 'reading') { setPassage(data.passage); setQuestions(data.questions); }
-      else setQuestions(data);
+      else setQuestions(Array.isArray(data) ? data : []);
       setPhase('quiz');
     } catch (e) {
       setError('Failed to generate questions. Please check your connection and try again.');
