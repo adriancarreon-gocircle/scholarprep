@@ -189,6 +189,8 @@ export default function WritingPage() {
   const [error, setError] = useState('');
   const [timerOn, setTimerOn] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [selectedTheme, setSelectedTheme] = useState('');
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showIdealDialog, setShowIdealDialog] = useState(false);
   const timerRef = useRef(null);
   const fileRef = useRef(null);
@@ -196,7 +198,7 @@ export default function WritingPage() {
   const handleGetPrompt = async () => {
     setLoading(true); setError('');
     try {
-      const p = await generateWritingPrompt(type, yearLevel);
+      const p = await generateWritingPrompt(type, yearLevel, selectedTheme || null);
       setPrompt(p); setPhase('writing'); setResponse('');
     } catch (e) {
       setError('Failed to generate prompt. Please try again.');
@@ -326,6 +328,37 @@ export default function WritingPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Writing theme picker */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? 'rgba(67,56,202,0.3)' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showThemePicker ? 14 : 0 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Choose a theme</div>
+                  {selectedTheme
+                    ? <div style={{ fontSize: 12, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>
+                    : <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or let it pick a random theme</div>}
+                </div>
+                <button onClick={() => setShowThemePicker(p => !p)} style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showThemePicker ? '#EEF2FF' : '#F8F9FF', color: showThemePicker ? '#4338CA' : '#64748B', border: `1.5px solid ${showThemePicker ? '#4338CA' : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  {showThemePicker ? '▲ Hide' : '▼ Choose'}
+                </button>
+              </div>
+              {showThemePicker && (
+                <div>
+                  {selectedTheme && <button onClick={() => setSelectedTheme('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>✕ Clear theme</button>}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {['Environment', 'Science', 'Technology', 'Community & Social', 'History & Adventure', 'Sport & Competition', 'Friendship & Belonging', 'Animals & Nature', 'Mystery & Imagination', 'Travel & Discovery'].map(theme => (
+                      <button key={theme} onClick={() => { setSelectedTheme(theme === selectedTheme ? '' : theme); }} style={{
+                        padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        background: selectedTheme === theme ? '#EEF2FF' : '#F8F9FF',
+                        color: selectedTheme === theme ? '#4338CA' : '#64748B',
+                        border: `1.5px solid ${selectedTheme === theme ? '#4338CA' : 'rgba(67,56,202,0.1)'}`,
+                        fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                      }}>{theme}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ background: '#EEF2FF', borderRadius: 14, padding: 18, marginBottom: 24, border: '1px solid rgba(67,56,202,0.1)' }}>

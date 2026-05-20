@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
 import QuestionVisual from '../components/QuestionVisual';
@@ -56,18 +56,32 @@ function PauseOverlay({ onResume, color }) {
 // Topic data for SetupScreen topic picker (Maths and GA only — reading uses passages)
 const TOPIC_PICKER = {
   mathematics: [
-    { key: 'number', label: 'Numbers' }, { key: 'addition', label: 'Addition' },
-    { key: 'subtraction', label: 'Subtraction' }, { key: 'multiplication', label: 'Multiplication' },
-    { key: 'division', label: 'Division' }, { key: 'fractions', label: 'Fractions' },
-    { key: 'decimal', label: 'Decimals' }, { key: 'percentage', label: 'Percentages' },
-    { key: 'conversion', label: 'Conversion' }, { key: 'money', label: 'Money' },
-    { key: 'time', label: 'Time' }, { key: 'length', label: 'Length' },
-    { key: 'volume', label: 'Volume & Weight' }, { key: 'perimeter', label: 'Perimeter' },
-    { key: 'area', label: 'Area' }, { key: 'angles', label: 'Angles' },
-    { key: 'factors', label: 'Factors & Multiples' }, { key: 'rate', label: 'Rates' },
-    { key: 'average', label: 'Averages' }, { key: 'circle', label: 'Circles' },
-    { key: 'charts', label: 'Charts & Data' }, { key: 'algebra', label: 'Algebra' },
-    { key: 'geometry', label: 'Shapes' },
+    { key: 'number', label: 'Numbers & Counting' },
+    { key: 'addition', label: 'Addition' },
+    { key: 'addworded', label: 'Worded Addition' },
+    { key: 'subtraction', label: 'Subtraction' },
+    { key: 'subworded', label: 'Worded Subtraction' },
+    { key: 'multiplication', label: 'Multiplication' },
+    { key: 'multiworded', label: 'Worded Multiplication' },
+    { key: 'division', label: 'Division' },
+    { key: 'fractions', label: 'Fractions' },
+    { key: 'decimal', label: 'Decimals' },
+    { key: 'percentage', label: 'Percentages' },
+    { key: 'conversion', label: 'Conversion' },
+    { key: 'money', label: 'Money' },
+    { key: 'time', label: 'Time' },
+    { key: 'length', label: 'Length' },
+    { key: 'volume', label: 'Volume & Weight' },
+    { key: 'perimeter', label: 'Perimeter' },
+    { key: 'area', label: 'Area' },
+    { key: 'angles', label: 'Angles' },
+    { key: 'factors', label: 'Factors & Multiples' },
+    { key: 'rate', label: 'Rates' },
+    { key: 'average', label: 'Averages' },
+    { key: 'circle', label: 'Circles' },
+    { key: 'charts', label: 'Charts & Data' },
+    { key: 'algebra', label: 'Algebra' },
+    { key: 'geometry', label: 'Shapes (2D & 3D)' },
   ],
   general: [
     { key: 'sequences', label: 'Number Patterns' }, { key: 'analogies', label: 'Word Analogies' },
@@ -75,7 +89,18 @@ const TOPIC_PICKER = {
     { key: 'logic', label: 'Logic & Reasoning' }, { key: 'coding', label: 'Coding' },
     { key: 'synonyms', label: 'Synonyms' }, { key: 'antonyms', label: 'Antonyms' },
   ],
-  reading: [],
+  reading: [
+    { key: 'Environment', label: 'Environment' },
+    { key: 'Science', label: 'Science' },
+    { key: 'Technology', label: 'Technology' },
+    { key: 'Social Studies', label: 'Social Studies' },
+    { key: 'Poetry', label: 'Poetry' },
+    { key: 'History', label: 'History' },
+    { key: 'Fiction / Narrative', label: 'Fiction / Narrative' },
+    { key: 'Geography', label: 'Geography' },
+    { key: 'Sports', label: 'Sports' },
+    { key: 'Arts', label: 'Arts' },
+  ],
 };
 
 function SetupScreen({ subject, yearLevel, onStart }) {
@@ -121,44 +146,66 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         </div>
       )}
 
-      {/* Topic picker — for Maths and GA */}
+      {/* Topic picker — for Maths, GA, and Reading */}
       {topics.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: `1px solid ${showTopicPicker ? cfg.color + '40' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTopicPicker ? 16 : 0 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Pick specific topics</div>
-              {usingTopics && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>}
-              {!usingTopics && !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or use random mix above</div>}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>
+                {subject === 'reading' ? 'Choose passage theme' : 'Pick specific topics'}
+              </div>
+              {usingTopics && subject !== 'reading' && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>}
+              {usingTopics && subject === 'reading' && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{Object.keys(topicCounts).filter(k => topicCounts[k] > 0).length} theme(s) selected</div>}
+              {!usingTopics && !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>{subject === 'reading' ? 'Optional — or let it pick a random theme' : 'Optional — or use random mix above'}</div>}
             </div>
             <button
               onClick={() => setShowTopicPicker(p => !p)}
               style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showTopicPicker ? cfg.lightBg : '#F8F9FF', color: showTopicPicker ? cfg.color : '#64748B', border: `1.5px solid ${showTopicPicker ? cfg.color : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
             >
-              {showTopicPicker ? '▲ Hide' : '▼ Choose topics'}
+              {showTopicPicker ? '▲ Hide' : '▼ Choose'}
             </button>
           </div>
           {showTopicPicker && (
             <div>
               {usingTopics && (
                 <button onClick={() => setTopicCounts({})} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>
-                  ✕ Clear all topics
+                  ✕ Clear selection
                 </button>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {topics.map(t => {
-                  const count = topicCounts[t.key] || 0;
-                  return (
-                    <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid #F8FAFC' }}>
-                      <span style={{ fontSize: 13, fontWeight: count > 0 ? 700 : 500, color: count > 0 ? cfg.color : '#374151', fontFamily: 'Inter, sans-serif' }}>{t.label}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <button onClick={() => setTopicCount(t.key, count - 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? cfg.color : '#94A3B8', minWidth: 22, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
-                        <button onClick={() => setTopicCount(t.key, count + 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              {subject === 'reading' ? (
+                /* Reading — single-select theme (radio style) */
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {topics.map(t => {
+                    const isSelected = topicCounts[t.key] > 0;
+                    return (
+                      <button key={t.key} onClick={() => setTopicCounts(isSelected ? {} : { [t.key]: 1 })} style={{
+                        padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        background: isSelected ? cfg.lightBg : '#F8F9FF',
+                        color: isSelected ? cfg.color : '#64748B',
+                        border: `1.5px solid ${isSelected ? cfg.color : 'rgba(67,56,202,0.1)'}`,
+                        fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                      }}>{t.label}</button>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Maths / GA — numeric +/- per topic */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {topics.map(t => {
+                    const count = topicCounts[t.key] || 0;
+                    return (
+                      <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid #F8FAFC' }}>
+                        <span style={{ fontSize: 13, fontWeight: count > 0 ? 700 : 500, color: count > 0 ? cfg.color : '#374151', fontFamily: 'Inter, sans-serif' }}>{t.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button onClick={() => setTopicCount(t.key, count - 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? cfg.color : '#94A3B8', minWidth: 22, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
+                          <button onClick={() => setTopicCount(t.key, count + 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -393,7 +440,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
 }
 
 // ── Results Screen ────────────────────────────────────────────────────────────
-function ResultsScreen({ subject, questions, selected, result, onRetry }) {
+function ResultsScreen({ subject, questions, selected, result, onRetry, onHome, onNewTest }) {
   const cfg = SUBJECT_CONFIG[subject];
   const pct = result.score;
   const msg = pct >= 80 ? 'Excellent work! 🌟' : pct >= 60 ? 'Good effort! 👍' : 'Keep practising! 💪';
@@ -413,23 +460,29 @@ function ResultsScreen({ subject, questions, selected, result, onRetry }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const userAnswer = selected[i];
-        const correct = userAnswer === q.correct;
+        const isCorrectAnswer = userAnswer === q.correct;
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 10, border: '1px solid rgba(67,56,202,0.06)', display: 'flex', gap: 14, boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: correct ? '#ECFDF5' : '#FFF1F2', color: correct ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>{correct ? '✓' : '✗'}</div>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: isCorrectAnswer ? '#ECFDF5' : '#FFF1F2', color: isCorrectAnswer ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>{isCorrectAnswer ? '✓' : '✗'}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: '#0F172A', marginBottom: 6, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
-              {!correct && <div style={{ fontSize: 13, color: '#BE123C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>You answered: <strong>{userAnswer ? `${userAnswer}. ${q.options[userAnswer]}` : 'Not answered'}</strong></div>}
+              {!isCorrectAnswer && <div style={{ fontSize: 13, color: '#BE123C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>You answered: <strong>{userAnswer ? `${userAnswer}. ${q.options[userAnswer]}` : 'Not answered'}</strong></div>}
               <div style={{ fontSize: 13, color: '#059669', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
-              {!correct && <div style={{ fontSize: 13, color: '#64748B', background: '#EEF2FF', padding: '10px 14px', borderRadius: 10, lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
+              {!isCorrectAnswer && <div style={{ fontSize: 13, color: '#64748B', background: '#EEF2FF', padding: '10px 14px', borderRadius: 10, lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
             </div>
           </div>
         );
       })}
 
       <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-        <button onClick={onRetry} style={{ flex: 1, padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)' }}>
-          Try another test →
+        <button onClick={onHome} style={{ flex: 1, padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 600, background: '#F1F5F9', color: '#374151', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          🏠 Home
+        </button>
+        <button onClick={onNewTest} style={{ flex: 1, padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          New test
+        </button>
+        <button onClick={onRetry} style={{ flex: 2, padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)' }}>
+          Try again →
         </button>
       </div>
     </div>
@@ -440,9 +493,21 @@ function ResultsScreen({ subject, questions, selected, result, onRetry }) {
 export default function TestPage({ subject }) {
   const { yearLevel, hasAccess, isSubscribed, trialDaysLeft } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [phase, setPhase] = useState('setup');
   const [questions, setQuestions] = useState([]);
   const [passage, setPassage] = useState(null);
+
+  // Reset to setup when navigating to any page (including same subject re-click)
+  // location.key changes on every navigation, even same-path clicks
+  useEffect(() => {
+    setPhase('setup');
+    setQuestions([]);
+    setPassage(null);
+    setResult(null);
+    setSelected({});
+    setError('');
+  }, [location.key]);
   const [timerSecs, setTimerSecs] = useState(0);
   const [result, setResult] = useState(null);
   const [selected, setSelected] = useState({});
@@ -455,20 +520,21 @@ export default function TestPage({ subject }) {
     try {
       let data;
       if (topicCounts && Object.keys(topicCounts).length > 0) {
-        // Topic-specific generation — generate per topic and combine
-        const allQs = [];
-        for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
-          if (!topicCount) continue;
-          const focusLabel = `${topicKey} topic — ${topicCount} questions, vary the question types`;
-          if (subject === 'mathematics') {
+        if (subject === 'reading') {
+          // Single selected theme for reading
+          const selectedTheme = Object.keys(topicCounts).find(k => topicCounts[k] > 0);
+          data = await cfg.generate(yearLevel, count, selectedTheme);
+        } else {
+          // Topic-specific generation for maths/GA — generate per topic and combine
+          const allQs = [];
+          for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
+            if (!topicCount) continue;
+            const focusLabel = `${topicKey} — ${topicCount} questions, vary the question types`;
             const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
-            allQs.push(...qs.map(q => ({ ...q, topic: topicKey })));
-          } else if (subject === 'general') {
-            const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
-            allQs.push(...qs.map(q => ({ ...q, topic: topicKey })));
+            allQs.push(...(Array.isArray(qs) ? qs : qs.questions || []).map(q => ({ ...q, topic: topicKey })));
           }
+          data = allQs;
         }
-        data = allQs;
       } else {
         data = await cfg.generate(yearLevel, count);
       }
@@ -482,7 +548,9 @@ export default function TestPage({ subject }) {
   };
 
   const handleFinish = (result, sel) => { setResult(result); setSelected(sel); setPhase('results'); };
-  const handleRetry = () => { setPhase('setup'); setQuestions([]); setPassage(null); setResult(null); setSelected({}); };
+  const handleRetry = () => { setPhase('quiz'); setResult(null); setSelected({}); };
+  const handleNewTest = () => { setPhase('setup'); setQuestions([]); setPassage(null); setResult(null); setSelected({}); };
+  const handleHome = () => { navigate('/app'); };
   const handleExit = () => { setPhase('setup'); setQuestions([]); setPassage(null); setResult(null); setSelected({}); };
 
   return (
@@ -533,7 +601,7 @@ export default function TestPage({ subject }) {
           onFinish={handleFinish} onExit={handleExit}
         />
       )}
-      {hasAccess && phase === 'results' && <ResultsScreen subject={subject} questions={questions} selected={selected} result={result} onRetry={handleRetry} />}
+      {hasAccess && phase === 'results' && <ResultsScreen subject={subject} questions={questions} selected={selected} result={result} onRetry={handleRetry} onHome={handleHome} onNewTest={handleNewTest} />}
     </div>
   );
 }

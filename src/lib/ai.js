@@ -238,7 +238,8 @@ For GEOMETRY/PERIMETER questions — vary shapes by year level:
 
 {"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":12,"height":8},"color":"#4338CA"}}
 {"visual":{"type":"shape","shape":"triangle","title":"Find the area","dimensions":{"base":10,"height":6},"color":"#059669"}}
-{"visual":{"type":"shape","shape":"lshape","title":"Find the perimeter","dimensions":{"parts":[{"label":"6cm","x":80,"y":165},{"label":"4cm","x":258,"y":70},{"label":"3cm","x":170,"y":115},{"label":"2cm","x":135,"y":165},{"label":"3cm","x":40,"y":95},{"label":"4cm","x":120,"y":35}]},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"quadrilateral","title":"Find the perimeter","dimensions":{"sides":[10,7,8,5]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"parts":[{"label":"6cm","x":80,"y":165},{"label":"4cm","x":258,"y":70},{"label":"3cm","x":170,"y":115},{"label":"2cm","x":135,"y":165},{"label":"3cm","x":40,"y":95},{"label":"4cm","x":120,"y":35}]},"color":"#4338CA"}}
 
 For COUNTING CUBES questions — always include a visual:
 {"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
@@ -314,9 +315,11 @@ const READING_THEMES = [
   'Arts (e.g. music, painting, dance, theatre, a famous artist or performer)',
 ];
 
-export const generateReadingQuestions = async (yearLevel, count) => {
-  // Pick a random theme each call so passages always vary
-  const theme = READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
+export const generateReadingQuestions = async (yearLevel, count, themeOverride) => {
+  // Use the provided theme or pick a random one
+  const theme = themeOverride
+    ? READING_THEMES.find(t => t.startsWith(themeOverride)) || themeOverride
+    : READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
 
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
   const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
@@ -417,9 +420,11 @@ const WRITING_THEMES = [
   { theme: 'Travel & Discovery', narrative: 'a story about an exciting journey, exploring a new place, or making an unexpected discovery', persuasive: 'argue for or against travel, cultural exchange, or studying overseas' },
 ];
 
-export const generateWritingPrompt = async (type, yearLevel) => {
-  // Pick a random theme each call so writing prompts always vary
-  const themeObj = WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
+export const generateWritingPrompt = async (type, yearLevel, themeOverride) => {
+  // Use override theme if provided, otherwise pick a random one
+  const themeObj = themeOverride
+    ? WRITING_THEMES.find(t => t.theme === themeOverride) || WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)]
+    : WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
   const themeInstruction = type === 'narrative'
     ? `The prompt must be about: ${themeObj.narrative}`
     : `The prompt must be about: ${themeObj.persuasive}`;

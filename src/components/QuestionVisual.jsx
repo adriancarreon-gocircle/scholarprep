@@ -206,6 +206,28 @@ function ShapeDiagram({ visual }) {
         </svg>
       );
     }
+    if (shape === 'quadrilateral' || shape === 'irregular') {
+      const { sides = [10, 7, 8, 5] } = dimensions;
+      // Draw an irregular quadrilateral with 4 different-length sides
+      // Points roughly positioned to look irregular
+      const pts = [[60, 30], [230, 50], [200, 150], [40, 140]];
+      const polyPts = pts.map(p => p.join(',')).join(' ');
+      // Midpoints for side labels
+      const midpoints = [
+        [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2 - 14],
+        [(pts[1][0] + pts[2][0]) / 2 + 18, (pts[1][1] + pts[2][1]) / 2],
+        [(pts[2][0] + pts[3][0]) / 2, (pts[2][1] + pts[3][1]) / 2 + 14],
+        [(pts[3][0] + pts[0][0]) / 2 - 18, (pts[3][1] + pts[0][1]) / 2],
+      ];
+      return (
+        <svg width="100%" viewBox="0 0 280 180" style={{ maxWidth: 320, display: 'block', margin: '0 auto' }}>
+          <polygon points={polyPts} fill={`${color}15`} stroke={color} strokeWidth={2.5} />
+          {sides.map((s, i) => (
+            <text key={i} x={midpoints[i][0]} y={midpoints[i][1]} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">{s} cm</text>
+          ))}
+        </svg>
+      );
+    }
     if (shape === 'compound') {
       const { parts = [] } = dimensions;
       return (
