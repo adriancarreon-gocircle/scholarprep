@@ -214,7 +214,7 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nFOCUS: Generate questions specifically of this type: "${questionTypeFocus}". All ${count} questions must be of this exact type.`
+    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: Generate questions ONLY about this specific topic: "${questionTypeFocus}". Every single one of the ${count} questions must be about this topic. Do NOT generate questions about any other topic. Do NOT default to number patterns or basic arithmetic unless that IS the specified topic.`
     : '';
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
@@ -231,15 +231,20 @@ For STATISTICS questions (bar charts, line graphs, pie charts):
 {"visual":{"type":"piechart","title":"Favourite Sports","data":[{"label":"Soccer","value":40},{"label":"Cricket","value":25},{"label":"Tennis","value":20},{"label":"Other","value":15}]}}
 
 For GEOMETRY/PERIMETER questions — vary shapes by year level:
-- Year 1-2: rectangles and squares with labelled sides
-- Year 3-4: triangles with labelled sides, irregular quadrilaterals
-- Year 5-6: compound shapes (L-shape, T-shape) with multiple labelled sides
+- Year 1-2: rectangles and squares ONLY
+- Year 3-4: triangles or irregular quadrilaterals
+- Year 5+: compound shapes — choose a template randomly from: lshape, rlshape, ushape, staircase
 - NEVER generate only rectangles — always vary the shape type
 
-{"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":12,"height":8},"color":"#4338CA"}}
-{"visual":{"type":"shape","shape":"triangle","title":"Find the area","dimensions":{"base":10,"height":6},"color":"#059669"}}
-{"visual":{"type":"shape","shape":"quadrilateral","title":"Find the perimeter","dimensions":{"sides":[10,7,8,5]},"color":"#4338CA"}}
-{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"parts":[{"label":"6cm","x":80,"y":165},{"label":"4cm","x":258,"y":70},{"label":"3cm","x":170,"y":115},{"label":"2cm","x":135,"y":165},{"label":"3cm","x":40,"y":95},{"label":"4cm","x":120,"y":35}]},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":8,"height":5},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"triangle","title":"Find the perimeter","dimensions":{"base":9,"height":6},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"quadrilateral","title":"Find the perimeter","dimensions":{"sides":[8,5,6,4]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"lshape","sides":["7cm","1cm","3cm","2.5cm","3cm","4cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"rlshape","sides":["6cm","5cm","4cm","3cm","2cm","2cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"ushape","sides":["3cm","5cm","3cm","7cm","9cm","7cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"staircase","sides":["5cm","8cm","8cm","3cm","2cm","2cm","2cm","2cm"]},"color":"#4338CA"}}
+
+IMPORTANT for compound shapes: the sides array must have the EXACT number of elements matching the template (lshape=6, rlshape=6, ushape=6, staircase=8). Make sure the correct answer equals the sum of all sides.
 
 For COUNTING CUBES questions — always include a visual:
 {"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
@@ -353,7 +358,7 @@ export const generateGeneralAbilityQuestions = async (yearLevel, count, question
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nFOCUS: Generate questions specifically of this type: "${questionTypeFocus}". All ${count} questions must be of this exact type.\n`
+    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: Generate questions ONLY about this specific topic: "${questionTypeFocus}". Every single one of the ${count} questions must be about this topic. Do NOT generate questions about any other topic.\n`
     : '';
 
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.

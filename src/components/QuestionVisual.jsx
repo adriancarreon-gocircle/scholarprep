@@ -509,36 +509,156 @@ function CubesVisual({ visual }) {
   );
 }
 
-// ── L-Shape / Compound Shape ──────────────────────────────────────────────────
+// ── Compound Shapes (L, T, U, Staircase, Reverse-L) ──────────────────────────
+// Each shape template uses fixed geometry; AI provides the side measurements.
+// Label positions are carefully placed to avoid overlapping lines.
+
+const COMPOUND_TEMPLATES = {
+  // L-shape (like screenshot 5: top-right notch removed)
+  lshape: {
+    points: '40,20 220,20 220,80 130,80 130,160 40,160',
+    rightAngles: [
+      [40, 32, 52, 32, 52, 20],
+      [208, 20, 208, 32, 220, 32],
+      [220, 68, 208, 68, 208, 80],
+      [130, 92, 118, 92, 118, 80],
+      [118, 160, 118, 148, 130, 148],
+      [40, 148, 52, 148, 52, 160],
+    ],
+    // label positions: [x, y, anchor, text-rotation]
+    labels: [
+      { x: 130, y: 12, anchor: 'middle', side: 0 },   // top
+      { x: 228, y: 50, anchor: 'start', side: 1 },   // right-top
+      { x: 178, y: 72, anchor: 'middle', side: 2 },   // step-horizontal
+      { x: 136, y: 120, anchor: 'start', side: 3 },   // right-bottom
+      { x: 85, y: 168, anchor: 'middle', side: 4 },  // bottom
+      { x: 32, y: 90, anchor: 'end', side: 5 },   // left
+    ],
+    defaultSides: ['7cm', '1cm', '3cm', '2.5cm', '3cm', '4cm'],
+  },
+  // Reverse-L (notch bottom-left)
+  rlshape: {
+    points: '40,20 220,20 220,160 100,160 100,90 40,90',
+    rightAngles: [
+      [40, 32, 52, 32, 52, 20],
+      [208, 20, 208, 32, 220, 32],
+      [220, 148, 208, 148, 208, 160],
+      [100, 148, 112, 148, 112, 160],
+      [100, 78, 112, 78, 112, 90],
+      [40, 78, 52, 78, 52, 90],
+    ],
+    labels: [
+      { x: 130, y: 12, anchor: 'middle', side: 0 },
+      { x: 228, y: 90, anchor: 'start', side: 1 },
+      { x: 160, y: 168, anchor: 'middle', side: 2 },
+      { x: 92, y: 125, anchor: 'end', side: 3 },
+      { x: 158, y: 82, anchor: 'middle', side: 4 },
+      { x: 32, y: 55, anchor: 'end', side: 5 },
+    ],
+    defaultSides: ['9cm', '7cm', '6cm', '4cm', '4cm', '4cm'],
+  },
+  // U-shape (notch at top-centre, like screenshot 4)
+  ushape: {
+    points: '20,160 20,20 80,20 80,100 160,100 160,20 220,20 220,160',
+    rightAngles: [
+      [20, 32, 32, 32, 32, 20],
+      [80, 32, 68, 32, 68, 20],
+      [80, 88, 68, 88, 68, 100],
+      [160, 88, 172, 88, 172, 100],
+      [160, 32, 172, 32, 172, 20],
+      [220, 32, 208, 32, 208, 20],
+    ],
+    labels: [
+      { x: 50, y: 12, anchor: 'middle', side: 0 },  // top-left
+      { x: 120, y: 92, anchor: 'middle', side: 1 },  // inner-bottom (4cm)
+      { x: 190, y: 12, anchor: 'middle', side: 2 },  // top-right
+      { x: 228, y: 90, anchor: 'start', side: 3 },  // right
+      { x: 120, y: 168, anchor: 'middle', side: 4 },  // bottom
+      { x: 12, y: 90, anchor: 'end', side: 5 },  // left
+    ],
+    defaultSides: ['2cm', '4cm', '2cm', '4cm', '10cm', '3cm'],
+  },
+  // T-shape / plus (like screenshot 3: wider compound)
+  tshape: {
+    points: '20,20 140,20 140,80 220,80 220,140 140,140 140,180 80,180 80,140 20,140',
+    rightAngles: [
+      [20, 32, 32, 32, 32, 20],
+      [128, 20, 128, 32, 140, 32],
+      [140, 68, 128, 68, 128, 80],
+      [220, 92, 208, 92, 208, 80],
+      [208, 140, 208, 128, 220, 128],
+      [140, 168, 128, 168, 128, 180],
+      [80, 168, 92, 168, 92, 180],
+      [80, 128, 92, 128, 92, 140],
+      [20, 128, 32, 128, 32, 140],
+    ],
+    labels: [
+      { x: 80, y: 12, anchor: 'middle', side: 0 },
+      { x: 148, y: 50, anchor: 'start', side: 1 },
+      { x: 182, y: 72, anchor: 'middle', side: 2 },
+      { x: 228, y: 110, anchor: 'start', side: 3 },
+      { x: 182, y: 148, anchor: 'middle', side: 4 },
+      { x: 115, y: 168, anchor: 'middle', side: 5 },
+      { x: 72, y: 160, anchor: 'end', side: 6 },
+      { x: 42, y: 148, anchor: 'middle', side: 7 },
+      { x: 12, y: 80, anchor: 'end', side: 8 },
+    ],
+    defaultSides: ['6cm', '4cm', '4cm', '1cm', '5cm', '5cm', '1cm', '4cm', '6cm'],
+  },
+  // Staircase (like screenshot 6: stepped shape)
+  staircase: {
+    points: '20,180 20,140 60,140 60,100 100,100 100,60 140,60 140,20 220,20 220,180',
+    rightAngles: [
+      [20, 168, 32, 168, 32, 180],
+      [20, 140, 32, 140, 32, 128],  // skip - handled by step
+      [60, 128, 48, 128, 48, 140],
+      [60, 100, 72, 100, 72, 88],
+      [100, 88, 88, 88, 88, 100],
+      [100, 60, 112, 60, 112, 48],
+      [140, 48, 128, 48, 128, 60],
+      [140, 20, 152, 20, 152, 32],
+      [220, 32, 208, 32, 208, 20],
+    ],
+    labels: [
+      { x: 180, y: 12, anchor: 'middle', side: 0 },  // top
+      { x: 228, y: 100, anchor: 'start', side: 1 },  // right
+      { x: 120, y: 188, anchor: 'middle', side: 2 },  // bottom
+      { x: 12, y: 160, anchor: 'end', side: 3 },  // left-bottom
+      { x: 38, y: 145, anchor: 'middle', side: 4 },  // step1-h
+      { x: 52, y: 122, anchor: 'end', side: 5 },  // step1-v
+      { x: 78, y: 105, anchor: 'middle', side: 6 },  // step2-h
+      { x: 92, y: 82, anchor: 'end', side: 7 },  // step2-v
+    ],
+    defaultSides: ['4cm', '10cm', '10cm', '4cm', '2cm', '2cm', '2cm', '2cm'],
+  },
+};
 
 function LShape({ visual }) {
   const { dimensions = {}, title, color = '#4338CA' } = visual;
-  const { parts = [] } = dimensions;
+  const { template = 'lshape', sides } = dimensions;
+  const tmpl = COMPOUND_TEMPLATES[template] || COMPOUND_TEMPLATES.lshape;
+  const sideLabels = sides && sides.length > 0 ? sides : tmpl.defaultSides;
+  const viewH = template === 'staircase' ? 200 : template === 'tshape' ? 200 : 190;
 
   return (
     <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)' }}>
       {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{title}</div>}
-      <svg width="100%" viewBox="0 0 280 180" style={{ maxWidth: 320, display: 'block', margin: '0 auto' }}>
-        {/* L-shape */}
-        <polygon points="40,20 200,20 200,90 130,90 130,160 40,160" fill={`${color}15`} stroke={color} strokeWidth={2.5} />
-        {/* Right angle markers */}
-        <polyline points="200,78 188,78 188,90" fill="none" stroke={color} strokeWidth={1.5} />
-        <polyline points="118,90 118,102 130,102" fill="none" stroke={color} strokeWidth={1.5} />
-        <polyline points="40,148 52,148 52,160" fill="none" stroke={color} strokeWidth={1.5} />
-        <polyline points="40,32 52,32 52,20" fill="none" stroke={color} strokeWidth={1.5} />
-        {/* Labels */}
-        {parts.map((p, i) => (
-          <text key={i} x={p.x} y={p.y} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">{p.label}</text>
+      <svg width="100%" viewBox={`0 0 250 ${viewH}`} style={{ maxWidth: 340, display: 'block', margin: '0 auto' }}>
+        {/* Shape fill and outline */}
+        <polygon points={tmpl.points} fill={`${color}15`} stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
+        {/* Right-angle markers */}
+        {(tmpl.rightAngles || []).map((ra, i) => (
+          <polyline key={i} points={`${ra[0]},${ra[1]} ${ra[2]},${ra[3]} ${ra[4]},${ra[5]}`} fill="none" stroke={color} strokeWidth={1.2} />
         ))}
-        {/* Default labels if none provided */}
-        {parts.length === 0 && <>
-          <text x={120} y={12} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">8cm</text>
-          <text x={210} y={55} fontSize={12} fontWeight="700" fill={color} textAnchor="start" fontFamily="Inter, sans-serif">4cm</text>
-          <text x={168} y={105} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">4cm</text>
-          <text x={120} y={135} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif">3cm</text>
-          <text x={28} y={95} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif" transform="rotate(-90,28,95)">8cm</text>
-          <text x={145} y={130} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" fontFamily="Inter, sans-serif" transform="rotate(-90,145,130)">4cm</text>
-        </>}
+        {/* Side length labels */}
+        {tmpl.labels.map((lbl, i) => {
+          const text = sideLabels[lbl.side] ?? sideLabels[i] ?? '';
+          return (
+            <text key={i} x={lbl.x} y={lbl.y} fontSize={11} fontWeight="700" fill={color} textAnchor={lbl.anchor} fontFamily="Inter, sans-serif" dominantBaseline="middle">
+              {text}
+            </text>
+          );
+        })}
       </svg>
     </div>
   );

@@ -109,14 +109,28 @@ function SetupScreen({ subject, yearLevel, onStart }) {
   const [reviewMode, setReviewMode] = useState('each');
   const [showTopicPicker, setShowTopicPicker] = useState(false);
   const [topicCounts, setTopicCounts] = useState({});
+  // Reading-specific
+  const [selectedTheme, setSelectedTheme] = useState('');
+  const [passages, setPassages] = useState(2);
+  const [questionsPerPassage, setQuestionsPerPassage] = useState(5);
   const cfg = SUBJECT_CONFIG[subject];
   const topics = TOPIC_PICKER[subject] || [];
 
-  const topicTotal = Object.values(topicCounts).reduce((s, n) => s + n, 0);
+  // For maths/GA: usingTopics means they've picked specific topic counts
+  // For reading: theme selection is separate — never hides question controls
+  const topicTotal = subject !== 'reading' ? Object.values(topicCounts).reduce((s, n) => s + n, 0) : 0;
   const usingTopics = topicTotal > 0;
-  const effectiveCount = usingTopics ? topicTotal : qCount;
+  const effectiveCount = usingTopics ? topicTotal : (subject === 'reading' ? passages * questionsPerPassage : qCount);
 
   const setTopicCount = (key, count) => setTopicCounts(p => ({ ...p, [key]: Math.max(0, count) }));
+
+  const handleStart = () => {
+    if (subject === 'reading') {
+      onStart(effectiveCount, timer, reviewMode, selectedTheme ? { [selectedTheme]: 1 } : null, passages, questionsPerPassage);
+    } else {
+      onStart(effectiveCount, timer, reviewMode, usingTopics ? topicCounts : null);
+    }
+  };
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>
@@ -126,8 +140,31 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         <div style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, DM Sans, sans-serif' }}>Fresh questions · Year {yearLevel} level</div>
       </div>
 
-      {/* Number of questions — only shown when not using topic picker */}
-      {!usingTopics && (
+      {/* Reading: passages + questions per passage */}
+      {subject === 'reading' && (
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Passages & questions</div>
+          {[
+            { label: 'Number of passages', value: passages, setter: setPassages, min: 1, max: 5 },
+            { label: 'Questions per passage', value: questionsPerPassage, setter: setQuestionsPerPassage, min: 1, max: 10 },
+          ].map(({ label, value, setter, min, max }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F8FAFC' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button onClick={() => setter(v => Math.max(min, v - 1))} style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                <span style={{ fontSize: 16, fontWeight: 700, color: cfg.color, minWidth: 28, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{value}</span>
+                <button onClick={() => setter(v => Math.min(max, v + 1))} style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+            {passages} passage{passages > 1 ? 's' : ''} × {questionsPerPassage} questions = {passages * questionsPerPassage} total
+          </div>
+        </div>
+      )}
+
+      {/* Number of questions — for maths/GA only, hidden when topic picker is active */}
+      {subject !== 'reading' && !usingTopics && (
         <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Number of questions</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -148,15 +185,15 @@ function SetupScreen({ subject, yearLevel, onStart }) {
 
       {/* Topic picker — for Maths, GA, and Reading */}
       {topics.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: `1px solid ${showTopicPicker ? cfg.color + '40' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: `1px solid ${(showTopicPicker || selectedTheme || usingTopics) ? cfg.color + '40' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTopicPicker ? 16 : 0 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>
                 {subject === 'reading' ? 'Choose passage theme' : 'Pick specific topics'}
               </div>
-              {usingTopics && subject !== 'reading' && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>}
-              {usingTopics && subject === 'reading' && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{Object.keys(topicCounts).filter(k => topicCounts[k] > 0).length} theme(s) selected</div>}
-              {!usingTopics && !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>{subject === 'reading' ? 'Optional — or let it pick a random theme' : 'Optional — or use random mix above'}</div>}
+              {subject === 'reading' && selectedTheme && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>}
+              {subject !== 'reading' && usingTopics && <div style={{ fontSize: 12, color: cfg.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>}
+              {!selectedTheme && !usingTopics && !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>{subject === 'reading' ? 'Optional — or let it pick a random theme' : 'Optional — or use random mix above'}</div>}
             </div>
             <button
               onClick={() => setShowTopicPicker(p => !p)}
@@ -167,18 +204,18 @@ function SetupScreen({ subject, yearLevel, onStart }) {
           </div>
           {showTopicPicker && (
             <div>
-              {usingTopics && (
-                <button onClick={() => setTopicCounts({})} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>
+              {(selectedTheme || usingTopics) && (
+                <button onClick={() => { setSelectedTheme(''); setTopicCounts({}); }} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>
                   ✕ Clear selection
                 </button>
               )}
               {subject === 'reading' ? (
-                /* Reading — single-select theme (radio style) */
+                /* Reading — single-select theme (pill buttons) */
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {topics.map(t => {
-                    const isSelected = topicCounts[t.key] > 0;
+                    const isSelected = selectedTheme === t.key;
                     return (
-                      <button key={t.key} onClick={() => setTopicCounts(isSelected ? {} : { [t.key]: 1 })} style={{
+                      <button key={t.key} onClick={() => setSelectedTheme(isSelected ? '' : t.key)} style={{
                         padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                         background: isSelected ? cfg.lightBg : '#F8F9FF',
                         color: isSelected ? cfg.color : '#64748B',
@@ -249,7 +286,7 @@ function SetupScreen({ subject, yearLevel, onStart }) {
         </div>
       </div>
 
-      <button onClick={() => onStart(effectiveCount, timer, reviewMode, usingTopics ? topicCounts : null)} style={{
+      <button onClick={handleStart} style={{
         width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
         background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
         boxShadow: '0 4px 20px rgba(67,56,202,0.3)', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
@@ -370,19 +407,30 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
         <div style={{ height: '100%', width: `${progress}%`, background: cfg.color, borderRadius: 3, transition: 'width 0.3s' }}></div>
       </div>
 
-      {/* Passage */}
-      {passage && current === 0 && (
-        <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginBottom: 12, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{passage.title}</div>
-          <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{passage.text}</div>
-        </div>
-      )}
-      {passage && current > 0 && (
-        <details style={{ marginBottom: 16 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4338CA', padding: '8px 0', fontFamily: 'Inter, sans-serif' }}>📖 Show passage: {passage.title}</summary>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 20, marginTop: 8, border: '1px solid rgba(67,56,202,0.08)', fontSize: 14, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{passage.text}</div>
-        </details>
-      )}
+      {/* Passage — handles both single passage (old) and multiple passage groups (new) */}
+      {passage && (() => {
+        // Determine which passage group this question belongs to
+        const passageGroups = Array.isArray(passage) ? passage : [{ passage: passage, questions: [] }];
+        // Figure out questions-per-passage from groups
+        const qpp = passageGroups.length > 1 ? Math.ceil(questions.length / passageGroups.length) : questions.length;
+        const groupIdx = Math.floor(current / qpp);
+        const currentGroup = passageGroups[Math.min(groupIdx, passageGroups.length - 1)];
+        const currentPassage = currentGroup?.passage || currentGroup;
+        const isFirstInGroup = current % qpp === 0;
+        if (!currentPassage) return null;
+        return isFirstInGroup ? (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+            {passageGroups.length > 1 && <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Passage {groupIdx + 1} of {passageGroups.length}</div>}
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginBottom: 12, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{currentPassage.title}</div>
+            <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{currentPassage.text}</div>
+          </div>
+        ) : (
+          <details style={{ marginBottom: 16 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4338CA', padding: '8px 0', fontFamily: 'Inter, sans-serif' }}>📖 Show passage: {currentPassage.title}</summary>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 20, marginTop: 8, border: '1px solid rgba(67,56,202,0.08)', fontSize: 14, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{currentPassage.text}</div>
+          </details>
+        );
+      })()}
 
       {/* Question card */}
       <div style={{ background: '#fff', borderRadius: 20, padding: 28, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 16px rgba(67,56,202,0.06)' }}>
@@ -515,31 +563,38 @@ export default function TestPage({ subject }) {
   const [reviewMode, setReviewMode] = useState('each');
   const cfg = SUBJECT_CONFIG[subject];
 
-  const handleStart = async (count, timer, mode, topicCounts) => {
+  const handleStart = async (count, timer, mode, topicCounts, passages, questionsPerPassage) => {
     setPhase('loading'); setError(''); setTimerSecs(timer); setReviewMode(mode);
     try {
       let data;
-      if (topicCounts && Object.keys(topicCounts).length > 0) {
-        if (subject === 'reading') {
-          // Single selected theme for reading
-          const selectedTheme = Object.keys(topicCounts).find(k => topicCounts[k] > 0);
-          data = await cfg.generate(yearLevel, count, selectedTheme);
-        } else {
-          // Topic-specific generation for maths/GA — generate per topic and combine
-          const allQs = [];
-          for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
-            if (!topicCount) continue;
-            const focusLabel = `${topicKey} — ${topicCount} questions, vary the question types`;
-            const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
-            allQs.push(...(Array.isArray(qs) ? qs : qs.questions || []).map(q => ({ ...q, topic: topicKey })));
-          }
-          data = allQs;
+      if (subject === 'reading') {
+        const selectedTheme = topicCounts ? Object.keys(topicCounts)[0] : null;
+        const numPassages = passages || 1;
+        const qPerPassage = questionsPerPassage || 5;
+        // Generate multiple passages
+        const groups = [];
+        for (let i = 0; i < numPassages; i++) {
+          const passageData = await cfg.generate(yearLevel, qPerPassage, selectedTheme);
+          groups.push(passageData);
         }
+        // Flatten all questions together, store passages for display
+        const allQs = groups.flatMap(g => g.questions);
+        setPassage(groups); // store array of passage groups
+        setQuestions(allQs);
+      } else if (topicCounts && Object.keys(topicCounts).length > 0) {
+        const allQs = [];
+        for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
+          if (!topicCount) continue;
+          const focusLabel = `${topicKey} — generate exactly ${topicCount} questions specifically about this topic`;
+          const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
+          allQs.push(...(Array.isArray(qs) ? qs : qs.questions || []).map(q => ({ ...q, topic: topicKey })));
+        }
+        data = allQs;
+        setQuestions(Array.isArray(data) ? data : []);
       } else {
         data = await cfg.generate(yearLevel, count);
+        setQuestions(Array.isArray(data) ? data : []);
       }
-      if (subject === 'reading') { setPassage(data.passage); setQuestions(data.questions); }
-      else setQuestions(Array.isArray(data) ? data : []);
       setPhase('quiz');
     } catch (e) {
       setError('Failed to generate questions. Please check your connection and try again.');
