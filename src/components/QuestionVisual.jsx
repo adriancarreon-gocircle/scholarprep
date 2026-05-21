@@ -514,122 +514,102 @@ function CubesVisual({ visual }) {
 // Label positions are carefully placed to avoid overlapping lines.
 
 const COMPOUND_TEMPLATES = {
-  // L-shape (like screenshot 5: top-right notch removed)
+  // L-shape (top-right notch removed — like screenshot 5)
   lshape: {
-    points: '40,20 220,20 220,80 130,80 130,160 40,160',
+    points: '50,20 220,20 220,90 140,90 140,170 50,170',
     rightAngles: [
-      [40, 32, 52, 32, 52, 20],
-      [208, 20, 208, 32, 220, 32],
-      [220, 68, 208, 68, 208, 80],
-      [130, 92, 118, 92, 118, 80],
-      [118, 160, 118, 148, 130, 148],
-      [40, 148, 52, 148, 52, 160],
+      [50, 32, 62, 32, 62, 20], [208, 20, 208, 32, 220, 32],
+      [220, 78, 208, 78, 208, 90], [140, 102, 128, 102, 128, 90],
+      [128, 170, 128, 158, 140, 158], [50, 158, 62, 158, 62, 170],
     ],
-    // label positions: [x, y, anchor, text-rotation]
     labels: [
-      { x: 130, y: 12, anchor: 'middle', side: 0 },   // top
-      { x: 228, y: 50, anchor: 'start', side: 1 },   // right-top
-      { x: 178, y: 72, anchor: 'middle', side: 2 },   // step-horizontal
-      { x: 136, y: 120, anchor: 'start', side: 3 },   // right-bottom
-      { x: 85, y: 168, anchor: 'middle', side: 4 },  // bottom
-      { x: 32, y: 90, anchor: 'end', side: 5 },   // left
+      { x: 135, y: 11, anchor: 'middle', side: 0 },  // top
+      { x: 228, y: 55, anchor: 'start', side: 1 },  // right-top
+      { x: 183, y: 82, anchor: 'middle', side: 2 },  // step horizontal
+      { x: 148, y: 130, anchor: 'start', side: 3 },  // right-bottom
+      { x: 95, y: 178, anchor: 'middle', side: 4 },  // bottom
+      { x: 42, y: 95, anchor: 'end', side: 5 },  // left
     ],
-    defaultSides: ['7cm', '1cm', '3cm', '2.5cm', '3cm', '4cm'],
+    defaultSides: ['7cm', '4cm', '3cm', '2.5cm', '3cm', '9cm'],
   },
-  // Reverse-L (notch bottom-left)
+  // Reverse-L (notch bottom-left — like screenshot 4)
   rlshape: {
-    points: '40,20 220,20 220,160 100,160 100,90 40,90',
+    points: '50,20 220,20 220,170 120,170 120,90 50,90',
     rightAngles: [
-      [40, 32, 52, 32, 52, 20],
-      [208, 20, 208, 32, 220, 32],
-      [220, 148, 208, 148, 208, 160],
-      [100, 148, 112, 148, 112, 160],
-      [100, 78, 112, 78, 112, 90],
-      [40, 78, 52, 78, 52, 90],
+      [50, 32, 62, 32, 62, 20], [208, 20, 208, 32, 220, 32],
+      [220, 158, 208, 158, 208, 170], [120, 158, 132, 158, 132, 170],
+      [120, 78, 132, 78, 132, 90], [50, 78, 62, 78, 62, 90],
     ],
     labels: [
-      { x: 130, y: 12, anchor: 'middle', side: 0 },
-      { x: 228, y: 90, anchor: 'start', side: 1 },
-      { x: 160, y: 168, anchor: 'middle', side: 2 },
-      { x: 92, y: 125, anchor: 'end', side: 3 },
-      { x: 158, y: 82, anchor: 'middle', side: 4 },
-      { x: 32, y: 55, anchor: 'end', side: 5 },
+      { x: 135, y: 11, anchor: 'middle', side: 0 },  // top
+      { x: 228, y: 95, anchor: 'start', side: 1 },  // right
+      { x: 170, y: 178, anchor: 'middle', side: 2 },  // bottom-right
+      { x: 112, y: 130, anchor: 'end', side: 3 },  // inner-right
+      { x: 178, y: 82, anchor: 'middle', side: 4 },  // inner-top
+      { x: 42, y: 55, anchor: 'end', side: 5 },  // left
     ],
-    defaultSides: ['9cm', '7cm', '6cm', '4cm', '4cm', '4cm'],
+    defaultSides: ['9cm', '6cm', '4cm', '4cm', '3cm', '4cm'],
   },
-  // U-shape (notch at top-centre, like screenshot 4)
+  // U-shape (notch at top-centre — like screenshot 1)
   ushape: {
-    points: '20,160 20,20 80,20 80,100 160,100 160,20 220,20 220,160',
+    points: '30,170 30,20 90,20 90,100 160,100 160,20 220,20 220,170',
     rightAngles: [
-      [20, 32, 32, 32, 32, 20],
-      [80, 32, 68, 32, 68, 20],
-      [80, 88, 68, 88, 68, 100],
-      [160, 88, 172, 88, 172, 100],
-      [160, 32, 172, 32, 172, 20],
-      [220, 32, 208, 32, 208, 20],
+      [30, 32, 42, 32, 42, 20], [90, 32, 78, 32, 78, 20],
+      [90, 88, 78, 88, 78, 100], [160, 88, 172, 88, 172, 100],
+      [160, 32, 172, 32, 172, 20], [220, 32, 208, 32, 208, 20],
     ],
     labels: [
-      { x: 50, y: 12, anchor: 'middle', side: 0 },  // top-left
-      { x: 120, y: 92, anchor: 'middle', side: 1 },  // inner-bottom (4cm)
-      { x: 190, y: 12, anchor: 'middle', side: 2 },  // top-right
-      { x: 228, y: 90, anchor: 'start', side: 3 },  // right
-      { x: 120, y: 168, anchor: 'middle', side: 4 },  // bottom
-      { x: 12, y: 90, anchor: 'end', side: 5 },  // left
+      { x: 60, y: 11, anchor: 'middle', side: 0 },  // top-left
+      { x: 125, y: 108, anchor: 'middle', side: 1 },  // inner-bottom
+      { x: 190, y: 11, anchor: 'middle', side: 2 },  // top-right
+      { x: 228, y: 95, anchor: 'start', side: 3 },  // right
+      { x: 125, y: 178, anchor: 'middle', side: 4 },  // bottom
+      { x: 22, y: 95, anchor: 'end', side: 5 },  // left
     ],
-    defaultSides: ['2cm', '4cm', '2cm', '4cm', '10cm', '3cm'],
+    defaultSides: ['4cm', '6cm', '4cm', '8cm', '12cm', '8cm'],
   },
-  // T-shape / plus (like screenshot 3: wider compound)
+  // T-shape / plus (like screenshot 5: bump on top)
   tshape: {
-    points: '20,20 140,20 140,80 220,80 220,140 140,140 140,180 80,180 80,140 20,140',
+    points: '30,170 30,90 80,90 80,20 160,20 160,90 220,90 220,170',
     rightAngles: [
-      [20, 32, 32, 32, 32, 20],
-      [128, 20, 128, 32, 140, 32],
-      [140, 68, 128, 68, 128, 80],
-      [220, 92, 208, 92, 208, 80],
-      [208, 140, 208, 128, 220, 128],
-      [140, 168, 128, 168, 128, 180],
-      [80, 168, 92, 168, 92, 180],
-      [80, 128, 92, 128, 92, 140],
-      [20, 128, 32, 128, 32, 140],
+      [30, 102, 42, 102, 42, 90], [80, 102, 68, 102, 68, 90],
+      [80, 32, 68, 32, 68, 20], [160, 32, 172, 32, 172, 20],
+      [160, 102, 172, 102, 172, 90], [220, 102, 208, 102, 208, 90],
+      [30, 158, 42, 158, 42, 170], [220, 158, 208, 158, 208, 170],
     ],
     labels: [
-      { x: 80, y: 12, anchor: 'middle', side: 0 },
-      { x: 148, y: 50, anchor: 'start', side: 1 },
-      { x: 182, y: 72, anchor: 'middle', side: 2 },
-      { x: 228, y: 110, anchor: 'start', side: 3 },
-      { x: 182, y: 148, anchor: 'middle', side: 4 },
-      { x: 115, y: 168, anchor: 'middle', side: 5 },
-      { x: 72, y: 160, anchor: 'end', side: 6 },
-      { x: 42, y: 148, anchor: 'middle', side: 7 },
-      { x: 12, y: 80, anchor: 'end', side: 8 },
+      { x: 120, y: 11, anchor: 'middle', side: 0 },  // top (bump top)
+      { x: 168, y: 55, anchor: 'start', side: 1 },  // bump-right
+      { x: 192, y: 82, anchor: 'middle', side: 2 },  // right-inner-top
+      { x: 228, y: 130, anchor: 'start', side: 3 },  // right
+      { x: 125, y: 178, anchor: 'middle', side: 4 },  // bottom
+      { x: 22, y: 130, anchor: 'end', side: 5 },  // left
+      { x: 52, y: 82, anchor: 'end', side: 6 },  // left-inner-top
+      { x: 72, y: 55, anchor: 'end', side: 7 },  // bump-left
     ],
-    defaultSides: ['6cm', '4cm', '4cm', '1cm', '5cm', '5cm', '1cm', '4cm', '6cm'],
+    defaultSides: ['4cm', '4cm', '2cm', '3m', '6cm', '3m', '2cm', '4cm'],
   },
-  // Staircase (like screenshot 6: stepped shape)
+  // Staircase (like screenshot 2: ascending steps right to left)
   staircase: {
-    points: '20,180 20,140 60,140 60,100 100,100 100,60 140,60 140,20 220,20 220,180',
+    points: '30,190 30,150 70,150 70,110 110,110 110,70 150,70 150,30 220,30 220,190',
     rightAngles: [
-      [20, 168, 32, 168, 32, 180],
-      [20, 140, 32, 140, 32, 128],  // skip - handled by step
-      [60, 128, 48, 128, 48, 140],
-      [60, 100, 72, 100, 72, 88],
-      [100, 88, 88, 88, 88, 100],
-      [100, 60, 112, 60, 112, 48],
-      [140, 48, 128, 48, 128, 60],
-      [140, 20, 152, 20, 152, 32],
-      [220, 32, 208, 32, 208, 20],
+      [30, 178, 42, 178, 42, 190],
+      [70, 138, 58, 138, 58, 150], [70, 110, 82, 110, 82, 122],
+      [110, 98, 98, 98, 98, 110], [110, 70, 122, 70, 122, 82],
+      [150, 58, 138, 58, 138, 70], [150, 30, 162, 30, 162, 42],
+      [220, 42, 208, 42, 208, 30], [220, 178, 208, 178, 208, 190],
     ],
     labels: [
-      { x: 180, y: 12, anchor: 'middle', side: 0 },  // top
-      { x: 228, y: 100, anchor: 'start', side: 1 },  // right
-      { x: 120, y: 188, anchor: 'middle', side: 2 },  // bottom
-      { x: 12, y: 160, anchor: 'end', side: 3 },  // left-bottom
-      { x: 38, y: 145, anchor: 'middle', side: 4 },  // step1-h
-      { x: 52, y: 122, anchor: 'end', side: 5 },  // step1-v
-      { x: 78, y: 105, anchor: 'middle', side: 6 },  // step2-h
-      { x: 92, y: 82, anchor: 'end', side: 7 },  // step2-v
+      { x: 185, y: 21, anchor: 'middle', side: 0 },  // top
+      { x: 228, y: 110, anchor: 'start', side: 1 },  // right
+      { x: 125, y: 198, anchor: 'middle', side: 2 },  // bottom
+      { x: 22, y: 170, anchor: 'end', side: 3 },  // left-bottom
+      { x: 48, y: 155, anchor: 'middle', side: 4 },  // step1-h
+      { x: 62, y: 132, anchor: 'end', side: 5 },  // step1-v
+      { x: 88, y: 115, anchor: 'middle', side: 6 },  // step2-h
+      { x: 102, y: 92, anchor: 'end', side: 7 },  // step2-v
     ],
-    defaultSides: ['4cm', '10cm', '10cm', '4cm', '2cm', '2cm', '2cm', '2cm'],
+    defaultSides: ['6cm', '10cm', '10cm', '4cm', '2cm', '2cm', '2cm', '2cm'],
   },
 };
 
@@ -638,12 +618,15 @@ function LShape({ visual }) {
   const { template = 'lshape', sides } = dimensions;
   const tmpl = COMPOUND_TEMPLATES[template] || COMPOUND_TEMPLATES.lshape;
   const sideLabels = sides && sides.length > 0 ? sides : tmpl.defaultSides;
-  const viewH = template === 'staircase' ? 200 : template === 'tshape' ? 200 : 190;
+  // Determine which sides to hide (show as unknown)
+  const hiddenSides = dimensions.hiddenSides || [];
+
+  const viewH = template === 'staircase' ? 210 : template === 'tshape' ? 210 : 200;
 
   return (
     <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)' }}>
       {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{title}</div>}
-      <svg width="100%" viewBox={`0 0 250 ${viewH}`} style={{ maxWidth: 340, display: 'block', margin: '0 auto' }}>
+      <svg width="100%" viewBox={`-10 -10 270 ${viewH}`} style={{ maxWidth: 360, display: 'block', margin: '0 auto', overflow: 'visible' }}>
         {/* Shape fill and outline */}
         <polygon points={tmpl.points} fill={`${color}15`} stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
         {/* Right-angle markers */}
@@ -652,9 +635,13 @@ function LShape({ visual }) {
         ))}
         {/* Side length labels */}
         {tmpl.labels.map((lbl, i) => {
-          const text = sideLabels[lbl.side] ?? sideLabels[i] ?? '';
+          const sideIdx = lbl.side ?? i;
+          const isHidden = hiddenSides.includes(sideIdx);
+          const text = isHidden ? '?' : (sideLabels[sideIdx] ?? sideLabels[i] ?? '');
           return (
-            <text key={i} x={lbl.x} y={lbl.y} fontSize={11} fontWeight="700" fill={color} textAnchor={lbl.anchor} fontFamily="Inter, sans-serif" dominantBaseline="middle">
+            <text key={i} x={lbl.x} y={lbl.y} fontSize={11} fontWeight="700"
+              fill={isHidden ? '#F97316' : color}
+              textAnchor={lbl.anchor} fontFamily="Inter, sans-serif" dominantBaseline="middle">
               {text}
             </text>
           );
@@ -664,7 +651,71 @@ function LShape({ visual }) {
   );
 }
 
+// ── Picture Pattern Sequence ──────────────────────────────────────────────────
 
+const SHAPE_RENDERERS = {
+  triangle: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy - sz} ${cx - sz},${cy + sz} ${cx + sz},${cy + sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  triangle_down: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy + sz} ${cx - sz},${cy - sz} ${cx + sz},${cy - sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  square: (cx, cy, sz, f, s) => `<rect x="${cx - sz}" y="${cy - sz}" width="${sz * 2}" height="${sz * 2}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  square_small: (cx, cy, sz, f, s) => `<rect x="${cx - sz * 0.5}" y="${cy - sz * 0.5}" width="${sz}" height="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  circle: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  circle_thick: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="4"/>`,
+  diamond: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy - sz} ${cx + sz},${cy} ${cx},${cy + sz} ${cx - sz},${cy}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  star: (cx, cy, sz, f, s) => {
+    const pts = Array.from({ length: 10 }, (_, i) => { const a = (i * Math.PI / 5) - Math.PI / 2, r = i % 2 === 0 ? sz : sz * 0.4; return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`; }).join(' ');
+    return `<polygon points="${pts}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`;
+  },
+  arrow_right: (cx, cy, sz, f, s) => `<polygon points="${cx + sz},${cy} ${cx},${cy - sz * 0.6} ${cx},${cy - sz * 0.25} ${cx - sz},${cy - sz * 0.25} ${cx - sz},${cy + sz * 0.25} ${cx},${cy + sz * 0.25} ${cx},${cy + sz * 0.6}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  arrow_down: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy + sz} ${cx - sz * 0.6},${cy} ${cx - sz * 0.25},${cy} ${cx - sz * 0.25},${cy - sz} ${cx + sz * 0.25},${cy - sz} ${cx + sz * 0.25},${cy} ${cx + sz * 0.6},${cy}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  cross_x: (cx, cy, sz, f, s) => {
+    const t = sz * 0.25;
+    return `<path d="M${cx - t},${cy - sz} h${t * 2} v${sz - t} h${sz - t} v${t * 2} h${-(sz - t)} v${sz - t} h${-t * 2} v${-(sz - t)} h${-(sz - t)} v${-t * 2} h${sz - t} z" fill="${f}" stroke="${s}" stroke-width="1"/>`;
+  },
+  smiley: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.1} Q${cx},${cy + sz * 0.45} ${cx + sz * 0.3},${cy + sz * 0.1}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
+  sad: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.35} Q${cx},${cy + sz * 0.05} ${cx + sz * 0.3},${cy + sz * 0.35}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
+};
+
+function PicturePattern({ visual }) {
+  const { frames = [], title } = visual;
+  const frameW = 54, frameH = 54, gap = 6, pad = 6;
+  const totalW = frames.length * (frameW + gap) - gap + pad * 2;
+
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '14px 10px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)', overflowX: 'auto' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{title}</div>}
+      <svg width="100%" viewBox={`0 0 ${totalW} ${frameH + pad * 2}`}
+        style={{ minWidth: Math.min(totalW, 320), maxWidth: 480, display: 'block', margin: '0 auto' }}>
+        {frames.map((frame, fi) => {
+          const fx = pad + fi * (frameW + gap);
+          const fy = pad;
+          const isBlank = frame.isBlank;
+          return (
+            <g key={fi}>
+              <rect x={fx} y={fy} width={frameW} height={frameH} rx={4}
+                fill={isBlank ? '#EEF2FF' : '#fff'}
+                stroke={isBlank ? '#4338CA' : '#94A3B8'}
+                strokeWidth={isBlank ? 2 : 1.5}
+                strokeDasharray={isBlank ? '4,3' : 'none'}
+              />
+              {isBlank && (
+                <text x={fx + frameW / 2} y={fy + frameH / 2} fontSize={24} fontWeight="800" fill="#4338CA"
+                  textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">?</text>
+              )}
+              {!isBlank && (frame.shapes || []).map((sh, si) => {
+                const renderer = SHAPE_RENDERERS[sh.type];
+                if (!renderer) return null;
+                const cx = fx + (sh.x ?? 0.5) * frameW;
+                const cy = fy + (sh.y ?? 0.5) * frameH;
+                const sz = (sh.size ?? 0.3) * Math.min(frameW, frameH);
+                return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
 
 export default function QuestionVisual({ visual }) {
   if (!visual || !visual.type) return null;
@@ -680,6 +731,7 @@ export default function QuestionVisual({ visual }) {
     case 'numberline': return <NumberLine visual={visual} />;
     case 'thermometer': return <Thermometer visual={visual} />;
     case 'cubes': return <CubesVisual visual={visual} />;
+    case 'picturepattern': return <PicturePattern visual={visual} />;
     default: return null;
   }
 }

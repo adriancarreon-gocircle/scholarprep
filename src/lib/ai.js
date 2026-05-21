@@ -214,7 +214,7 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: Generate questions ONLY about this specific topic: "${questionTypeFocus}". Every single one of the ${count} questions must be about this topic. Do NOT generate questions about any other topic. Do NOT default to number patterns or basic arithmetic unless that IS the specified topic.`
+    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: ${questionTypeFocus}. Do NOT generate questions about any other topic unless explicitly listed above.`
     : '';
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
@@ -239,12 +239,15 @@ For GEOMETRY/PERIMETER questions — vary shapes by year level:
 {"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":8,"height":5},"color":"#4338CA"}}
 {"visual":{"type":"shape","shape":"triangle","title":"Find the perimeter","dimensions":{"base":9,"height":6},"color":"#4338CA"}}
 {"visual":{"type":"shape","shape":"quadrilateral","title":"Find the perimeter","dimensions":{"sides":[8,5,6,4]},"color":"#4338CA"}}
-{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"lshape","sides":["7cm","1cm","3cm","2.5cm","3cm","4cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"lshape","sides":["7cm","4cm","3cm","2.5cm","3cm","9cm"]},"color":"#4338CA"}}
 {"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"rlshape","sides":["6cm","5cm","4cm","3cm","2cm","2cm"]},"color":"#4338CA"}}
-{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"ushape","sides":["3cm","5cm","3cm","7cm","9cm","7cm"]},"color":"#4338CA"}}
-{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"staircase","sides":["5cm","8cm","8cm","3cm","2cm","2cm","2cm","2cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"ushape","sides":["4cm","6cm","4cm","8cm","12cm","8cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"staircase","sides":["6cm","10cm","10cm","4cm","2cm","2cm","2cm","2cm"]},"color":"#4338CA"}}
 
-IMPORTANT for compound shapes: the sides array must have the EXACT number of elements matching the template (lshape=6, rlshape=6, ushape=6, staircase=8). Make sure the correct answer equals the sum of all sides.
+For Year 5+ perimeter questions, optionally hide 1-2 sides (hiddenSides array of indices) so students must calculate the unknown side. Show hidden sides as "?" in the sides array:
+{"visual":{"type":"lshape","title":"Find the missing side","dimensions":{"template":"rlshape","sides":["9cm","6cm","?","3cm","?","4cm"],"hiddenSides":[2,4]},"color":"#4338CA"}}
+
+IMPORTANT: sides array length must match template (lshape=6, rlshape=6, ushape=6, tshape=8, staircase=8). For perimeter questions, correct answer = sum of all sides.
 
 For COUNTING CUBES questions — always include a visual:
 {"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
@@ -391,8 +394,35 @@ Logic Problems:
 - Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
 - Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
 
-TOPIC TAGS — assign exactly one:
+PICTURE PATTERN QUESTIONS — for "patterns" topic questions, you MUST include a visual showing the sequence. Each frame contains shapes. The last frame should be blank (isBlank: true) — students must choose which answer option shows what goes in the blank frame.
+
+Available shape types: triangle, triangle_down, square, circle, diamond, star, arrow_right, arrow_down, smiley, sad, cross_x, square_small, circle_thick
+Fill values: "none" (hollow), "#374151" (solid dark), "#4338CA" (solid blue), "#F97316" (solid orange), "#059669" (solid green)
+
+Examples of picture pattern sequences:
+1. Rotation pattern — arrows rotating: frame1=arrow_right, frame2=arrow_down, frame3=arrow_right rotated, frame4=?
+2. Fill pattern — shapes getting progressively filled: hollow→half→solid
+3. Count pattern — increasing number of shapes: 1 circle, 2 circles, 3 circles, ?
+4. Shape alternating: triangle,circle,triangle,circle,?
+5. Size pattern: small square, medium square, large square, ?
+
+Visual format:
+{"visual":{"type":"picturepattern","title":"What comes next?","frames":[
+  {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+  {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+  {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+  {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+  {"isBlank":true}
+]}}
+
+Multiple shapes in one frame (e.g. 2 circles):
+{"shapes":[{"type":"circle","x":0.3,"y":0.5,"size":0.22,"fill":"none","stroke":"#374151"},{"type":"circle","x":0.7,"y":0.5,"size":0.22,"fill":"none","stroke":"#374151"}]}
+
+IMPORTANT: The answer options A/B/C/D must describe what goes in the blank frame (e.g. "A filled arrow pointing right", "Two solid triangles", etc). The correct answer must logically continue the pattern shown.
+
+
 - "sequences" — number sequences and patterns
+- "picturepatterns" — visual/shape pattern sequences (requires visual field)
 - "analogies" — word analogies and relationships
 - "letters" — letter patterns and sequences
 - "oddoneout" — odd one out
@@ -405,7 +435,9 @@ EXPLANATION RULES:
 - State the pattern or rule clearly in 1-2 sentences
 - Be direct and confident
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"sequences"}]}`;
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"sequences","visual":null}]}
+
+For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
   const raw = await callClaude(system, user);
   return JSON.parse(raw).questions;
 };

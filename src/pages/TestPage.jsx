@@ -84,7 +84,8 @@ const TOPIC_PICKER = {
     { key: 'geometry', label: 'Shapes (2D & 3D)' },
   ],
   general: [
-    { key: 'sequences', label: 'Number Patterns' }, { key: 'analogies', label: 'Word Analogies' },
+    { key: 'sequences', label: 'Number Patterns' },
+    { key: 'picturepatterns', label: 'Picture Patterns' }, { key: 'analogies', label: 'Word Analogies' },
     { key: 'oddoneout', label: 'Odd One Out' }, { key: 'letters', label: 'Letter Patterns' },
     { key: 'logic', label: 'Logic & Reasoning' }, { key: 'coding', label: 'Coding' },
     { key: 'synonyms', label: 'Synonyms' }, { key: 'antonyms', label: 'Antonyms' },
@@ -582,15 +583,16 @@ export default function TestPage({ subject }) {
         setPassage(groups); // store array of passage groups
         setQuestions(allQs);
       } else if (topicCounts && Object.keys(topicCounts).length > 0) {
-        const allQs = [];
-        for (const [topicKey, topicCount] of Object.entries(topicCounts)) {
-          if (!topicCount) continue;
-          const focusLabel = `${topicKey} — generate exactly ${topicCount} questions specifically about this topic`;
-          const qs = await cfg.generate(yearLevel, topicCount, focusLabel);
-          allQs.push(...(Array.isArray(qs) ? qs : qs.questions || []).map(q => ({ ...q, topic: topicKey })));
-        }
-        data = allQs;
-        setQuestions(Array.isArray(data) ? data : []);
+        // Build a combined focus label for all topics — single API call
+        const topicEntries = Object.entries(topicCounts).filter(([, n]) => n > 0);
+        const totalFromTopics = topicEntries.reduce((sum, [, n]) => sum + n, 0);
+        const topicBreakdown = topicEntries
+          .map(([key, n]) => `${n} questions about ${key}`)
+          .join(', ');
+        const combinedFocus = `Generate exactly ${totalFromTopics} questions with this breakdown: ${topicBreakdown}. For each group, stay strictly on that topic.`;
+        const qs = await cfg.generate(yearLevel, totalFromTopics, combinedFocus);
+        const allQs = Array.isArray(qs) ? qs : [];
+        setQuestions(allQs);
       } else {
         data = await cfg.generate(yearLevel, count);
         setQuestions(Array.isArray(data) ? data : []);
