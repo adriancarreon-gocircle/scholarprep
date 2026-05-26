@@ -523,12 +523,12 @@ const COMPOUND_TEMPLATES = {
       [128, 170, 128, 158, 140, 158], [50, 158, 62, 158, 62, 170],
     ],
     labels: [
-      { x: 135, y: 11, anchor: 'middle', side: 0 },  // top
-      { x: 228, y: 55, anchor: 'start', side: 1 },  // right-top
-      { x: 183, y: 82, anchor: 'middle', side: 2 },  // step horizontal
-      { x: 148, y: 130, anchor: 'start', side: 3 },  // right-bottom
-      { x: 95, y: 178, anchor: 'middle', side: 4 },  // bottom
-      { x: 42, y: 95, anchor: 'end', side: 5 },  // left
+      { x: 135, y: 10, anchor: 'middle', side: 0 },  // top — above shape
+      { x: 228, y: 55, anchor: 'start', side: 1 },  // right-top — outside right
+      { x: 183, y: 83, anchor: 'middle', side: 2 },  // step horizontal — just above step
+      { x: 148, y: 130, anchor: 'start', side: 3 },  // right-bottom — just right of inner edge
+      { x: 95, y: 178, anchor: 'middle', side: 4 },  // bottom — below shape
+      { x: 40, y: 95, anchor: 'end', side: 5 },  // left — outside left
     ],
     defaultSides: ['7cm', '4cm', '3cm', '2.5cm', '3cm', '9cm'],
   },
@@ -541,12 +541,12 @@ const COMPOUND_TEMPLATES = {
       [120, 78, 132, 78, 132, 90], [50, 78, 62, 78, 62, 90],
     ],
     labels: [
-      { x: 135, y: 11, anchor: 'middle', side: 0 },  // top
-      { x: 228, y: 95, anchor: 'start', side: 1 },  // right
-      { x: 170, y: 178, anchor: 'middle', side: 2 },  // bottom-right
-      { x: 112, y: 130, anchor: 'end', side: 3 },  // inner-right
-      { x: 178, y: 82, anchor: 'middle', side: 4 },  // inner-top
-      { x: 42, y: 55, anchor: 'end', side: 5 },  // left
+      { x: 135, y: 10, anchor: 'middle', side: 0 },  // top — above shape
+      { x: 228, y: 95, anchor: 'start', side: 1 },  // right — outside right edge
+      { x: 170, y: 178, anchor: 'middle', side: 2 },  // bottom-right — below shape
+      { x: 128, y: 130, anchor: 'start', side: 3 },  // inner-right vertical — right of inner step
+      { x: 172, y: 83, anchor: 'middle', side: 4 },  // inner-top horizontal — above inner step
+      { x: 40, y: 55, anchor: 'end', side: 5 },  // left — outside left
     ],
     defaultSides: ['9cm', '6cm', '4cm', '4cm', '3cm', '4cm'],
   },

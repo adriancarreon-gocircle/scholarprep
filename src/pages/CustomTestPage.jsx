@@ -11,160 +11,223 @@ const QUESTION_BANK = {
   mathematics: {
     label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF',
     topics: [
-      { key: 'number', label: 'Numbers', questionTypes: [
-        { key: 'counting', label: 'Counting', examples: ['Is 45 even or odd?', 'Arrange 373, 678 and 145 from smallest to largest', 'What is the largest number you can make with 3, 8, 4, 5?', 'Write 50,434 in words', 'Write 1,500,434 in words'] },
-        { key: 'placevalue', label: 'Place Value', examples: ['What does the 3 represent in 3,770?', 'What does the 3 represent in 3,129,400?'] },
-        { key: 'greaterthan', label: 'Greater Than / Less Than', examples: ['Which number is greater, 114 or 259?', 'Complete: 36 _ 56 with > or <', 'Which is the smallest number? 328, 400, 342', 'Which is the largest number? 5349, 6412, 2362'] },
-        { key: 'rounding', label: 'Rounding', examples: ['Round 89 to the nearest tens', 'Round 789 to the nearest hundred', 'Round 17,895 to the nearest thousand'] },
-        { key: 'wordednumber', label: 'Worded Number Problems', examples: ['Sam has 4 cards: 3, 7, 6, 2. What is the biggest odd number he can form?', 'What is 63 more than 8 tens and 42 ones?'] },
-      ]},
-      { key: 'addition', label: 'Addition', questionTypes: [
-        { key: 'adddigits', label: 'Adding Digits', examples: ['3 + 2 = ?', '14 + 42 = ?', '104 + 402 = ?', '3,362 + 4,203 = ?', 'What is the sum of 2,362 and 3,621?'] },
-        { key: 'addworded1', label: 'Worded Addition (Basic)', examples: ['Rachel has 10 oranges and Thomas has 12. How many together?', '120 kids went Monday. 145 more went Tuesday. How many more on Tuesday?'] },
-        { key: 'addworded2', label: 'Worded Addition (Multi-step)', examples: ['Group A made 364 sandcastles. Group B made 25 more. How many did Group B make?', 'Tom earned $600. He spent $485 on Monday and $30 on Tuesday. How much left?', 'It takes 6 mins to bake cookies and 5 mins for chocolate chips. How long for 8 cookies and 4 chocolate chips?'] },
-      ]},
-      { key: 'subtraction', label: 'Subtraction', questionTypes: [
-        { key: 'subdigits', label: 'Subtracting Digits', examples: ['5 - 2 = ?', '50 - 2 = ?', '378 - 204 = ?', '5,362 - 4,203 = ?', '100 - 5 = ?', '3,500 - 421 = ?'] },
-        { key: 'subworded1', label: 'Worded Subtraction (Basic)', examples: ['Max bought 20 balls. If 4 were blue, how many were red?', 'Matthew had 30 lollies. He gave 5 to William. How many left?', 'Olivia bought 421 cups and Archie bought 124. What is the difference?'] },
-        { key: 'subworded2', label: 'Worded Subtraction (Multi-step)', examples: ['I had 300 books. I took out 45 then 30. How many left?', 'I had 400 pizzas. I sell 30 per hour. How many left after 4 hours?', 'Peter has 120, David has 55, Sam has 90. Take 30 from each. How many altogether?'] },
-      ]},
-      { key: 'multiplication', label: 'Multiplication', questionTypes: [
-        { key: 'multdigits', label: 'Multiplying Digits', examples: ['2 x 2 = ?', '32 x 4 = ?', '42 x 68 = ?', '350 x 20 = ?', '2364 x 3 = ?', '2364 x 10 = ?'] },
-        { key: 'multgroups', label: 'Counting Groups', examples: ['What is 3 groups of 2?', 'What is 10 groups of 4?'] },
-        { key: 'multest', label: 'Estimate Multiplication', examples: ['Estimate 259 x 50', 'Estimate 312 x 19'] },
-        { key: 'multworded', label: 'Worded Multiplication', examples: ['4 rows with 3 books each. How many books?', 'David earns $20 per week. How much after 5 weeks?', '15 boys and 16 girls in each of 4 classes. How many students total?', '5 boxes of 20 balls. Remove 2 from each box. How many total?'] },
-      ]},
-      { key: 'division', label: 'Division', questionTypes: [
-        { key: 'divgroups', label: 'Counting Groups', examples: ['Put 10 balls into 5 bags. How many in each bag?', 'John had 20 toys and gave them equally to 5 friends. How many each?'] },
-        { key: 'divdigits', label: 'Dividing Digits', examples: ['18 / 2 = ?', 'Divide 15 by 4 — what is the remainder?', '2555 / 5 = ?', '482 / 3 — what is the remainder?'] },
-      ]},
-      { key: 'fractions', label: 'Fractions', questionTypes: [
-        { key: 'fraccount', label: 'Count Fractions', examples: ['A table has 4 columns, 2 are coloured. What fraction?', 'What fraction of the circle is shaded?'] },
-        { key: 'fraccompare', label: 'Compare Fractions', examples: ['Which fraction is larger: 2/4 or 3/4?', 'Compare 3/5 and 2/5 with > or <', 'Put in order: 3/8, 2/8, 6/8'] },
-        { key: 'fracaddub', label: 'Add / Subtract Fractions', examples: ['2/5 + 1/5 = ?', '3/6 + 1/6 = ?', '45/100 + 32/100 = ?', '2 3/4 + 3 1/4 = ?'] },
-        { key: 'fracmult', label: 'Multiply Fractions', examples: ['2/4 x 3/5 = ?', '5/6 x 10 = ?'] },
-        { key: 'fracdiv', label: 'Divide Fractions', examples: ['5 / (1/2) = ?', '(1/5) / (2/3) = ?'] },
-        { key: 'fracworded', label: 'Worded Fraction Problems', examples: ['David had a pizza 8/8. He ate 3/8 slices. How many left?', 'A bag has 20 marbles. 1/4 are red. How many red?'] },
-      ]},
-      { key: 'decimal', label: 'Decimals', questionTypes: [
-        { key: 'deccount', label: 'Count / Write Decimals', examples: ['Write in number form: twenty five point three', 'Write 1/2 as a decimal', 'Write 1 3/4 as a decimal', 'Write 3.75 as a mixed fraction', 'Write 58/100 as a decimal'] },
-        { key: 'decaddub', label: 'Add / Subtract Decimals', examples: ['5 - 0.75 = ?', '12.50 - 6.5 = ?', '720.50 - 365.25 = ?'] },
-        { key: 'deccompare', label: 'Compare Decimals', examples: ['Which is larger: 45.421 or 45.4215?', 'Put in order: 3.53, 1.55, 6.39, 2.01', 'Put in order: 1.5, 1.05, 1.15, 1.51'] },
-        { key: 'decmult', label: 'Multiply Decimals', examples: ['0.25 x 4 = ?', '1.5 x 3 = ?'] },
-      ]},
-      { key: 'percentage', label: 'Percentages', questionTypes: [
-        { key: 'pctcount', label: 'Count Percentages', examples: ['Write 25/100 as a percentage', 'Write 0.25 as a percentage', 'Write 25% as a decimal'] },
-        { key: 'pctcalc', label: 'Calculate Percentages', examples: ['What is 50% of $40?', '500 kids in school. 45% are boys. How many boys?'] },
-        { key: 'pctworded', label: 'Worded Percentage Problems', examples: ['A computer costs $500 on 25% sale. What is the new price?', 'A holiday costs $370 with a 10% fee. How much is the fee?', 'Archie invests $1,000 at 10% per year. Total after 2 years?'] },
-      ]},
-      { key: 'conversion', label: 'Conversion', questionTypes: [
-        { key: 'convlength', label: 'Length Conversion', examples: ['What is 300cm in metres?', 'What is 5 metres in cm?', 'What is 3,000m in km?', 'What is 5km in metres?'] },
-        { key: 'convtime', label: 'Time Conversion', examples: ['How many minutes in 3 hours?', 'How many hours and minutes is 130 minutes?', 'How many seconds in 3 minutes?'] },
-        { key: 'convmoney', label: 'Money Conversion', examples: ['How many cents in $3.00?', 'How many dollars in 300 cents?'] },
-        { key: 'convweight', label: 'Weight / Mass Conversion', examples: ['How many grams in 3kg?', 'How many kg in 3,000g?', 'How many millilitres in 3 litres?', 'How many litres in 2,000ml?'] },
-      ]},
-      { key: 'money', label: 'Money', questionTypes: [
-        { key: 'moneycount', label: 'Count Money', examples: ['Look at the coins — how much in total?', 'Look at the notes — how much in total?', 'What is $0.20 + $1?', 'What is $5 - $2?', 'What is $2.50 + $3.25?'] },
-        { key: 'moneyworded', label: 'Worded Money Problems', examples: ['Adam had $50 and bought chips for $10. How much left?', 'Sally had $10, bought 2 chips for $1 each and 3 lollies for $0.50 each. How much left?', 'Sam buys a drink for $5. Chips cost $3 more. How much are the chips?'] },
-      ]},
-      { key: 'time', label: 'Time', questionTypes: [
-        { key: 'timeclock', label: 'Read a Clock', examples: ['What time is shown on the clock?', 'What time is half past 9?', 'What time is quarter to 4?'] },
-        { key: 'timecalc', label: 'Time Calculations', examples: ['A TV show started at 8:00pm and finished at 9:00pm. How long?', 'Jake took 3hrs to walk home. He arrived at 5pm. What time did he start?', 'Adrian started at 7pm and studied for 1hr 25min. What time did he finish?'] },
-        { key: 'timecalendar', label: 'Calendar Problems', examples: ['What day is it 5 days after 3rd May?', 'How many days between 14 March and 2 April?'] },
-      ]},
-      { key: 'length', label: 'Length', questionTypes: [
-        { key: 'lengthmeasure', label: 'Measure Length', examples: ['What is the length of the object?', 'Which object is the largest?', 'Which object is the smallest?'] },
-        { key: 'lengthworded', label: 'Worded Length Problems', examples: ['Peter is taller than Thai by 20cm. Thai is 100cm. How tall is Peter?', 'Dan had 5m of rope and cut 2m off. How much left?', 'Anthony is 120m from the finish. Sally is 250m from the start on a 500m track. Who is ahead?'] },
-      ]},
-      { key: 'volume', label: 'Volume & Weight', questionTypes: [
-        { key: 'volumecount', label: 'Count Volume / Weight', examples: ['Look at the objects — how many kg total?', 'Look at the objects — how many grams total?'] },
-        { key: 'volumeworded', label: 'Worded Volume Problems', examples: ['Lia had 5kg of rice and gave 2.5kg away. How much left?', 'A tank holds 200 litres. It is 3/4 full. How many litres inside?'] },
-      ]},
-      { key: 'perimeter', label: 'Perimeter', questionTypes: [
-        { key: 'perimmeasure', label: 'Measure Perimeter', examples: ['What is the perimeter of this shape?', 'A shape with 12cm length and 4cm width — what is the perimeter?'] },
-        { key: 'perimworded', label: 'Worded Perimeter Problems', examples: ['A shape has 20cm length and 5cm width. What is the perimeter?', 'A rectangle has perimeter 40, with length 15. What is the width?'] },
-      ]},
-      { key: 'area', label: 'Area', questionTypes: [
-        { key: 'areameasure', label: 'Measure Area', examples: ['What is the area of a 12cm x 4cm rectangle?', 'What is the area of the triangle?'] },
-        { key: 'areacubes', label: 'Cube Volume', examples: ['How many cubes are in this object?', 'What is the volume of the cube (length x width x height)?'] },
-        { key: 'areacomplex', label: 'Complex Area', examples: ['What is the area after removing the small square from the rectangle?', 'Calculate the total area of the combined shapes'] },
-      ]},
-      { key: 'angles', label: 'Angles', questionTypes: [
-        { key: 'anglesbasic', label: 'Read / Calculate Angles', examples: ['What angle is shown?', 'What is angle x in the figure?', 'What is angle x in the triangle with angles 65 and 70 degrees?'] },
-        { key: 'anglesshapes', label: 'Angles in Shapes', examples: ['What is the angle in an isosceles triangle?', 'What is the angle in a parallelogram?', 'What is the angle in a rhombus?', 'What is the angle in a trapezium?'] },
-      ]},
-      { key: 'factors', label: 'Factors & Multiples', questionTypes: [
-        { key: 'factorscount', label: 'Count Factors & Multiples', examples: ['Is 3 a factor of 27?', 'What is a factor of 20?', 'What is a common factor of 30 and 20?', 'Which of 20, 15, 30, 65, 72 is NOT a factor of 5?', 'What is a common multiple of 21 and 3?'] },
-      ]},
-      { key: 'rate', label: 'Rates', questionTypes: [
-        { key: 'ratecount', label: 'Rate Problems', examples: ['A car drove for 3 hrs at 2km/h. How far?', 'A person earns $25/hour and works 8 hours. How much?'] },
-      ]},
-      { key: 'average', label: 'Averages', questionTypes: [
-        { key: 'avgcount', label: 'Count Averages', examples: ['What is the average of 20, 42, 3, 14?'] },
-        { key: 'avgworded', label: 'Worded Average Problems', examples: ['A class got 40, 30, 20, 55 out of 100. What is the average?'] },
-      ]},
-      { key: 'circle', label: 'Circles', questionTypes: [
-        { key: 'circlecirc', label: 'Circumference', examples: ['A circle has diameter 10cm. What is its circumference? (Use pi = 3.14)', 'Calculate the circumference of a circle with radius 7cm'] },
-        { key: 'circledia', label: 'Diameter & Radius', examples: ['Calculate the diameter of this circle', 'A circle has circumference 31.4cm. What is the diameter?'] },
-      ]},
-      { key: 'charts', label: 'Charts & Data', questionTypes: [
-        { key: 'barchart', label: 'Bar Charts', examples: ['How many are in column A and B?', 'What is the greatest number in the chart?', 'How many more are in column C than A?', 'What is the total across all columns?', 'What could the title of this chart be?'] },
-        { key: 'piechart', label: 'Pie Charts / Percentages', examples: ['Look at the pie chart — how much % was category 2?', 'What fraction prefers soccer?', 'If 200 students surveyed, how many prefer cricket?'] },
-        { key: 'thermometer', label: 'Thermometer', examples: ['Look at the thermometer — what is the temperature in Celsius?', 'Look at the thermometer — what is the temperature in Fahrenheit?'] },
-      ]},
-      { key: 'algebra', label: 'Algebra', questionTypes: [
-        { key: 'algcalc', label: 'Calculate Algebra', examples: ['5k = 5 x ?', 'Simplify b + b + b', 'Write an algebraic formula for: a number plus 10', 'Find the value of (y + 2) x 3 when y = 3'] },
-        { key: 'algsolve', label: 'Solve for x', examples: ['5x = 35, find x', '3x + 7 = 22, find x'] },
-      ]},
-      { key: 'geometry', label: 'Shapes', questionTypes: [
-        { key: 'geo2d', label: '2D Shapes', examples: ['What is the name of this shape?', 'How many sides does this shape have?', 'How many corners does this shape have?'] },
-        { key: 'geo3d', label: '3D Shapes', examples: ['How many edges does this shape have?', 'How many faces does this shape have?', 'How many vertices does this shape have?'] },
-        { key: 'geoflip', label: 'Flip / Rotate Shapes', examples: ['Look at this shape and flip it sideways', 'Look at this shape and rotate it 90 degrees'] },
-      ]},
+      {
+        key: 'number', label: 'Numbers', questionTypes: [
+          { key: 'counting', label: 'Counting', examples: ['Is 45 even or odd?', 'Arrange 373, 678 and 145 from smallest to largest', 'What is the largest number you can make with 3, 8, 4, 5?', 'Write 50,434 in words', 'Write 1,500,434 in words'] },
+          { key: 'placevalue', label: 'Place Value', examples: ['What does the 3 represent in 3,770?', 'What does the 3 represent in 3,129,400?'] },
+          { key: 'greaterthan', label: 'Greater Than / Less Than', examples: ['Which number is greater, 114 or 259?', 'Complete: 36 _ 56 with > or <', 'Which is the smallest number? 328, 400, 342', 'Which is the largest number? 5349, 6412, 2362'] },
+          { key: 'rounding', label: 'Rounding', examples: ['Round 89 to the nearest tens', 'Round 789 to the nearest hundred', 'Round 17,895 to the nearest thousand'] },
+          { key: 'wordednumber', label: 'Worded Number Problems', examples: ['Sam has 4 cards: 3, 7, 6, 2. What is the biggest odd number he can form?', 'What is 63 more than 8 tens and 42 ones?'] },
+        ]
+      },
+      {
+        key: 'addition', label: 'Addition', questionTypes: [
+          { key: 'adddigits', label: 'Adding Digits', examples: ['3 + 2 = ?', '14 + 42 = ?', '104 + 402 = ?', '3,362 + 4,203 = ?', 'What is the sum of 2,362 and 3,621?'] },
+          { key: 'addworded1', label: 'Worded Addition (Basic)', examples: ['Rachel has 10 oranges and Thomas has 12. How many together?', '120 kids went Monday. 145 more went Tuesday. How many more on Tuesday?'] },
+          { key: 'addworded2', label: 'Worded Addition (Multi-step)', examples: ['Group A made 364 sandcastles. Group B made 25 more. How many did Group B make?', 'Tom earned $600. He spent $485 on Monday and $30 on Tuesday. How much left?', 'It takes 6 mins to bake cookies and 5 mins for chocolate chips. How long for 8 cookies and 4 chocolate chips?'] },
+        ]
+      },
+      {
+        key: 'subtraction', label: 'Subtraction', questionTypes: [
+          { key: 'subdigits', label: 'Subtracting Digits', examples: ['5 - 2 = ?', '50 - 2 = ?', '378 - 204 = ?', '5,362 - 4,203 = ?', '100 - 5 = ?', '3,500 - 421 = ?'] },
+          { key: 'subworded1', label: 'Worded Subtraction (Basic)', examples: ['Max bought 20 balls. If 4 were blue, how many were red?', 'Matthew had 30 lollies. He gave 5 to William. How many left?', 'Olivia bought 421 cups and Archie bought 124. What is the difference?'] },
+          { key: 'subworded2', label: 'Worded Subtraction (Multi-step)', examples: ['I had 300 books. I took out 45 then 30. How many left?', 'I had 400 pizzas. I sell 30 per hour. How many left after 4 hours?', 'Peter has 120, David has 55, Sam has 90. Take 30 from each. How many altogether?'] },
+        ]
+      },
+      {
+        key: 'multiplication', label: 'Multiplication', questionTypes: [
+          { key: 'multdigits', label: 'Multiplying Digits', examples: ['2 x 2 = ?', '32 x 4 = ?', '42 x 68 = ?', '350 x 20 = ?', '2364 x 3 = ?', '2364 x 10 = ?'] },
+          { key: 'multgroups', label: 'Counting Groups', examples: ['What is 3 groups of 2?', 'What is 10 groups of 4?'] },
+          { key: 'multest', label: 'Estimate Multiplication', examples: ['Estimate 259 x 50', 'Estimate 312 x 19'] },
+          { key: 'multworded', label: 'Worded Multiplication', examples: ['4 rows with 3 books each. How many books?', 'David earns $20 per week. How much after 5 weeks?', '15 boys and 16 girls in each of 4 classes. How many students total?', '5 boxes of 20 balls. Remove 2 from each box. How many total?'] },
+        ]
+      },
+      {
+        key: 'division', label: 'Division', questionTypes: [
+          { key: 'divgroups', label: 'Counting Groups', examples: ['Put 10 balls into 5 bags. How many in each bag?', 'John had 20 toys and gave them equally to 5 friends. How many each?'] },
+          { key: 'divdigits', label: 'Dividing Digits', examples: ['18 / 2 = ?', 'Divide 15 by 4 — what is the remainder?', '2555 / 5 = ?', '482 / 3 — what is the remainder?'] },
+        ]
+      },
+      {
+        key: 'fractions', label: 'Fractions', questionTypes: [
+          { key: 'fraccount', label: 'Count Fractions', examples: ['A table has 4 columns, 2 are coloured. What fraction?', 'What fraction of the circle is shaded?'] },
+          { key: 'fraccompare', label: 'Compare Fractions', examples: ['Which fraction is larger: 2/4 or 3/4?', 'Compare 3/5 and 2/5 with > or <', 'Put in order: 3/8, 2/8, 6/8'] },
+          { key: 'fracaddub', label: 'Add / Subtract Fractions', examples: ['2/5 + 1/5 = ?', '3/6 + 1/6 = ?', '45/100 + 32/100 = ?', '2 3/4 + 3 1/4 = ?'] },
+          { key: 'fracmult', label: 'Multiply Fractions', examples: ['2/4 x 3/5 = ?', '5/6 x 10 = ?'] },
+          { key: 'fracdiv', label: 'Divide Fractions', examples: ['5 / (1/2) = ?', '(1/5) / (2/3) = ?'] },
+          { key: 'fracworded', label: 'Worded Fraction Problems', examples: ['David had a pizza 8/8. He ate 3/8 slices. How many left?', 'A bag has 20 marbles. 1/4 are red. How many red?'] },
+        ]
+      },
+      {
+        key: 'decimal', label: 'Decimals', questionTypes: [
+          { key: 'deccount', label: 'Count / Write Decimals', examples: ['Write in number form: twenty five point three', 'Write 1/2 as a decimal', 'Write 1 3/4 as a decimal', 'Write 3.75 as a mixed fraction', 'Write 58/100 as a decimal'] },
+          { key: 'decaddub', label: 'Add / Subtract Decimals', examples: ['5 - 0.75 = ?', '12.50 - 6.5 = ?', '720.50 - 365.25 = ?'] },
+          { key: 'deccompare', label: 'Compare Decimals', examples: ['Which is larger: 45.421 or 45.4215?', 'Put in order: 3.53, 1.55, 6.39, 2.01', 'Put in order: 1.5, 1.05, 1.15, 1.51'] },
+          { key: 'decmult', label: 'Multiply Decimals', examples: ['0.25 x 4 = ?', '1.5 x 3 = ?'] },
+        ]
+      },
+      {
+        key: 'percentage', label: 'Percentages', questionTypes: [
+          { key: 'pctcount', label: 'Count Percentages', examples: ['Write 25/100 as a percentage', 'Write 0.25 as a percentage', 'Write 25% as a decimal'] },
+          { key: 'pctcalc', label: 'Calculate Percentages', examples: ['What is 50% of $40?', '500 kids in school. 45% are boys. How many boys?'] },
+          { key: 'pctworded', label: 'Worded Percentage Problems', examples: ['A computer costs $500 on 25% sale. What is the new price?', 'A holiday costs $370 with a 10% fee. How much is the fee?', 'Archie invests $1,000 at 10% per year. Total after 2 years?'] },
+        ]
+      },
+      {
+        key: 'conversion', label: 'Conversion', questionTypes: [
+          { key: 'convlength', label: 'Length Conversion', examples: ['What is 300cm in metres?', 'What is 5 metres in cm?', 'What is 3,000m in km?', 'What is 5km in metres?'] },
+          { key: 'convtime', label: 'Time Conversion', examples: ['How many minutes in 3 hours?', 'How many hours and minutes is 130 minutes?', 'How many seconds in 3 minutes?'] },
+          { key: 'convmoney', label: 'Money Conversion', examples: ['How many cents in $3.00?', 'How many dollars in 300 cents?'] },
+          { key: 'convweight', label: 'Weight / Mass Conversion', examples: ['How many grams in 3kg?', 'How many kg in 3,000g?', 'How many millilitres in 3 litres?', 'How many litres in 2,000ml?'] },
+        ]
+      },
+      {
+        key: 'money', label: 'Money', questionTypes: [
+          { key: 'moneycount', label: 'Count Money', examples: ['Look at the coins — how much in total?', 'Look at the notes — how much in total?', 'What is $0.20 + $1?', 'What is $5 - $2?', 'What is $2.50 + $3.25?'] },
+          { key: 'moneyworded', label: 'Worded Money Problems', examples: ['Adam had $50 and bought chips for $10. How much left?', 'Sally had $10, bought 2 chips for $1 each and 3 lollies for $0.50 each. How much left?', 'Sam buys a drink for $5. Chips cost $3 more. How much are the chips?'] },
+        ]
+      },
+      {
+        key: 'time', label: 'Time', questionTypes: [
+          { key: 'timeclock', label: 'Read a Clock', examples: ['What time is shown on the clock?', 'What time is half past 9?', 'What time is quarter to 4?'] },
+          { key: 'timecalc', label: 'Time Calculations', examples: ['A TV show started at 8:00pm and finished at 9:00pm. How long?', 'Jake took 3hrs to walk home. He arrived at 5pm. What time did he start?', 'Adrian started at 7pm and studied for 1hr 25min. What time did he finish?'] },
+          { key: 'timecalendar', label: 'Calendar Problems', examples: ['What day is it 5 days after 3rd May?', 'How many days between 14 March and 2 April?'] },
+        ]
+      },
+      {
+        key: 'length', label: 'Length', questionTypes: [
+          { key: 'lengthmeasure', label: 'Measure Length', examples: ['What is the length of the object?', 'Which object is the largest?', 'Which object is the smallest?'] },
+          { key: 'lengthworded', label: 'Worded Length Problems', examples: ['Peter is taller than Thai by 20cm. Thai is 100cm. How tall is Peter?', 'Dan had 5m of rope and cut 2m off. How much left?', 'Anthony is 120m from the finish. Sally is 250m from the start on a 500m track. Who is ahead?'] },
+        ]
+      },
+      {
+        key: 'volume', label: 'Volume & Weight', questionTypes: [
+          { key: 'volumecount', label: 'Count Volume / Weight', examples: ['Look at the objects — how many kg total?', 'Look at the objects — how many grams total?'] },
+          { key: 'volumeworded', label: 'Worded Volume Problems', examples: ['Lia had 5kg of rice and gave 2.5kg away. How much left?', 'A tank holds 200 litres. It is 3/4 full. How many litres inside?'] },
+        ]
+      },
+      {
+        key: 'perimeter', label: 'Perimeter', questionTypes: [
+          { key: 'perimmeasure', label: 'Measure Perimeter', examples: ['What is the perimeter of this shape?', 'A shape with 12cm length and 4cm width — what is the perimeter?'] },
+          { key: 'perimworded', label: 'Worded Perimeter Problems', examples: ['A shape has 20cm length and 5cm width. What is the perimeter?', 'A rectangle has perimeter 40, with length 15. What is the width?'] },
+        ]
+      },
+      {
+        key: 'area', label: 'Area', questionTypes: [
+          { key: 'areameasure', label: 'Measure Area', examples: ['What is the area of a 12cm x 4cm rectangle?', 'What is the area of the triangle?'] },
+          { key: 'areacubes', label: 'Cube Volume', examples: ['How many cubes are in this object?', 'What is the volume of the cube (length x width x height)?'] },
+          { key: 'areacomplex', label: 'Complex Area', examples: ['What is the area after removing the small square from the rectangle?', 'Calculate the total area of the combined shapes'] },
+        ]
+      },
+      {
+        key: 'angles', label: 'Angles', questionTypes: [
+          { key: 'anglesbasic', label: 'Read / Calculate Angles', examples: ['What angle is shown?', 'What is angle x in the figure?', 'What is angle x in the triangle with angles 65 and 70 degrees?'] },
+          { key: 'anglesshapes', label: 'Angles in Shapes', examples: ['What is the angle in an isosceles triangle?', 'What is the angle in a parallelogram?', 'What is the angle in a rhombus?', 'What is the angle in a trapezium?'] },
+        ]
+      },
+      {
+        key: 'factors', label: 'Factors & Multiples', questionTypes: [
+          { key: 'factorscount', label: 'Count Factors & Multiples', examples: ['Is 3 a factor of 27?', 'What is a factor of 20?', 'What is a common factor of 30 and 20?', 'Which of 20, 15, 30, 65, 72 is NOT a factor of 5?', 'What is a common multiple of 21 and 3?'] },
+        ]
+      },
+      {
+        key: 'rate', label: 'Rates', questionTypes: [
+          { key: 'ratecount', label: 'Rate Problems', examples: ['A car drove for 3 hrs at 2km/h. How far?', 'A person earns $25/hour and works 8 hours. How much?'] },
+        ]
+      },
+      {
+        key: 'average', label: 'Averages', questionTypes: [
+          { key: 'avgcount', label: 'Count Averages', examples: ['What is the average of 20, 42, 3, 14?'] },
+          { key: 'avgworded', label: 'Worded Average Problems', examples: ['A class got 40, 30, 20, 55 out of 100. What is the average?'] },
+        ]
+      },
+      {
+        key: 'circle', label: 'Circles', questionTypes: [
+          { key: 'circlecirc', label: 'Circumference', examples: ['A circle has diameter 10cm. What is its circumference? (Use pi = 3.14)', 'Calculate the circumference of a circle with radius 7cm'] },
+          { key: 'circledia', label: 'Diameter & Radius', examples: ['Calculate the diameter of this circle', 'A circle has circumference 31.4cm. What is the diameter?'] },
+        ]
+      },
+      {
+        key: 'charts', label: 'Charts & Data', questionTypes: [
+          { key: 'barchart', label: 'Bar Charts', examples: ['How many are in column A and B?', 'What is the greatest number in the chart?', 'How many more are in column C than A?', 'What is the total across all columns?', 'What could the title of this chart be?'] },
+          { key: 'piechart', label: 'Pie Charts / Percentages', examples: ['Look at the pie chart — how much % was category 2?', 'What fraction prefers soccer?', 'If 200 students surveyed, how many prefer cricket?'] },
+          { key: 'thermometer', label: 'Thermometer', examples: ['Look at the thermometer — what is the temperature in Celsius?', 'Look at the thermometer — what is the temperature in Fahrenheit?'] },
+        ]
+      },
+      {
+        key: 'algebra', label: 'Algebra', questionTypes: [
+          { key: 'algcalc', label: 'Calculate Algebra', examples: ['5k = 5 x ?', 'Simplify b + b + b', 'Write an algebraic formula for: a number plus 10', 'Find the value of (y + 2) x 3 when y = 3'] },
+          { key: 'algsolve', label: 'Solve for x', examples: ['5x = 35, find x', '3x + 7 = 22, find x'] },
+        ]
+      },
+      {
+        key: 'geometry', label: 'Shapes', questionTypes: [
+          { key: 'geo2d', label: '2D Shapes', examples: ['What is the name of this shape?', 'How many sides does this shape have?', 'How many corners does this shape have?'] },
+          { key: 'geo3d', label: '3D Shapes', examples: ['How many edges does this shape have?', 'How many faces does this shape have?', 'How many vertices does this shape have?'] },
+          { key: 'geoflip', label: 'Flip / Rotate Shapes', examples: ['Look at this shape and flip it sideways', 'Look at this shape and rotate it 90 degrees'] },
+        ]
+      },
     ]
   },
   reading: {
     label: 'Reading Comprehension', icon: '📖', color: '#059669', lightBg: '#ECFDF5',
     topics: [
-      { key: 'comprehension', label: 'Reading Comprehension', questionTypes: [
-        { key: 'literal', label: 'Literal Comprehension', examples: ['According to the passage, what did the author do first?', 'What time did the event take place?'] },
-        { key: 'inference', label: 'Inference & Implied Meaning', examples: ["What can you infer about the character's feelings?", 'Why did the author include this detail?'] },
-        { key: 'vocabulary', label: 'Vocabulary in Context', examples: ['The word "enormous" most closely means...', 'What is the best synonym for "reluctant" in paragraph 2?'] },
-        { key: 'mainidea', label: 'Main Idea & Summary', examples: ['What is the main idea of the passage?', 'Which title best summarises the passage?'] },
-        { key: 'purpose', label: "Author's Purpose & Tone", examples: ["What is the author's main purpose?", 'What is the overall tone of the passage?'] },
-      ]}
+      {
+        key: 'comprehension', label: 'Reading Comprehension', questionTypes: [
+          { key: 'literal', label: 'Literal Comprehension', examples: ['According to the passage, what did the author do first?', 'What time did the event take place?'] },
+          { key: 'inference', label: 'Inference & Implied Meaning', examples: ["What can you infer about the character's feelings?", 'Why did the author include this detail?'] },
+          { key: 'vocabulary', label: 'Vocabulary in Context', examples: ['The word "enormous" most closely means...', 'What is the best synonym for "reluctant" in paragraph 2?'] },
+          { key: 'mainidea', label: 'Main Idea & Summary', examples: ['What is the main idea of the passage?', 'Which title best summarises the passage?'] },
+          { key: 'purpose', label: "Author's Purpose & Tone", examples: ["What is the author's main purpose?", 'What is the overall tone of the passage?'] },
+        ]
+      }
     ]
   },
   general: {
     label: 'General Ability', icon: '🧩', color: '#F97316', lightBg: '#FFF7ED',
     topics: [
-      { key: 'patterns', label: 'Number Patterns', questionTypes: [
-        { key: 'countby', label: 'Count On / Back Sequences', examples: ['Count on by ones: 525, 526, 527, ___?', 'Count on by tens: 717, 727, 737, ___?', 'Count on by hundreds: 380, 480, 580, ___?', 'Count on by thousands: 3800, 4800, 5800, ___?', 'Count on by ten thousands: 30800, 40800, 50800, ___?'] },
-        { key: 'missingnum', label: 'Fill in Missing Numbers (Equal steps)', examples: ['436, 438, ___, 442, ___, 446', '5236, 5238, ___, 5242, ___, 5246', '10,000, 20,000, ___, 40,000'] },
-        { key: 'doubtriple', label: 'Doubling / Tripling Patterns', examples: ['Fill in: 1, 2, 4, 8, 16, ___', '3, 6, 12, 24, ___?', '2, 6, 18, 54, ___?'] },
-        { key: 'mixedpattern', label: 'Mixed Addition & Subtraction Patterns', examples: ['Fill in: 2, 4, 3, 5, 4, 6, ___', '1, 3, 2, 4, 3, 5, ___', '10, 8, 11, 9, 12, 10, ___'] },
-      ]},
-      { key: 'verbal', label: 'Verbal Reasoning', questionTypes: [
-        { key: 'analogies', label: 'Word Analogies', examples: ['Hot is to cold as day is to ___?', 'Doctor is to hospital as teacher is to ___?', 'Circle is to round as square is to ___?'] },
-        { key: 'oddoneout', label: 'Odd One Out', examples: ['Find the odd word: apple, orange, banana, hammer, grape', 'Find the odd word: cat, dog, bird, rose, fish'] },
-        { key: 'synonyms', label: 'Synonyms', examples: ['What is a synonym for "happy"?', 'What is a synonym for "large"?', 'What is a synonym for "quick"?'] },
-        { key: 'antonyms', label: 'Antonyms', examples: ['What is an antonym for "cold"?', 'What is an antonym for "brave"?', 'What is an antonym for "ancient"?'] },
-        { key: 'letters', label: 'Letter Patterns', examples: ['A, C, E, G, ___?', 'Z, X, V, T, ___?', 'A, B, D, G, K, ___?'] },
-      ]},
-      { key: 'logic', label: 'Logic & Reasoning', questionTypes: [
-        { key: 'deduction', label: 'Draw Conclusions', examples: ['All boys in the park play soccer. Half also play ping pong. Half the ping pong players are girls. What can we conclude?', 'Sam is better than Richard at Maths. Richard is good at English. Ben sometimes beats Sam at dancing. What can we conclude?'] },
-        { key: 'findinfo', label: 'Find Information in Text', examples: ['Car A is 4m long. Car B is 2.5m. Car C is 1m longer than A. Car D is double B. Which is longest?', 'Student A got 87, B got 95, C got half of B, D got 10 more than A. Who got the highest?'] },
-        { key: 'ordering', label: 'Order Steps / Instructions', examples: ['Order the steps to make tea: Boil water, Pour into cup, Stir, Add milk, Drink', 'Order the steps to make a sandwich'] },
-        { key: 'coding', label: 'Coding & Decoding', examples: ['If A=1, B=2, C=3 etc, what is the code for 10, 14, 13, 5, 6?', 'If A=1 and B=2, what word is 8-5-12-12-15?'] },
-      ]},
+      {
+        key: 'patterns', label: 'Number Patterns', questionTypes: [
+          { key: 'countby', label: 'Count On / Back Sequences', examples: ['Count on by ones: 525, 526, 527, ___?', 'Count on by tens: 717, 727, 737, ___?', 'Count on by hundreds: 380, 480, 580, ___?', 'Count on by thousands: 3800, 4800, 5800, ___?', 'Count on by ten thousands: 30800, 40800, 50800, ___?'] },
+          { key: 'missingnum', label: 'Fill in Missing Numbers (Equal steps)', examples: ['436, 438, ___, 442, ___, 446', '5236, 5238, ___, 5242, ___, 5246', '10,000, 20,000, ___, 40,000'] },
+          { key: 'doubtriple', label: 'Doubling / Tripling Patterns', examples: ['Fill in: 1, 2, 4, 8, 16, ___', '3, 6, 12, 24, ___?', '2, 6, 18, 54, ___?'] },
+          { key: 'mixedpattern', label: 'Mixed Addition & Subtraction Patterns', examples: ['Fill in: 2, 4, 3, 5, 4, 6, ___', '1, 3, 2, 4, 3, 5, ___', '10, 8, 11, 9, 12, 10, ___'] },
+        ]
+      },
+      {
+        key: 'picturepatterns', label: 'Picture Patterns', questionTypes: [
+          { key: 'shaperotate', label: 'Rotation / Direction Patterns', examples: ['Arrow pointing right, down, right, down — what comes next?', 'Shape rotating 90° each step — what is the next position?'] },
+          { key: 'shapefill', label: 'Fill / Shading Patterns', examples: ['Hollow triangle, half-filled, solid — what comes next?', 'Circle with increasing rings — what is the 5th in the sequence?'] },
+          { key: 'shapecount', label: 'Count Patterns', examples: ['1 circle, 2 circles, 3 circles — what comes next?', 'Pattern adds one star each step — what is the 4th frame?'] },
+          { key: 'shapealt', label: 'Alternating Shape Patterns', examples: ['Triangle, circle, triangle, circle — what comes next?', 'Square, star, square, star — what is the missing frame?'] },
+          { key: 'shapematrix', label: 'Shape Matrix (Odd One Out)', examples: ['Which box does not fit the pattern?', 'Find the shape that breaks the sequence rule'] },
+        ]
+      },
+      {
+        key: 'verbal', label: 'Verbal Reasoning', questionTypes: [
+          { key: 'analogies', label: 'Word Analogies', examples: ['Hot is to cold as day is to ___?', 'Doctor is to hospital as teacher is to ___?', 'Circle is to round as square is to ___?'] },
+          { key: 'oddoneout', label: 'Odd One Out', examples: ['Find the odd word: apple, orange, banana, hammer, grape', 'Find the odd word: cat, dog, bird, rose, fish'] },
+          { key: 'synonyms', label: 'Synonyms', examples: ['What is a synonym for "happy"?', 'What is a synonym for "large"?', 'What is a synonym for "quick"?'] },
+          { key: 'antonyms', label: 'Antonyms', examples: ['What is an antonym for "cold"?', 'What is an antonym for "brave"?', 'What is an antonym for "ancient"?'] },
+          { key: 'letters', label: 'Letter Patterns', examples: ['A, C, E, G, ___?', 'Z, X, V, T, ___?', 'A, B, D, G, K, ___?'] },
+        ]
+      },
+      {
+        key: 'logic', label: 'Logic & Reasoning', questionTypes: [
+          { key: 'deduction', label: 'Draw Conclusions', examples: ['All boys in the park play soccer. Half also play ping pong. Half the ping pong players are girls. What can we conclude?', 'Sam is better than Richard at Maths. Richard is good at English. Ben sometimes beats Sam at dancing. What can we conclude?'] },
+          { key: 'findinfo', label: 'Find Information in Text', examples: ['Car A is 4m long. Car B is 2.5m. Car C is 1m longer than A. Car D is double B. Which is longest?', 'Student A got 87, B got 95, C got half of B, D got 10 more than A. Who got the highest?'] },
+          { key: 'ordering', label: 'Order Steps / Instructions', examples: ['Order the steps to make tea: Boil water, Pour into cup, Stir, Add milk, Drink', 'Order the steps to make a sandwich'] },
+          { key: 'coding', label: 'Coding & Decoding', examples: ['If A=1, B=2, C=3 etc, what is the code for 10, 14, 13, 5, 6?', 'If A=1 and B=2, what word is 8-5-12-12-15?'] },
+        ]
+      },
     ]
   },
 };
 
 const STORAGE_KEY = 'scholarprep_custom_tests';
 const loadSavedTests = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
-const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch {} };
-const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { } };
+const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
 const btnStyle = { width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const smallBtnStyle = { width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
@@ -213,7 +276,7 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest }) {
     if (sk === 'reading') return Object.keys(selection.reading || {}).length > 0 ? passages * questionsPerPassage : 0;
     const s = selection[sk] || {};
     return Object.values(s).reduce((sum, t) => sum + Object.values(t).reduce((a, n) => a + n, 0), 0);
-  };  const totalQuestions = Object.keys(QUESTION_BANK).reduce((sum, sk) => sum + getTotalForSubject(sk), 0);
+  }; const totalQuestions = Object.keys(QUESTION_BANK).reduce((sum, sk) => sum + getTotalForSubject(sk), 0);
 
   const setQtCount = (sk, tk, qtk, count) => setSelection(prev => ({
     ...prev, [sk]: { ...prev[sk], [tk]: { ...(prev[sk]?.[tk] || {}), [qtk]: Math.max(0, count) } }
@@ -424,7 +487,7 @@ function SavedTestsList({ tests, onStart, onEdit, onDelete, onCreateNew }) {
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>{test.name}</div>
               <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-                {subjectKeys.map(sk => QUESTION_BANK[sk]?.label).join(' + ')} · {test.totalQuestions}q · {test.timerSecs > 0 ? `${Math.round(test.timerSecs/60)} min` : 'No timer'}
+                {subjectKeys.map(sk => QUESTION_BANK[sk]?.label).join(' + ')} · {test.totalQuestions}q · {test.timerSecs > 0 ? `${Math.round(test.timerSecs / 60)} min` : 'No timer'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -671,7 +734,7 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
             <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: isCorrectQ ? '#ECFDF5' : '#FFF1F2', color: isCorrectQ ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{isCorrectQ ? '✓' : '✗'}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, color: QUESTION_BANK[qSubjR]?.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginBottom: 3 }}>{QUESTION_BANK[qSubjR]?.icon} {QUESTION_BANK[qSubjR]?.label}</div>
-              <div style={{ fontSize: 13, color: '#0F172A', marginBottom: 3, fontFamily: 'Inter, sans-serif' }}><strong>Q{i+1}.</strong> {q.question}</div>
+              <div style={{ fontSize: 13, color: '#0F172A', marginBottom: 3, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
               {!isCorrectQ && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You: <strong>{ua ? `${ua}. ${q.options[ua]}` : 'Not answered'}</strong></div>}
               <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
               {!isCorrectQ && q.explanation && <div style={{ marginTop: 6, fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '7px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
