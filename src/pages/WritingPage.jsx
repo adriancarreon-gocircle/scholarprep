@@ -318,7 +318,7 @@ export default function WritingPage() {
               <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>📷</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 3 }}>Photo Feedback — New!</div>
-                <div style={{ fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Upload or take a photo of handwritten work for detailed AI feedback on vocabulary, grammar and sentence structure</div>
+                <div style={{ fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Upload or take a photo of handwritten work for detailed feedback on vocabulary, grammar and sentence structure</div>
               </div>
               <div style={{ fontSize: 18, color: '#4338CA', flexShrink: 0 }}>→</div>
             </div>
