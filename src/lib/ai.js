@@ -499,7 +499,97 @@ export const assessWriting = async (studentText, prompt, type, yearLevel) => {
   return JSON.parse(raw);
 };
 
-// ── Ideal Answer ──────────────────────────────────────────────────────────────
+// ── Handwriting Photo Assessment ──────────────────────────────────────────────
+
+export const assessHandwritingPhoto = async (base64Image, mediaType, yearLevel, writingType) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and assessor. You transcribe student handwriting from photos and provide rich, detailed feedback. Always respond with ONLY valid JSON, no other text.`;
+
+  const user = `A Year ${yearLevel} student has submitted a handwritten ${writingType || 'writing'} piece. Please:
+1. Transcribe the handwritten text accurately (if illegible in parts, do your best)
+2. Assess it across the 5 criteria
+3. Provide detailed improvement suggestions at the word and sentence level
+
+Return ONLY this JSON (no other text):
+{
+  "transcribedText": "the full transcribed text, preserving paragraphs with \\n\\n",
+  "wordCount": 150,
+  "criteria": [
+    {"name": "Ideas & Content", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
+    {"name": "Structure & Organisation", "score": 3, "maxScore": 5, "percent": 60, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
+    {"name": "Language & Vocabulary", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
+    {"name": "Sentence Structure", "score": 3, "maxScore": 5, "percent": 60, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
+    {"name": "Spelling & Punctuation", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]}
+  ],
+  "totalScore": 18,
+  "maxTotal": 25,
+  "totalPercent": 72,
+  "overallFeedback": "2-3 sentence overall comment",
+  "spellingErrors": [
+    {"original": "misspelled word in context", "correction": "correct spelling", "rule": "spelling rule explanation"}
+  ],
+  "grammarErrors": [
+    {"original": "original sentence with error", "corrected": "corrected sentence", "explanation": "grammar rule"}
+  ],
+  "vocabularyUpgrades": {
+    "adjectives": [
+      {"sentence": "exact sentence from the text", "original": "weak adjective", "options": ["stronger option 1", "stronger option 2", "stronger option 3"], "why": "brief reason"}
+    ],
+    "verbs": [
+      {"sentence": "exact sentence from the text", "original": "weak verb", "options": ["stronger verb 1", "stronger verb 2", "stronger verb 3"], "why": "brief reason"}
+    ],
+    "adverbs": [
+      {"sentence": "exact sentence from the text", "original": "weak adverb or missing", "options": ["better adverb 1", "better adverb 2", "better adverb 3"], "why": "brief reason"}
+    ]
+  },
+  "sentenceStructureUpgrades": [
+    {
+      "technique": "Simile",
+      "original": "exact sentence from the text",
+      "options": ["rewritten version 1 using this technique", "rewritten version 2 using this technique"],
+      "explanation": "how this technique improves the writing"
+    },
+    {
+      "technique": "Metaphor",
+      "original": "exact sentence from the text",
+      "options": ["rewritten version 1", "rewritten version 2"],
+      "explanation": "how this technique improves the writing"
+    },
+    {
+      "technique": "Alliteration",
+      "original": "exact sentence from the text",
+      "options": ["rewritten version 1", "rewritten version 2"],
+      "explanation": "how this technique improves the writing"
+    },
+    {
+      "technique": "Rhetorical Question",
+      "original": "exact sentence from the text",
+      "options": ["rewritten version 1", "rewritten version 2"],
+      "explanation": "how this technique improves the writing"
+    },
+    {
+      "technique": "Complex Sentence",
+      "original": "exact sentence from the text",
+      "options": ["rewritten version 1 as a complex sentence", "rewritten version 2"],
+      "explanation": "how this technique improves the writing"
+    }
+  ]
+}
+
+Provide 2-4 items in each vocabulary section and 4-6 sentence structure upgrades covering varied techniques from: Simile, Metaphor, Alliteration, Personification, Imagery, Rhetorical Question, Complex Sentence, Conditional Sentence, Parallel Structure, Contrast, Emphasis, Relative Clause, Appositive, Cause and Effect, Conjunction, Inverted Order.`;
+
+  // Call Claude API directly with vision capability
+  const response = await fetch('/api/claude-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64Image, mediaType, systemPrompt: system, userPrompt: user })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error);
+  const text = data.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(text);
+};
+
+
 
 const wordCountForMins = (mins) => {
   if (mins <= 15) return 200;

@@ -308,6 +308,23 @@ export default function WritingPage() {
         {/* ── SETUP ── */}
         {hasAccess && phase === 'setup' && (
           <div>
+            {/* Photo feedback option */}
+            <div
+              onClick={() => navigate('/app/writing/photo-feedback')}
+              style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%)', borderRadius: 16, padding: 20, marginBottom: 20, border: '1.5px solid rgba(67,56,202,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(67,56,202,0.06)' }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(67,56,202,0.15)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(67,56,202,0.06)'}
+            >
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>📷</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 3 }}>Photo Feedback — New!</div>
+                <div style={{ fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Upload or take a photo of handwritten work for detailed AI feedback on vocabulary, grammar and sentence structure</div>
+              </div>
+              <div style={{ fontSize: 18, color: '#4338CA', flexShrink: 0 }}>→</div>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Or generate a writing prompt below</div>
+
             <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Writing type</div>
               <div style={{ display: 'flex', gap: 12 }}>
