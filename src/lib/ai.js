@@ -394,31 +394,44 @@ Logic Problems:
 - Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
 - Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
 
-PICTURE PATTERN QUESTIONS — for "patterns" topic questions, you MUST include a visual showing the sequence. Each frame contains shapes. The last frame should be blank (isBlank: true) — students must choose which answer option shows what goes in the blank frame.
+PICTURE PATTERN QUESTIONS — CRITICAL RULES:
+For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes.
+
+You MUST provide an "answerFrames" field in the visual containing the 4 answer option frames. The correct answer frame must logically continue the pattern. The other 3 frames must be plausible distractors (wrong direction, wrong fill, wrong count, etc).
 
 Available shape types: triangle, triangle_down, square, circle, diamond, star, arrow_right, arrow_down, smiley, sad, cross_x, square_small, circle_thick
-Fill values: "none" (hollow), "#374151" (solid dark), "#4338CA" (solid blue), "#F97316" (solid orange), "#059669" (solid green)
+Fill: "none" (hollow), "#374151" (solid dark), "#4338CA" (solid blue), "#F97316" (solid orange)
 
-Examples of picture pattern sequences:
-1. Rotation pattern — arrows rotating: frame1=arrow_right, frame2=arrow_down, frame3=arrow_right rotated, frame4=?
-2. Fill pattern — shapes getting progressively filled: hollow→half→solid
-3. Count pattern — increasing number of shapes: 1 circle, 2 circles, 3 circles, ?
-4. Shape alternating: triangle,circle,triangle,circle,?
-5. Size pattern: small square, medium square, large square, ?
+COMPLETE example — alternating hollow/solid arrows rotating right→down→right→down:
+{"visual":{"type":"picturepattern","title":"What comes next?",
+  "frames":[
+    {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    {"isBlank":true}
+  ],
+  "answerFrames":{
+    "A":{"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    "B":{"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    "C":{"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    "D":{"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]}
+  }
+}}
 
-Visual format:
-{"visual":{"type":"picturepattern","title":"What comes next?","frames":[
-  {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
-  {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
-  {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
-  {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
-  {"isBlank":true}
-]}}
+In this example, correct="A" because the pattern needs a solid arrow pointing down next.
 
-Multiple shapes in one frame (e.g. 2 circles):
-{"shapes":[{"type":"circle","x":0.3,"y":0.5,"size":0.22,"fill":"none","stroke":"#374151"},{"type":"circle","x":0.7,"y":0.5,"size":0.22,"fill":"none","stroke":"#374151"}]}
+The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames are what students see.
 
-IMPORTANT: The answer options A/B/C/D must describe what goes in the blank frame (e.g. "A filled arrow pointing right", "Two solid triangles", etc). The correct answer must logically continue the pattern shown.
+PATTERN TYPES to use (vary these):
+1. Direction rotation: arrow_right → arrow_down → arrow_right → arrow_down → ?
+2. Fill progression: hollow → half → solid → hollow → ?  
+3. Count increase: 1 shape → 2 shapes → 3 shapes → ?
+4. Shape alternating: triangle → circle → triangle → circle → ?
+5. Size change: small → medium → large → ?
+6. Combination: rotating AND filling at same time
+
+IMPORTANT: The correct answer frame in answerFrames MUST exactly match what logically continues the sequence shown in frames. Double-check your pattern before writing the correct letter.
 
 
 - "sequences" — number sequences and patterns

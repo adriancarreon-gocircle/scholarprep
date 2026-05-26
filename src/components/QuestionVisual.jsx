@@ -717,6 +717,31 @@ function PicturePattern({ visual }) {
   );
 }
 
+// ── Single Pattern Frame (for answer options) ─────────────────────────────────
+export function PatternFrame({ frame, size = 48, selected, correct, revealed, color = '#4338CA' }) {
+  if (!frame) return null;
+  const fw = size, fh = size;
+  let bg = '#fff', stroke = '#CBD5E1', sw = 1.5;
+  if (revealed) {
+    if (correct) { bg = '#ECFDF5'; stroke = '#059669'; }
+    else if (selected) { bg = '#FFF1F2'; stroke = '#FDA4AF'; }
+  } else if (selected) { bg = '#EEF2FF'; stroke = color; sw = 2; }
+
+  return (
+    <svg width={fw} height={fh} viewBox={`0 0 ${fw} ${fh}`} style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={fw - 2} height={fh - 2} rx={6} fill={bg} stroke={stroke} strokeWidth={sw} />
+      {(frame.shapes || []).map((sh, si) => {
+        const renderer = SHAPE_RENDERERS[sh.type];
+        if (!renderer) return null;
+        const cx = (sh.x ?? 0.5) * fw;
+        const cy = (sh.y ?? 0.5) * fh;
+        const sz = (sh.size ?? 0.3) * Math.min(fw, fh);
+        return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
+      })}
+    </svg>
+  );
+}
+
 export default function QuestionVisual({ visual }) {
   if (!visual || !visual.type) return null;
 

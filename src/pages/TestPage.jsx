@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
-import QuestionVisual from '../components/QuestionVisual';
+import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 
 const SUBJECT_CONFIG = {
   mathematics: { label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF', generate: generateMathsQuestions },
@@ -442,6 +442,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
             const isSelected = selected[current] === letter;
             const isRevealed = revealed[current];
             const isCorrect = q.correct === letter;
+            const answerFrame = q.visual?.answerFrames?.[letter];
             let bg = '#F8F9FF', border = '1.5px solid rgba(67,56,202,0.1)', color = '#334155';
             if (isRevealed) {
               if (isCorrect) { bg = '#ECFDF5'; border = '1.5px solid #6EE7B7'; color = '#059669'; }
@@ -451,12 +452,15 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
             }
             return (
               <button key={letter} onClick={() => handleSelect(letter)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                display: 'flex', alignItems: 'center', gap: 12, padding: answerFrame ? '8px 16px' : '12px 16px',
                 borderRadius: 12, cursor: isRevealed ? 'default' : 'pointer',
                 background: bg, border, color, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif',
               }}>
                 <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: isRevealed && isCorrect ? '#059669' : isRevealed && isSelected ? '#BE123C' : isSelected ? cfg.color : 'rgba(67,56,202,0.08)', color: (isRevealed && isCorrect) || (isRevealed && isSelected) || isSelected ? '#fff' : '#64748B' }}>{letter}</div>
-                <span style={{ fontSize: 14, fontWeight: 500 }}>{text}</span>
+                {answerFrame
+                  ? <PatternFrame frame={answerFrame} size={52} selected={isSelected} correct={isCorrect} revealed={isRevealed} color={cfg.color} />
+                  : <span style={{ fontSize: 14, fontWeight: 500 }}>{text}</span>
+                }
                 {isRevealed && isCorrect && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✓</span>}
                 {isRevealed && isSelected && !isCorrect && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✗</span>}
               </button>

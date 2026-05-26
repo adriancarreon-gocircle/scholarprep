@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
-import QuestionVisual from '../components/QuestionVisual';
+import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 
 // ── Question Bank (from spreadsheet columns B, C, D) ─────────────────────────
 
@@ -676,13 +676,17 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
                 const isSel = selected[current] === letter;
                 const isRev = revealed[current];
                 const isCorr = q.correct === letter;
+                const answerFrame = q.visual?.answerFrames?.[letter];
                 let bg = '#F8F9FF', bdr = '1.5px solid rgba(67,56,202,0.1)', clr = '#334155';
                 if (isRev) { if (isCorr) { bg = '#ECFDF5'; bdr = '1.5px solid #6EE7B7'; clr = '#059669'; } else if (isSel) { bg = '#FFF1F2'; bdr = '1.5px solid #FDA4AF'; clr = '#BE123C'; } }
                 else if (isSel) { bg = '#EEF2FF'; bdr = `1.5px solid ${qColor}`; clr = qColor; }
                 return (
-                  <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 10, cursor: isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
+                  <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: answerFrame ? '8px 14px' : '11px 14px', borderRadius: 10, cursor: isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
                     <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (isRev && isCorr) ? '#059669' : (isRev && isSel) ? '#BE123C' : isSel ? qColor : 'rgba(67,56,202,0.08)', color: (isRev && isCorr) || (isRev && isSel) || isSel ? '#fff' : '#64748B' }}>{letter}</div>
-                    <span style={{ fontSize: 14 }}>{text}</span>
+                    {answerFrame
+                      ? <PatternFrame frame={answerFrame} size={52} selected={isSel} correct={isCorr} revealed={isRev} color={qColor} />
+                      : <span style={{ fontSize: 14 }}>{text}</span>
+                    }
                     {isRev && isCorr && <span style={{ marginLeft: 'auto' }}>✓</span>}
                     {isRev && isSel && !isCorr && <span style={{ marginLeft: 'auto' }}>✗</span>}
                   </button>
