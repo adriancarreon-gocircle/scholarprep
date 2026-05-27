@@ -32,13 +32,13 @@ function ScoreRing({ pct, size = 80, label }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <svg width={size} height={size}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E5E7EB" strokeWidth={8} />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={8}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E5E7EB" strokeWidth={8} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={8}
           strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
-          transform={`rotate(-90 ${size/2} ${size/2})`} />
-        <text x={size/2} y={size/2 - 4} textAnchor="middle" fontSize={size < 70 ? 13 : 17}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        <text x={size / 2} y={size / 2 - 4} textAnchor="middle" fontSize={size < 70 ? 13 : 17}
           fontWeight="800" fill={color} fontFamily="Inter, sans-serif">{pct}%</text>
-        <text x={size/2} y={size/2 + 11} textAnchor="middle" fontSize={9}
+        <text x={size / 2} y={size / 2 + 11} textAnchor="middle" fontSize={9}
           fill="#94A3B8" fontFamily="Inter, sans-serif">{getBandLabel(pct)}</text>
       </svg>
       {label && <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', textAlign: 'center', fontFamily: 'Inter, sans-serif', maxWidth: 80 }}>{label}</div>}
@@ -60,7 +60,84 @@ function SectionHeader({ icon, title, subtitle, color = '#4338CA' }) {
   );
 }
 
-// ── Upload Screen ─────────────────────────────────────────────────────────────
+// ── In-page Camera Component ──────────────────────────────────────────────────
+
+function CameraCapture({ onCapture, onClose }) {
+  const videoRef = useRef();
+  const canvasRef = useRef();
+  const streamRef = useRef();
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    const start = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => { videoRef.current.play(); setReady(true); };
+        }
+      } catch (e) {
+        setError('Could not access camera. Please allow camera permission or use "Choose file" instead.');
+      }
+    };
+    start();
+    return () => { streamRef.current?.getTracks().forEach(t => t.stop()); };
+  }, []);
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        onCapture(e.target.result.split(',')[1], 'image/jpeg');
+      };
+      reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.92);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 640 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: 'Inter, sans-serif' }}>📷 Position your writing in the frame</div>
+          <button onClick={onClose} style={{ padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✕ Cancel</button>
+        </div>
+        {error ? (
+          <div style={{ background: '#FFF1F2', borderRadius: 12, padding: 20, textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 12 }}>{error}</div>
+            <button onClick={onClose} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Close</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain' }} />
+              {!ready && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+                  <div style={{ fontSize: 14, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Starting camera...</div>
+                </div>
+              )}
+            </div>
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+              <button onClick={handleCapture} disabled={!ready} style={{ padding: '12px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: ready ? '#4338CA' : '#64748B', color: '#fff', border: 'none', cursor: ready ? 'pointer' : 'default', fontFamily: 'Inter, sans-serif', boxShadow: ready ? '0 4px 16px rgba(67,56,202,0.4)' : 'none' }}>
+                📸 Take photo
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function UploadScreen({ onImageReady }) {
   const [dragOver, setDragOver] = useState(false);
@@ -68,8 +145,10 @@ function UploadScreen({ onImageReady }) {
   const [base64, setBase64] = useState(null);
   const [mediaType, setMediaType] = useState('image/jpeg');
   const [writingType, setWritingType] = useState('narrative');
+  const [showCamera, setShowCamera] = useState(false);
   const fileRef = useRef();
-  const cameraRef = useRef();
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const processFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -89,14 +168,23 @@ function UploadScreen({ onImageReady }) {
     processFile(file);
   }, []);
 
+  const handleCameraCapture = (b64, mType) => {
+    setBase64(b64);
+    setMediaType(mType);
+    setPreview(`data:${mType};base64,${b64}`);
+    setShowCamera(false);
+  };
+
   return (
     <div style={{ maxWidth: 620, margin: '0 auto', padding: 32 }}>
+      {showCamera && <CameraCapture onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />}
+
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 26, fontWeight: 800, color: '#0F172A', marginBottom: 6, letterSpacing: -0.5 }}>
           📷 Photo Writing Feedback
         </div>
         <div style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-          Upload or take a photo of your handwritten work and get detailed AI feedback.
+          Upload or take a photo of your handwritten work and get detailed feedback.
         </div>
       </div>
 
@@ -123,24 +211,27 @@ function UploadScreen({ onImageReady }) {
             <img src={preview} alt="Writing preview" style={{ width: '100%', maxHeight: 400, objectFit: 'contain', borderRadius: 12, marginBottom: 12 }} />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button onClick={(e) => { e.stopPropagation(); setPreview(null); setBase64(null); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#FFF1F2', color: '#EF4444', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✕ Remove</button>
-              <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>↺ Change photo</button>
+              <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Change file</button>
+              <button onClick={(e) => { e.stopPropagation(); setShowCamera(true); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F0FDF4', color: '#059669', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📷 Retake</button>
             </div>
           </div>
         ) : (
           <>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 6 }}>Drop a photo here</div>
-            <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>or click to choose a file from your device</div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>or use the buttons below</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Choose file</button>
-              <button onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F0FDF4', color: '#059669', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📷 Take photo</button>
+              <button onClick={(e) => { e.stopPropagation(); setShowCamera(true); }} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F0FDF4', color: '#059669', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📷 Use camera</button>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+              On mobile: use camera to take a photo · On desktop: use camera for webcam or choose a saved photo
             </div>
           </>
         )}
       </div>
 
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => processFile(e.target.files[0])} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => processFile(e.target.files[0])} />
 
       {preview && (
         <button
@@ -489,7 +580,7 @@ export default function HandwritingFeedbackPage() {
         <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
         <div>
           <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 800, color: '#0F172A', letterSpacing: -0.3 }}>Photo Writing Feedback</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Year {yearLevel} · Upload handwritten work for AI feedback</div>
+          <div style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Year {yearLevel} · Upload handwritten work for detailed feedback</div>
         </div>
         <button onClick={() => navigate('/app/writing')} style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Writing</button>
       </div>
