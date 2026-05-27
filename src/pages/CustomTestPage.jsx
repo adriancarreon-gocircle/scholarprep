@@ -702,7 +702,7 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Prev</button>
         <div style={{ display: 'flex', gap: 4 }}>
           {questions.slice(0, Math.min(questions.length, 20)).map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : selected[i] ? (selected[i] === questions[i]?.correct ? '#059669' : '#F43F5E') : '#E2E8F0' }} />
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === questions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
           ))}
           {questions.length > 20 && <span style={{ fontSize: 11, color: '#94A3B8' }}>+{questions.length - 20}</span>}
         </div>

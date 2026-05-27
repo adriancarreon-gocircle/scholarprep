@@ -329,11 +329,142 @@ export const generateReadingQuestions = async (yearLevel, count, themeOverride) 
     ? READING_THEMES.find(t => t.startsWith(themeOverride)) || themeOverride
     : READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
 
+  // 100 story seeds — 10 per theme — matched to the theme being used
+  const SEEDS_BY_THEME = {
+    'Environment': [
+      'a teenager who discovers a secret forest that filters city pollution',
+      'a fishing village that transforms its plastic waste into art and building materials',
+      'a scientist who finds a species of fungus that breaks down ocean plastic in days',
+      'a drought-stricken farm that is saved by an ancient water-harvesting technique',
+      'a school that converts its rooftop into a thriving urban wetland',
+      'a migratory bird whose route reveals hidden environmental damage across three continents',
+      'a community that plants a million trees to reverse local flooding caused by deforestation',
+      'a young researcher who discovers that coral reefs communicate through chemical signals',
+      'a river brought back to life after 50 years of industrial pollution by citizen scientists',
+      'a desert country that engineers a fog-harvesting system to provide fresh water',
+    ],
+    'Science': [
+      'a teenager who accidentally discovers a new state of matter in her kitchen',
+      'a scientist racing to complete an experiment before a solar storm destroys her data',
+      'a biologist who finds that certain trees share nutrients underground during drought',
+      'an astronaut who discovers unexpected life during a routine maintenance spacewalk',
+      'a chemist who creates a paint that can generate electricity from sunlight',
+      'a neuroscientist who maps the brain patterns of people who never forget a face',
+      'a physicist who finds evidence of a parallel universe in particle collision data',
+      'a microbiologist who discovers bacteria in volcanic vents that could power cities',
+      'a team of engineers who design a robot that performs surgery using only sound waves',
+      'a geologist who finds 500-million-year-old DNA preserved in amber from Antarctica',
+    ],
+    'Technology': [
+      'a programmer who builds a tool that translates animal communication into human language',
+      'a 12-year-old who designs an app that helps elderly people reconnect with lost family',
+      'a small town that becomes the first fully 3D-printed community in the world',
+      'an engineer who discovers a flaw in a global navigation system before it causes disaster',
+      'a teenager who hacks a broken satellite to restore emergency communications after a cyclone',
+      'a company that creates glasses allowing colourblind people to experience full colour for the first time',
+      'a robot designed to fight wildfires that develops unexpected problem-solving behaviour',
+      'a village with no electricity that leaps directly to solar-powered internet and transforms overnight',
+      'a student who builds a water purification device from recycled electronics',
+      'an inventor who creates paper-thin solar panels that can be woven into everyday clothing',
+    ],
+    'Social Studies': [
+      'a remote island community that votes to abolish money and return to a barter economy',
+      'a city that solves its housing crisis by converting shipping containers into vibrant homes',
+      'a refugee child who builds a library from donated books in a temporary camp',
+      'two rival neighbourhoods that are forced to collaborate after a bridge collapse',
+      'a village elder whose storytelling tradition becomes the key to resolving a land dispute',
+      'a cultural festival that accidentally unites communities separated by a 200-year-old feud',
+      'a young diplomat who negotiates peace between two feuding farming families over water rights',
+      'a community that preserves its indigenous language by recording it in video games',
+      'a neighbourhood that transforms an abandoned lot into a food forest for the whole community',
+      'a town that bans cars for one week and discovers how much their community changes',
+    ],
+    'Poetry': [
+      'a poem written by a lighthouse keeper recording every storm for 40 years',
+      'a collection of poems found hidden inside the walls of an old school during renovation',
+      'a poem that describes the journey of a single raindrop from cloud to ocean',
+      'a poem written in the voice of a tree watching a city grow around it over a century',
+      'a poem about a child learning to swim in the same river where her grandmother swam',
+      'a poem describing the colours, sounds and smells of a busy market at dawn',
+      'a poem written by someone returning to their hometown after 20 years away',
+      'a poem that uses the language of mathematics to describe the beauty of nature',
+      'a poem comparing the lifecycle of a butterfly to a human lifetime',
+      'a poem written as a conversation between the moon and a sleeping city',
+    ],
+    'History': [
+      'a young messenger who carries secret letters during a siege that changed a nation',
+      'a kitchen worker in an ancient Roman city whose daily life reveals how ordinary people lived',
+      'the discovery of a map that rewrites what historians thought about early Pacific navigation',
+      'a female engineer who secretly designed part of a famous 19th-century bridge',
+      'a market trader in medieval Baghdad who connects the world\'s great trade routes',
+      'an archaeologist who uncovers a 1000-year-old hospital beneath a modern city',
+      'a sailor on the first ship to successfully map a treacherous coastline in the 1700s',
+      'a child growing up during the industrial revolution whose observations predict modern labour laws',
+      'a scribe in ancient Egypt who records a flood that nearly destroys the entire harvest',
+      'a forgotten inventor whose 1890s design for a flying machine was 20 years ahead of its time',
+    ],
+    'Fiction / Narrative': [
+      'a girl who discovers she can rewind time by exactly 60 seconds, but only once a day',
+      'two brothers who find a locked door in their grandmother\'s house that leads to a memory',
+      'a lighthouse keeper who receives messages in bottles from someone stranded on an unmapped island',
+      'a child who wakes up one morning able to hear the thoughts of every plant in the garden',
+      'a city where it is illegal to be sad, and a boy who refuses to pretend to be happy',
+      'a girl who discovers her shadow is actually alive and has been living its own secret life',
+      'a town where everyone is born with a talent they must discover before their 12th birthday',
+      'a boy who finds a door in the back of a wardrobe that leads to the year 1920',
+      'a flying island that appears above a different ocean city every hundred years',
+      'a young chef who must recreate a legendary dish using only ingredients from her grandmother\'s garden',
+    ],
+    'Geography': [
+      'a cartographer who discovers that an entire small island has disappeared underwater in ten years',
+      'a geographer studying how climate change is reshaping coastlines around the Pacific',
+      'a nomadic family in Mongolia adapting their ancient migration routes due to shifting seasons',
+      'a river that flows uphill for a short stretch due to a unique geological formation',
+      'a city built entirely on a floating platform on a vast lake in the mountains',
+      'a community living in an active volcanic region that has thrived there for a thousand years',
+      'two countries that share a glacier and must negotiate as it rapidly retreats',
+      'a geographer who maps the underground rivers of a vast cave system beneath the Sahara',
+      'a remote archipelago whose unique position in ocean currents makes it a weather-watching hub',
+      'a mountain valley so protected by peaks that it has its own unique micro-climate and ecosystem',
+    ],
+    'Sports': [
+      'a deaf swimmer who develops a new underwater technique that breaks a world record',
+      'a 40-year-old marathon runner competing in her first Olympics against athletes half her age',
+      'a remote village cricket team that qualifies for a national tournament for the first time',
+      'a tennis coach who revolutionises training by studying the movement patterns of birds in flight',
+      'a surfer who campaigns to have ocean plastic removed from competition beaches worldwide',
+      'a para-athlete who designs her own racing wheelchair from salvaged bicycle parts',
+      'a football team from a country with no grass who train on a rooftop court and reach the world stage',
+      'a young gymnast who overcomes a broken wrist by developing an entirely new routine',
+      'an indigenous Australian athlete who brings traditional running techniques into modern athletics',
+      'a basketball team of 8-year-olds who organise their own competition while the adults are on strike',
+    ],
+    'Arts': [
+      'a street artist who paints murals that tell the hidden history of forgotten neighbourhoods',
+      'a composer who creates a symphony using only sounds recorded in a rainforest',
+      'a weaver from a remote village whose traditional patterns are discovered to contain a mathematical code',
+      'a sculptor who creates life-sized bronze statues of ordinary people and places them in public spaces',
+      'a young dancer who blends classical ballet with traditional Aboriginal movement and performs at a global festival',
+      'a photographer who spends 20 years capturing the same view of a city to show how it changes',
+      'a glassblower who creates artwork that can only be seen in full during a solar eclipse',
+      'a theatre company that performs Shakespeare entirely in sign language',
+      'a musician who records an album using only instruments made from ocean waste',
+      'a printmaker who creates portraits of refugees using ink made from the soil of their home countries',
+    ],
+  };
+
+  // Match the seed pool to the current theme, or fall back to all seeds
+  const themeKey = Object.keys(SEEDS_BY_THEME).find(k => theme.startsWith(k)) || 'Fiction / Narrative';
+  const seedPool = SEEDS_BY_THEME[themeKey];
+  const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
+
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
   const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
 
 THEME FOR THIS PASSAGE: ${theme}
-You MUST write the passage on this specific theme. Do NOT default to common topics like the Great Barrier Reef, kangaroos or typical Australian wildlife unless the theme specifically calls for it.
+SPECIFIC STORY SEED (your passage MUST be built around this): ${seed}
+
+You MUST write the passage on this specific theme AND use the story seed above as the central focus. Do NOT default to common topics like the Great Barrier Reef, kangaroos or typical Australian wildlife unless the theme specifically calls for it. The passage must be original and distinct — not a generic overview of the theme.
 
 Create an original, engaging passage (${yearLevel <= 6 ? '150-300' : '250-450'} words) on the theme above, written at a difficulty appropriate for Year ${yearLevel}. Then write ${count} multiple-choice questions testing a mix of question types.
 
@@ -344,6 +475,13 @@ TOPIC TAGS — assign exactly one of these to each question:
 - "mainidea" — main idea, theme, summary
 - "purpose" — author's purpose, tone, perspective
 - "texttype" — text structure, features, genre
+
+ANSWER LENGTH RULES — CRITICAL:
+- The correct answer must NOT always be the longest option. Vary the length deliberately.
+- For at least half the questions, make the correct answer SHORTER than one or more of the wrong answers.
+- Wrong answer options should sometimes be longer and more elaborate than the correct answer.
+- All 4 options for each question should be plausible and similar in length where possible.
+- Never make the correct answer stand out by being noticeably longer or more detailed than the others.
 
 EXPLANATION RULES:
 - State why the correct answer is right in 1-2 sentences maximum

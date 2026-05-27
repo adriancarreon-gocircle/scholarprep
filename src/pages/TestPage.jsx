@@ -479,7 +479,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Previous</button>
         <div style={{ display: 'flex', gap: 5 }}>
           {questions.map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? '#4338CA' : selected[i] ? (selected[i] === questions[i].correct ? '#059669' : '#F43F5E') : '#E2E8F0', transition: 'background 0.2s' }}></div>
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? '#4338CA' : (selected[i] && reviewMode !== 'end') ? (selected[i] === questions[i].correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0', transition: 'background 0.2s' }}></div>
           ))}
         </div>
         {current < questions.length - 1 ? (
