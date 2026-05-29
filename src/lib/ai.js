@@ -476,12 +476,29 @@ TOPIC TAGS — assign exactly one of these to each question:
 - "purpose" — author's purpose, tone, perspective
 - "texttype" — text structure, features, genre
 
-ANSWER LENGTH RULES — CRITICAL:
-- The correct answer must NOT always be the longest option. Vary the length deliberately.
-- For at least half the questions, make the correct answer SHORTER than one or more of the wrong answers.
-- Wrong answer options should sometimes be longer and more elaborate than the correct answer.
-- All 4 options for each question should be plausible and similar in length where possible.
-- Never make the correct answer stand out by being noticeably longer or more detailed than the others.
+ANSWER OPTION LENGTH RULES — MANDATORY:
+Real scholarship exams (ACER, Edutest, NAPLAN) use consistent, concise answer options. Follow these rules strictly:
+
+1. WORD BUDGET: Every answer option (A, B, C, D) must be between 5 and 12 words. No option may be more than 3 words longer than the shortest option in the same question.
+
+2. NO PADDING: Do not add explanatory clauses to the correct answer. A correct answer does not need more words to be correct — a precise short phrase is better than a padded long phrase.
+
+3. CORRECT ANSWER POSITION IN LENGTH: Across a set of 5 questions, the correct answer must be:
+   - The shortest option in at least 2 questions
+   - The middle length in at least 1 question  
+   - The longest option in at most 1 question
+
+4. DISTRACTOR QUALITY: Wrong options must be plausible and similar in structure to the correct answer. They should NOT be obviously wrong — a student who hasn't read carefully should find them believable.
+
+5. CONCRETE EXAMPLE — Good (balanced lengths):
+   Q: What was the main reason Mia climbed to the roof?
+   A: To watch the sky change colour (6 words) ← CORRECT
+   B: To escape the noise inside the house (7 words)
+   C: To signal to ships passing the lighthouse (7 words)  
+   D: To complete her homework in the evening air (8 words)
+   
+   Bad (correct answer padded):
+   A: To observe and study the changing patterns of the evening sky as her grandfather had taught her (17 words) ← WRONG — too long, obviously correct
 
 EXPLANATION RULES:
 - State why the correct answer is right in 1-2 sentences maximum
@@ -490,7 +507,27 @@ EXPLANATION RULES:
 
 Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks using \\n\\n"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal"}]}`;
   const raw = await callClaude(system, user);
-  return JSON.parse(raw);
+  const parsed = JSON.parse(raw);
+
+  // Post-process: safety net to equalise answer lengths if correct answer is padded
+  if (parsed.questions) {
+    parsed.questions = parsed.questions.map(q => {
+      const opts = { ...q.options };
+      const entries = Object.entries(opts);
+      const lengths = entries.map(([k, v]) => ({ k, words: v.trim().split(/\s+/).length }));
+      const correctLen = lengths.find(l => l.k === q.correct)?.words || 0;
+      const otherLens = lengths.filter(l => l.k !== q.correct).map(l => l.words);
+      const maxOther = Math.max(...otherLens);
+      // If correct answer is 5+ words longer than every distractor, trim it
+      if (correctLen > maxOther + 4) {
+        const words = opts[q.correct].trim().split(/\s+/);
+        opts[q.correct] = words.slice(0, maxOther + 2).join(' ');
+      }
+      return { ...q, options: opts };
+    });
+  }
+
+  return parsed;
 };
 
 // ── Generate General Ability Questions ────────────────────────────────────────
