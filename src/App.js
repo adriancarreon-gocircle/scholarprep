@@ -17,6 +17,7 @@ import SimulatedExamPage from './pages/SimulatedExamPage';
 import CustomTestPage from './pages/CustomTestPage';
 import SupportPage from './pages/SupportPage';
 import HandwritingFeedbackPage from './pages/HandwritingFeedbackPage';
+import HelpPage from './pages/HelpPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -43,6 +44,7 @@ function AppRoutes() {
       <Route path="/app/custom-test" element={<ProtectedRoute><AppLayout><CustomTestPage /></AppLayout></ProtectedRoute>} />
       <Route path="/support" element={<SupportPage />} />
       <Route path="/app/writing/photo-feedback" element={<ProtectedRoute><AppLayout><HandwritingFeedbackPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/app/help" element={<ProtectedRoute><AppLayout><HelpPage /></AppLayout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><AppLayout><ProfilePage /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { signOut } from '../lib/supabase';
 
@@ -14,8 +14,10 @@ const navItems = [
 
 export default function AppLayout({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, yearLevel, setYearLevel, trialDaysLeft, isSubscribed, demoMode } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isHelpPage = location.pathname === '/app/help';
 
   const handleSignOut = async () => {
     await signOut();
@@ -164,7 +166,19 @@ export default function AppLayout({ children }) {
       </div>
 
       {/* MAIN */}
-      <div className="main-content">
+      <div className="main-content" style={{ position: 'relative' }}>
+        {/* ? Help button — hidden on the help page itself */}
+        {!isHelpPage && (
+          <button
+            onClick={() => navigate('/app/help')}
+            title="Help & User Guide"
+            style={{ position: 'fixed', bottom: 28, right: 28, width: 44, height: 44, borderRadius: '50%', background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, fontWeight: 800, fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.35)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#3730A3'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#4338CA'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            ?
+          </button>
+        )}
         {children}
       </div>
     </div>
