@@ -81,8 +81,44 @@ const QUESTION_BANK = {
 };
 
 const STORAGE_KEY = 'scholarprep_custom_tests';
-const loadSavedTests = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
-const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { } };
+
+// ── Load saved tests: Supabase for logged-in users, localStorage for demo ─────
+const loadSavedTests = () => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+};
+const saveTests = (t) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { }
+};
+
+// ── Supabase sync helpers ──────────────────────────────────────────────────────
+const syncTestsToSupabase = async (supabase, userId, tests) => {
+  if (!supabase || !userId) return;
+  try {
+    // Upsert all tests for this user as a single JSON blob
+    await supabase.from('custom_tests').upsert({
+      user_id: userId,
+      tests: JSON.stringify(tests),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch (e) {
+    console.error('Failed to sync custom tests to Supabase:', e);
+  }
+};
+
+const loadTestsFromSupabase = async (supabase, userId) => {
+  if (!supabase || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('custom_tests')
+      .select('tests')
+      .eq('user_id', userId)
+      .single();
+    if (error || !data) return null;
+    return JSON.parse(data.tests || '[]');
+  } catch (e) {
+    return null;
+  }
+};
 const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
 const btnStyle = { width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
@@ -640,22 +676,47 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
 }
 
 export default function CustomTestPage() {
-  const { yearLevel, hasAccess } = useAuth();
+  const { yearLevel, hasAccess, user } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState('list');
   const [savedTests, setSavedTests] = useState(loadSavedTests);
   const [editingTest, setEditingTest] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
   const [result, setResult] = useState(null);
+  const [supabaseClient, setSupabaseClient] = useState(null);
+
+  // Load supabase client dynamically to avoid circular imports
+  React.useEffect(() => {
+    import('../lib/supabase').then(m => setSupabaseClient(m.supabase));
+  }, []);
+
+  // On mount / login: load tests from Supabase (overrides localStorage if found)
+  React.useEffect(() => {
+    if (!user?.id || !supabaseClient) return;
+    loadTestsFromSupabase(supabaseClient, user.id).then(remoteTests => {
+      if (remoteTests && remoteTests.length > 0) {
+        setSavedTests(remoteTests);
+        saveTests(remoteTests); // keep localStorage in sync
+      }
+    });
+  }, [user?.id, supabaseClient]);
+
+  const persistTests = (tests) => {
+    setSavedTests(tests);
+    saveTests(tests); // always save to localStorage
+    if (user?.id && supabaseClient) {
+      syncTestsToSupabase(supabaseClient, user.id, tests); // also sync to Supabase
+    }
+  };
 
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
     const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests); saveTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
+    persistTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
   };
   const handleSaveOnly = (cfg) => {
     const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests2); saveTests(updatedTests2); setEditingTest(null); setView('list');
+    persistTests(updatedTests2); setEditingTest(null); setView('list');
   };
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
@@ -683,7 +744,7 @@ export default function CustomTestPage() {
         </div>
       )}
 
-      {hasAccess && view === 'list' && <SavedTestsList tests={savedTests} onStart={handleStart} onEdit={(t) => { setEditingTest(t); setView('builder'); }} onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); }} onCreateNew={() => { setEditingTest(null); setView('builder'); }} />}
+      {hasAccess && view === 'list' && <SavedTestsList tests={savedTests} onStart={handleStart} onEdit={(t) => { setEditingTest(t); setView('builder'); }} onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); persistTests(u); }} onCreateNew={() => { setEditingTest(null); setView('builder'); }} />}
       {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} />}
       {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
       {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}

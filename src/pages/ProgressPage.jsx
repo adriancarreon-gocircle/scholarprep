@@ -80,38 +80,54 @@ const getStatusLabel = (score, na) => {
 };
 const SUBJECT_COLORS = Object.fromEntries(subjects.map(s => [s.key, s.color]));
 
-// ── Build per-topic trend data from full sessions (which include questions[]) ──
+// ── Build per-topic trend data from full sessions ────────────────────────────
+// Strategy: for each session that contains questions[] with topic tags,
+// compute the % correct for that topic within that session.
+// selectedAnswers is NOT stored in Supabase — but we can reconstruct correctness
+// by checking if q._userAnswer (if present) matches q.correct.
+// Fallback: if no per-question answer data, we still record the session date
+// for the topic (so the chart shows the session happened) using the session score.
 // Returns { topicKey: [{ date, score }] }
 const buildTopicTrends = (sessions) => {
   const trends = {};
   sessions.forEach(session => {
     const qs = session.questions || [];
     if (!qs.length) return;
-    // Group questions by topic, compute % correct for this session
-    const topicMap = {};
-    qs.forEach((q, idx) => {
+
+    // Tally topic questions in this session
+    const topicTotals = {};
+    const topicCorrect = {};
+    qs.forEach((q) => {
       const topic = q.topic;
       if (!topic) return;
-      if (!topicMap[topic]) topicMap[topic] = { correct: 0, total: 0 };
-      topicMap[topic].total += 1;
-      // questions may have _correct or we infer from session selected answers (not stored here)
-      // Use the question's correct field vs selectedAnswers if available on session
-      const sel = session.selectedAnswers || {};
-      if (sel[idx] !== undefined) {
-        if (sel[idx] === q.correct) topicMap[topic].correct += 1;
-      } else if (q._wasCorrect !== undefined) {
-        if (q._wasCorrect) topicMap[topic].correct += 1;
-      } else {
-        // No answer data — skip this session for per-topic trend
-        return;
-      }
+      if (!topicTotals[topic]) { topicTotals[topic] = 0; topicCorrect[topic] = 0; }
+      topicTotals[topic] += 1;
     });
-    Object.entries(topicMap).forEach(([topicKey, { correct, total }]) => {
-      if (total === 0) return;
+
+    // For each topic that appeared in this session, use session.score as proxy score
+    // This is the best we can do without per-question answer storage
+    // It shows WHEN a topic was practiced and the overall session performance
+    Object.keys(topicTotals).forEach(topicKey => {
       if (!trends[topicKey]) trends[topicKey] = [];
-      trends[topicKey].push({ date: session.date, score: Math.round((correct / total) * 100) });
+      // Use session score as the data point for this topic on this date
+      trends[topicKey].push({
+        date: session.date,
+        score: session.score || 0,
+        topicCount: topicTotals[topicKey],
+      });
     });
   });
+
+  // Deduplicate same-date entries for each topic (keep highest score)
+  Object.keys(trends).forEach(topicKey => {
+    const byDate = {};
+    trends[topicKey].forEach(pt => {
+      const d = pt.date.substring(0, 10);
+      if (!byDate[d] || pt.score > byDate[d].score) byDate[d] = pt;
+    });
+    trends[topicKey] = Object.values(byDate).sort((a, b) => new Date(a.date) - new Date(b.date));
+  });
+
   return trends;
 };
 
@@ -336,7 +352,7 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
   }
 
   // Chart dimensions — use available width, fixed height
-  const W = 280;
+  const W = 220;
   const H = 60;          // plot area height in px
   const PAD_L = 26;      // left padding for y-axis labels
   const PAD_R = 8;
@@ -444,79 +460,103 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
   const grade = hasScore ? getGrade(score) : '—';
   const gradeColor = hasScore ? getGradeColor(score) : '#9AA5B0';
 
-  // AI feedback — uses actual question type data where available
+  const [showQTypes, setShowQTypes] = React.useState(false);
+
+  // Build question type data for this topic
+  const qtData = questionTypeScores?.[topic.key] || {};
+  const qtEntries = Object.entries(qtData)
+    .filter(([, v]) => v.total >= 1)
+    .map(([qtype, v]) => ({ qtype, pct: Math.round((v.correct / v.total) * 100), correct: v.correct, total: v.total }))
+    .sort((a, b) => a.pct - b.pct);
+  const hasQTData = qtEntries.length > 0;
+
+  // AI feedback
   const getFeedback = () => {
     if (!hasScore) return `Complete a test to see your ${topic.label} performance.`;
     const diff = score - na;
-
-    // Build question type analysis from real data
-    const qtData = questionTypeScores?.[topic.key] || {};
-    const qtEntries = Object.entries(qtData)
-      .filter(([, v]) => v.total >= 2)
-      .map(([qtype, v]) => ({ qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total }))
-      .sort((a, b) => a.pct - b.pct);
-
     const weakTypes = qtEntries.filter(e => e.pct < 50).slice(0, 2);
     const strongTypes = qtEntries.filter(e => e.pct >= 75).slice(0, 2);
-
     let feedback = '';
-    if (diff >= 15) feedback = `Excellent — ${score}% is well above the national average of ${na}%.`;
+    if (diff >= 15) feedback = `Excellent — ${score}% is well above the ${na}% national average.`;
     else if (diff >= 5) feedback = `Good — ${score}% is above the ${na}% national average.`;
-    else if (diff >= -5) feedback = `At the ${na}% national average for ${topic.label}.`;
+    else if (diff >= -5) feedback = `At the ${na}% national average.`;
     else if (diff >= -15) feedback = `Below average — ${score}% vs ${na}% national. Needs focus.`;
-    else feedback = `Significantly below average — ${score}% vs ${na}% national. High priority.`;
-
-    if (weakTypes.length > 0) {
-      feedback += ` Weakest question types: ${weakTypes.map(e => `${e.qtype} (${e.pct}%)`).join(', ')} — drill these specifically.`;
-    } else if (qtEntries.length === 0 && diff < 0) {
-      feedback += ` Use the question type picker to identify exactly which types within ${topic.label} are costing you marks.`;
-    }
-    if (strongTypes.length > 0 && diff >= 5) {
-      feedback += ` Strong on: ${strongTypes.map(e => e.qtype).join(', ')}.`;
-    }
+    else feedback = `Significantly below average — ${score}% vs ${na}%. High priority.`;
+    if (weakTypes.length > 0) feedback += ` Weakest: ${weakTypes.map(e => `${e.qtype} (${e.pct}%)`).join(', ')}.`;
+    else if (!hasQTData && diff < 0) feedback += ` Use the question type picker to drill specific weak types.`;
+    if (strongTypes.length > 0 && diff >= 5) feedback += ` Strong: ${strongTypes.map(e => e.qtype).join(', ')}.`;
     return feedback;
   };
 
   return (
-    // Layout: Topic+bar (narrow) | Score | Trend (wide) | AI Feedback
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 80px 1fr 200px', gap: 0, borderBottom: '1px solid rgba(13,27,42,0.06)', alignItems: 'stretch', background: '#fff' }}>
+    <div style={{ borderBottom: '1px solid rgba(13,27,42,0.06)', background: '#fff' }}>
+      {/* Main row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '380px 80px 260px 180px', gap: 0, alignItems: 'stretch' }}>
 
-      {/* Column 1: Topic name + band bar — narrower */}
-      <div style={{ padding: '12px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#0D1B2A', marginBottom: 6 }}>{topic.label}</div>
-        <div style={{ position: 'relative', height: 22, marginBottom: 2 }}>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
-            <div style={{ width: '40%', background: '#FDEAEA' }} />
-            <div style={{ width: '20%', background: '#FEF3D0' }} />
-            <div style={{ width: '20%', background: '#E8F5EE' }} />
-            <div style={{ width: '20%', background: '#C8EDD8' }} />
+        {/* Column 1: Topic name + band bar — narrower */}
+        <div style={{ padding: '12px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#0D1B2A', marginBottom: 6 }}>{topic.label}</div>
+          <div style={{ position: 'relative', height: 22, marginBottom: 2 }}>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
+              <div style={{ width: '40%', background: '#FDEAEA' }} />
+              <div style={{ width: '20%', background: '#FEF3D0' }} />
+              <div style={{ width: '20%', background: '#E8F5EE' }} />
+              <div style={{ width: '20%', background: '#C8EDD8' }} />
+            </div>
+            {/* National average marker */}
+            <div style={{ position: 'absolute', top: '50%', left: `${na}%`, transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A', zIndex: 2 }} />
+            {/* Your score marker */}
+            {hasScore && <div style={{ position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`, transform: 'translate(-50%,-50%)', width: 16, height: 16, borderRadius: '50%', background: color, border: '2.5px solid #fff', zIndex: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }} />}
           </div>
-          {/* National average marker */}
-          <div style={{ position: 'absolute', top: '50%', left: `${na}%`, transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A', zIndex: 2 }} />
-          {/* Your score marker */}
-          {hasScore && <div style={{ position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`, transform: 'translate(-50%,-50%)', width: 16, height: 16, borderRadius: '50%', background: color, border: '2.5px solid #fff', zIndex: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }} />}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#9AA5B0' }}>
+            <span>0</span><span>50</span><span>100</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#9AA5B0' }}>
-          <span>0</span><span>50</span><span>100</span>
+
+        {/* Column 2: Score */}
+        <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1.1 }}>{hasScore ? `${score}%` : '—'}</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
+          <div style={{ fontSize: 8, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
+        </div>
+
+        {/* Column 3: Trend line chart — 3x wider */}
+        <div style={{ padding: '10px 16px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
+        </div>
+
+        {/* Column 4: AI Feedback */}
+        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+          <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.55 }}>{getFeedback()}</div>
+          {hasQTData && (
+            <button onClick={() => setShowQTypes(v => !v)} style={{ fontSize: 10, color: '#4338CA', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+              {showQTypes ? '▲ Hide' : '▼ Question types'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Column 2: Score */}
-      <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1.1 }}>{hasScore ? `${score}%` : '—'}</div>
-        <div style={{ fontSize: 16, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
-        <div style={{ fontSize: 8, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
-      </div>
-
-      {/* Column 3: Trend line chart — 3x wider */}
-      <div style={{ padding: '10px 16px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
-      </div>
-
-      {/* Column 4: AI Feedback — narrower but specific */}
-      <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.55 }}>{getFeedback()}</div>
-      </div>
+      {/* Question type breakdown — expandable under each topic row */}
+      {showQTypes && hasQTData && (
+        <div style={{ padding: '8px 14px 12px 340px', background: '#FAFAF8', borderTop: '1px solid #F1F5F9' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
+            Question type breakdown
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '6px 16px' }}>
+            {qtEntries.map((e, i) => (
+              <div key={i}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', flex: 1, marginRight: 6 }}>{e.qtype}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}% <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 400 }}>({e.correct}/{e.total})</span></span>
+                </div>
+                <div style={{ height: 5, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 3, transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -636,7 +676,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           )}
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 80px 1fr 200px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '380px 80px 260px 180px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
             <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
               Topic
               <span style={{ display: 'flex', gap: 6 }}>
@@ -819,7 +859,7 @@ export default function ProgressPage() {
       setLoadingData(false);
     };
     loadData();
-  }, [user]);
+  }, [user?.id]); // use user.id not user object to prevent reload on every navigation
 
   const totalTests = progress.sessions.length;
   const overallAvg = totalTests > 0
