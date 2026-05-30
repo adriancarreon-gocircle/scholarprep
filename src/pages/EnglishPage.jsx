@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateEnglishQuestions } from '../lib/ai';
-import { saveTestSession } from '../lib/progress';
+import { saveTestResult } from '../lib/progress';
 
 // ─── English topic taxonomy ──────────────────────────────────────────────────
 const ENGLISH_TOPICS = [
@@ -200,14 +200,7 @@ export default function EnglishPage() {
   const handleFinish = async () => {
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
     if (user) {
-      await saveTestSession(user.id, {
-        subject: 'English',
-        yearLevel,
-        correct,
-        total: questions.length,
-        questions,
-        selectedAnswers: selected
-      });
+      await saveTestResult('english', yearLevel, correct, questions.length, questions, selected);
     }
     setPhase('results');
   };
