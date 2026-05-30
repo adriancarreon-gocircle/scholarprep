@@ -176,6 +176,136 @@ function IdealAnswerDialog({ prompt, type, yearLevel, onClose }) {
   );
 }
 
+
+// ── Line-by-line feedback for typed writing ─────────────────────────────────
+// Uses the sentences[] array returned directly by the AI
+function LineFeedback({ feedback }) {
+  const sentences = feedback.sentences || [];
+  const [chosenStructure, setChosenStructure] = React.useState({});
+
+  const TECH_COLORS = {
+    'Simile': '#4338CA', 'Metaphor': '#059669', 'Alliteration': '#F97316',
+    'Personification': '#8B5CF6', 'Imagery': '#0EA5E9', 'Rhetorical Question': '#EF4444',
+    'Complex Sentence': '#4338CA', 'Conditional Sentence': '#059669',
+    'Parallel Structure': '#F97316', 'Contrast': '#8B5CF6',
+  };
+  const getTechColor = (t) => TECH_COLORS[t] || '#4338CA';
+
+  if (sentences.length === 0) return null;
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)' }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 4, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 Line-by-Line Feedback</div>
+      <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>All feedback for each sentence in order — rewrite from top to bottom</div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18, padding: '8px 12px', background: '#F8FAFF', borderRadius: 8, border: '1px solid #EEF2FF' }}>
+        {[['✏️ Spelling', '#FFF1F2', '#BE123C'], ['📐 Grammar', '#FFF7ED', '#C2410C'], ['💎 Vocab', '#F0FDF4', '#059669'], ['🏗️ Rewrite', '#F5F3FF', '#7C3AED']].map(([label, bg, color]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 9, height: 9, borderRadius: 2, background: bg, border: `1.5px solid ${color}` }} />
+            <span style={{ fontSize: 10, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {sentences.map((s, idx) => {
+        const hasSpelling = (s.spellingErrors || []).length > 0;
+        const hasGrammar = (s.grammarErrors || []).length > 0;
+        const hasVocab = (s.vocabUpgrades || []).length > 0;
+        const hasStructure = (s.structureUpgrades || []).length > 0;
+        const hasAny = hasSpelling || hasGrammar || hasVocab || hasStructure;
+
+        return (
+          <div key={idx} style={{ marginBottom: 20, borderBottom: idx < sentences.length - 1 ? '1px solid #F1F5F9' : 'none', paddingBottom: 20 }}>
+            {/* Sentence */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: hasAny ? 10 : 0 }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#4338CA', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 3, fontFamily: 'Inter, sans-serif' }}>{idx + 1}</div>
+              <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Georgia, serif', lineHeight: 1.8, flex: 1 }}>{s.sentence}</div>
+            </div>
+
+            {!hasAny && (
+              <div style={{ marginLeft: 32, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>✓ No issues — well done!</div>
+            )}
+
+            {/* Spelling */}
+            {(s.spellingErrors || []).map((e, i) => (
+              <div key={`sp${i}`} style={{ marginLeft: 32, marginBottom: 6, background: '#FFF1F2', borderRadius: 8, padding: '9px 13px', border: '1px solid #FECDD3' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#BE123C', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>✏️ Spelling</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, color: '#BE123C', fontWeight: 700, fontFamily: 'Inter, sans-serif', textDecoration: 'line-through' }}>{e.original}</span>
+                  <span style={{ fontSize: 13, color: '#374151' }}>→</span>
+                  <span style={{ fontSize: 13, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{e.correction}</span>
+                </div>
+                {e.rule && <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 3, fontStyle: 'italic' }}>{e.rule}</div>}
+              </div>
+            ))}
+
+            {/* Grammar */}
+            {(s.grammarErrors || []).map((g, i) => (
+              <div key={`gr${i}`} style={{ marginLeft: 32, marginBottom: 6, background: '#FFF7ED', borderRadius: 8, padding: '9px 13px', border: '1px solid #FED7AA' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>📐 Grammar</div>
+                <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 3 }}><span style={{ fontWeight: 700 }}>Original: </span>{g.original}</div>
+                <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', marginBottom: 3 }}><span style={{ fontWeight: 700 }}>Corrected: </span>{g.corrected}</div>
+                {g.explanation && <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>{g.explanation}</div>}
+              </div>
+            ))}
+
+            {/* Vocab upgrades */}
+            {(s.vocabUpgrades || []).map((item, i) => {
+              const [chosen, setChosen] = [null, () => { }]; // local state via key
+              return (
+                <VocabInline key={`vc${i}`} item={item} sentIdx={idx} itemIdx={i} />
+              );
+            })}
+
+            {/* Structure rewrites */}
+            {(s.structureUpgrades || []).map((u, i) => (
+              <StructureInline key={`sc${i}`} upgrade={u} techColor={getTechColor(u.technique)} sentIdx={idx} itemIdx={i} />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VocabInline({ item, sentIdx, itemIdx }) {
+  const [chosen, setChosen] = React.useState(null);
+  return (
+    <div style={{ marginLeft: 32, marginBottom: 6, background: '#F0FDF4', borderRadius: 8, padding: '9px 13px', border: '1px solid #BBF7D0' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, fontFamily: 'Inter, sans-serif' }}>
+        💎 {item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Vocab'} upgrade — replace <span style={{ color: '#BE123C', textDecoration: 'underline dotted' }}>{item.original}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 3 }}>
+        {(item.options || []).map((opt, i) => (
+          <button key={i} onClick={() => setChosen(chosen === i ? null : i)} style={{ padding: '4px 11px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: chosen === i ? '#059669' : '#fff', color: chosen === i ? '#fff' : '#374151', border: `1.5px solid ${chosen === i ? '#059669' : '#BBF7D0'}`, fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>{opt}</button>
+        ))}
+      </div>
+      {item.why && <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>💡 {item.why}</div>}
+    </div>
+  );
+}
+
+function StructureInline({ upgrade, techColor, sentIdx, itemIdx }) {
+  const [chosen, setChosen] = React.useState(null);
+  const versions = upgrade.rewritten || upgrade.options || [];
+  return (
+    <div style={{ marginLeft: 32, marginBottom: 6, background: '#F5F3FF', borderRadius: 8, padding: '9px 13px', border: '1px solid #DDD6FE' }}>
+      <div style={{ marginBottom: 6 }}>
+        <span style={{ display: 'inline-block', background: `${techColor}15`, color: techColor, padding: '2px 9px', borderRadius: 100, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Inter, sans-serif', border: `1px solid ${techColor}30` }}>🏗️ {upgrade.technique}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {versions.map((opt, i) => (
+          <button key={i} onClick={() => setChosen(chosen === i ? null : i)} style={{ padding: '8px 11px', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: chosen === i ? `${techColor}10` : '#fff', color: '#374151', border: `1.5px solid ${chosen === i ? techColor : '#DDD6FE'}`, textAlign: 'left', fontFamily: 'Georgia, serif', fontStyle: 'italic', lineHeight: 1.6, transition: 'all 0.15s' }}>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontStyle: 'normal', fontSize: 9, fontWeight: 700, color: chosen === i ? techColor : '#94A3B8', marginRight: 6 }}>Option {i + 1}:</span>{opt}
+          </button>
+        ))}
+      </div>
+      {upgrade.explanation && <div style={{ marginTop: 6, fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>💡 {upgrade.explanation}</div>}
+    </div>
+  );
+}
+
 // ── Main WritingPage ──────────────────────────────────────────────────────────
 export default function WritingPage() {
   const { yearLevel, hasAccess } = useAuth();
@@ -507,66 +637,56 @@ export default function WritingPage() {
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>{pct}% · {type} · Year {yearLevel}</div>
             </div>
 
-            {/* Ideal answer CTA — prominent */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: '20px 24px', marginBottom: 16, border: '1.5px solid rgba(67,56,202,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', boxShadow: '0 2px 12px rgba(67,56,202,0.06)' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>✨ See an ideal answer</div>
-                <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>
-                  Generate a top-scoring model response for this prompt — choose your time limit to calibrate the length — so you can see exactly what to aim for.
-                </div>
+            {/* Criteria scores — compact */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Scores by criteria</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                {feedback.criteria.map((c, i) => {
+                  const cpct = Math.round((c.score / c.maxScore) * 100);
+                  const col = getBandColor(cpct);
+                  return (
+                    <div key={i} style={{ background: '#F8FAFF', borderRadius: 10, padding: '10px 12px', border: '1px solid #EEF2FF' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.3 }}>{c.name}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: col, fontFamily: 'Inter, sans-serif', flexShrink: 0, marginLeft: 4 }}>{c.score}/{c.maxScore}</div>
+                      </div>
+                      <div style={{ height: 5, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${cpct}%`, background: col, borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <button onClick={() => setShowIdealDialog(true)} style={{
-                padding: '11px 22px', borderRadius: 100, fontSize: 14, fontWeight: 700,
-                background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}>
+            </div>
+
+            {/* Ideal answer CTA */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 16, border: '1.5px solid rgba(67,56,202,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>✨ See an ideal answer</div>
+                <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>Generate a top-scoring model response to compare with yours.</div>
+              </div>
+              <button onClick={() => setShowIdealDialog(true)} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 View ideal answer →
               </button>
             </div>
 
-            {/* Overall feedback */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 10, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 Overall feedback</div>
-              <div style={{ fontSize: 15, color: '#334155', lineHeight: 1.8, fontFamily: 'Inter, sans-serif' }}>{feedback.overallFeedback}</div>
-            </div>
+            {/* ── LINE-BY-LINE FEEDBACK ── */}
+            <LineFeedback response={response} feedback={feedback} />
 
-            {/* Criteria scores */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 16, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📊 Scores by criteria</div>
-              {feedback.criteria.map((c, i) => {
-                const cpct = Math.round((c.score / c.maxScore) * 100);
-                return (
-                  <div key={i} style={{ marginBottom: 20 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{c.name}</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: getBandColor(cpct), fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{c.score}/{c.maxScore}</div>
-                    </div>
-                    <div style={{ height: 6, background: '#E5E7EB', borderRadius: 3, marginBottom: 8, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${cpct}%`, background: getBandColor(cpct), borderRadius: 3, transition: 'width 0.5s' }}></div>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.65, fontFamily: 'Inter, sans-serif' }}>{c.feedback}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Improvements */}
-            <div style={{ background: '#ECFDF5', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid #6EE7B7' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#059669', marginBottom: 12, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>💡 How to improve</div>
+            {/* Overall + improvements */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 8, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 Overall feedback</div>
+              <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.8, fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>{feedback.overallFeedback}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#059669', marginBottom: 10, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>💡 How to improve</div>
               {feedback.improvements.map((imp, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8, fontSize: 14, color: '#065F46', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 6, fontSize: 13, color: '#065F46', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
                   <span style={{ flexShrink: 0, fontWeight: 700 }}>{i + 1}.</span>
                   <span>{imp}</span>
                 </div>
               ))}
             </div>
 
-            <button onClick={handleReset} style={{
-              width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700,
-              background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
-              fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
-            }}>
+            <button onClick={handleReset} style={{ width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)' }}>
               Try another writing task →
             </button>
           </div>

@@ -735,88 +735,127 @@ Return ONLY this JSON: {"prompt":"the full writing prompt","type":"${type}","tim
 
 export const assessWriting = async (studentText, prompt, type, yearLevel) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing assessor for scholarship and selective entry exams. Assess Year ${yearLevel} student writing with detailed constructive feedback. Always respond with ONLY valid JSON, no other text.`;
-  const user = `Assess this Year ${yearLevel} student ${type} writing for a scholarship and selective entry exam.\n\nPrompt: "${prompt}"\n\nStudent response: "${studentText}"\n\nScore each criterion out of 5: Ideas and content, Structure and organisation, Language and vocabulary, Sentence structure, Punctuation and spelling. Return ONLY this JSON: {"criteria":[{"name":"Ideas and content","score":4,"maxScore":5,"feedback":"feedback"},{"name":"Structure and organisation","score":3,"maxScore":5,"feedback":"feedback"},{"name":"Language and vocabulary","score":4,"maxScore":5,"feedback":"feedback"},{"name":"Sentence structure","score":3,"maxScore":5,"feedback":"feedback"},{"name":"Punctuation and spelling","score":4,"maxScore":5,"feedback":"feedback"}],"totalScore":18,"maxTotal":25,"overallFeedback":"overall comment","improvements":["improvement 1","improvement 2","improvement 3"]}`;
+
+  const user = `Assess this Year ${yearLevel} student ${type} writing for a scholarship and selective entry exam.
+
+Prompt: "${prompt}"
+
+Student response:
+"${studentText}"
+
+You must return two things:
+1. Overall scores across 5 criteria (each out of 5)
+2. Sentence-by-sentence feedback — split the student's response into individual sentences and for each one provide all relevant feedback
+
+SENTENCE FEEDBACK RULES:
+- Split the student text into individual sentences (split on . ! ? — keep the punctuation with the sentence)
+- For EVERY sentence provide the "sentence" field with the EXACT original text
+- Only populate feedback arrays that actually apply to that sentence — leave empty arrays [] if there is nothing to fix
+- spellingErrors: words misspelled IN THAT SENTENCE only
+- grammarErrors: grammar mistakes IN THAT SENTENCE only  
+- vocabUpgrades: weak adjectives, verbs or adverbs IN THAT SENTENCE to replace with stronger options
+- structureUpgrades: 1-2 literary technique rewrites for that sentence (Simile, Metaphor, Alliteration, Rhetorical Question, Complex Sentence, Imagery, Personification — vary across sentences, don't repeat the same technique)
+- Keep it focused — not every sentence needs every type of feedback. A sentence with no issues should have all empty arrays.
+
+Return ONLY this JSON (no other text, no markdown):
+{
+  "criteria": [
+    {"name": "Ideas and content", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Structure and organisation", "score": 3, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Language and vocabulary", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Sentence structure", "score": 3, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Punctuation and spelling", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"}
+  ],
+  "totalScore": 18,
+  "maxTotal": 25,
+  "overallFeedback": "2-3 sentence overall comment",
+  "improvements": ["specific improvement 1", "specific improvement 2", "specific improvement 3"],
+  "sentences": [
+    {
+      "sentence": "exact original sentence text including punctuation",
+      "spellingErrors": [
+        {"original": "misspeled", "correction": "misspelled", "rule": "double the l before -ed"}
+      ],
+      "grammarErrors": [
+        {"original": "they was running", "corrected": "they were running", "explanation": "subject-verb agreement: plural subject needs 'were'"}
+      ],
+      "vocabUpgrades": [
+        {"original": "good", "type": "adjective", "options": ["vivid", "striking", "remarkable"], "why": "more precise and evocative than 'good'"},
+        {"original": "walked", "type": "verb", "options": ["strode", "ambled", "trudged"], "why": "stronger verbs paint a clearer picture"}
+      ],
+      "structureUpgrades": [
+        {"technique": "Simile", "rewritten": ["The sky was like a bruised plum.", "She moved like a shadow through the fog."], "explanation": "A simile adds vivid comparison and imagery."}
+      ]
+    }
+  ]
+}`;
+
   const raw = await callClaude(system, user);
-  return JSON.parse(raw);
+  const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(clean);
 };
 
 // ── Handwriting Photo Assessment ──────────────────────────────────────────────
 
 export const assessHandwritingPhoto = async (base64Image, mediaType, yearLevel, writingType) => {
-  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and assessor. You transcribe student handwriting from photos and provide rich, detailed feedback. Always respond with ONLY valid JSON, no other text.`;
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and assessor. You transcribe student handwriting from photos and provide rich, detailed line-by-line feedback. Always respond with ONLY valid JSON, no other text.`;
 
-  const user = `A Year ${yearLevel} student has submitted a handwritten ${writingType || 'writing'} piece. Please:
+  const user = `A Year ${yearLevel} student has submitted a handwritten ${writingType || 'writing'} piece.
+
+Please:
 1. Transcribe the handwritten text accurately (if illegible in parts, do your best)
-2. Assess it across the 5 criteria
-3. Provide detailed improvement suggestions at the word and sentence level
+2. Assess it across the 5 criteria (each out of 5)
+3. Provide sentence-by-sentence feedback — every sentence gets its own feedback object
 
-Return ONLY this JSON (no other text):
+SENTENCE FEEDBACK RULES:
+- Split the transcribed text into individual sentences
+- For EVERY sentence provide the "sentence" field with the EXACT transcribed text of that sentence
+- Only populate feedback arrays that actually apply to that sentence — use empty arrays [] if nothing to fix
+- spellingErrors: words misspelled IN THAT SENTENCE only
+- grammarErrors: grammar mistakes IN THAT SENTENCE only
+- vocabUpgrades: weak adjectives, verbs or adverbs IN THAT SENTENCE to replace
+- structureUpgrades: 1-2 literary technique rewrite options for that sentence
+  (vary techniques across sentences: Simile, Metaphor, Alliteration, Rhetorical Question, Complex Sentence, Imagery, Personification, Contrast — do NOT repeat the same technique on consecutive sentences)
+- Not every sentence needs every type. A well-written sentence with no issues should have all empty arrays.
+
+Return ONLY this JSON (no markdown, no code fences, no other text):
 {
-  "transcribedText": "the full transcribed text, preserving paragraphs with \\n\\n",
+  "transcribedText": "the full transcribed text preserving paragraphs with \n\n",
   "wordCount": 150,
   "criteria": [
-    {"name": "Ideas & Content", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
-    {"name": "Structure & Organisation", "score": 3, "maxScore": 5, "percent": 60, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
-    {"name": "Language & Vocabulary", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
-    {"name": "Sentence Structure", "score": 3, "maxScore": 5, "percent": 60, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]},
-    {"name": "Spelling & Punctuation", "score": 4, "maxScore": 5, "percent": 80, "feedback": "detailed feedback", "strengths": ["strength 1"], "improvements": ["improvement 1"]}
+    {"name": "Ideas & Content", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Structure & Organisation", "score": 3, "maxScore": 5, "percent": 60, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Language & Vocabulary", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Sentence Structure", "score": 3, "maxScore": 5, "percent": 60, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Spelling & Punctuation", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"}
   ],
   "totalScore": 18,
   "maxTotal": 25,
   "totalPercent": 72,
   "overallFeedback": "2-3 sentence overall comment",
-  "spellingErrors": [
-    {"original": "misspelled word in context", "correction": "correct spelling", "rule": "spelling rule explanation"}
-  ],
-  "grammarErrors": [
-    {"original": "original sentence with error", "corrected": "corrected sentence", "explanation": "grammar rule"}
-  ],
-  "vocabularyUpgrades": {
-    "adjectives": [
-      {"sentence": "exact sentence from the text", "original": "weak adjective", "options": ["stronger option 1", "stronger option 2", "stronger option 3"], "why": "brief reason"}
-    ],
-    "verbs": [
-      {"sentence": "exact sentence from the text", "original": "weak verb", "options": ["stronger verb 1", "stronger verb 2", "stronger verb 3"], "why": "brief reason"}
-    ],
-    "adverbs": [
-      {"sentence": "exact sentence from the text", "original": "weak adverb or missing", "options": ["better adverb 1", "better adverb 2", "better adverb 3"], "why": "brief reason"}
-    ]
-  },
-  "sentenceStructureUpgrades": [
+  "sentences": [
     {
-      "technique": "Simile",
-      "original": "exact sentence from the text",
-      "options": ["rewritten version 1 using this technique", "rewritten version 2 using this technique"],
-      "explanation": "how this technique improves the writing"
-    },
-    {
-      "technique": "Metaphor",
-      "original": "exact sentence from the text",
-      "options": ["rewritten version 1", "rewritten version 2"],
-      "explanation": "how this technique improves the writing"
-    },
-    {
-      "technique": "Alliteration",
-      "original": "exact sentence from the text",
-      "options": ["rewritten version 1", "rewritten version 2"],
-      "explanation": "how this technique improves the writing"
-    },
-    {
-      "technique": "Rhetorical Question",
-      "original": "exact sentence from the text",
-      "options": ["rewritten version 1", "rewritten version 2"],
-      "explanation": "how this technique improves the writing"
-    },
-    {
-      "technique": "Complex Sentence",
-      "original": "exact sentence from the text",
-      "options": ["rewritten version 1 as a complex sentence", "rewritten version 2"],
-      "explanation": "how this technique improves the writing"
+      "sentence": "The exact transcribed sentence text including its punctuation.",
+      "spellingErrors": [
+        {"original": "recieve", "correction": "receive", "rule": "i before e except after c"}
+      ],
+      "grammarErrors": [
+        {"original": "he runned to the shops", "corrected": "he ran to the shops", "explanation": "'ran' is the irregular past tense of 'run'"}
+      ],
+      "vocabUpgrades": [
+        {"original": "nice", "type": "adjective", "options": ["enchanting", "breathtaking", "radiant"], "why": "more vivid and precise than 'nice'"},
+        {"original": "said", "type": "verb", "options": ["whispered", "exclaimed", "announced"], "why": "stronger speech verbs show emotion and tone"}
+      ],
+      "structureUpgrades": [
+        {
+          "technique": "Simile",
+          "rewritten": ["The sun blazed like a furnace in the sky.", "Her smile was as warm as a summer's day."],
+          "explanation": "A simile creates a vivid comparison that helps the reader picture the scene."
+        }
+      ]
     }
   ]
-}
-
-Provide 2-4 items in each vocabulary section and 4-6 sentence structure upgrades covering varied techniques from: Simile, Metaphor, Alliteration, Personification, Imagery, Rhetorical Question, Complex Sentence, Conditional Sentence, Parallel Structure, Contrast, Emphasis, Relative Clause, Appositive, Cause and Effect, Conjunction, Inverted Order.`;
+}`;
 
   const response = await fetch('/api/claude-vision', {
     method: 'POST',
@@ -825,7 +864,7 @@ Provide 2-4 items in each vocabulary section and 4-6 sentence structure upgrades
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error);
-  const text = data.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const text = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
   return JSON.parse(text);
 };
 
