@@ -59,6 +59,54 @@ const extractTopicScores = (questions, selected) => {
   return topicMap;
 };
 
+// Extract per-question-type correct/total: { 'topicKey::questionType': {correct,total} }
+const extractQuestionTypeScores = (questions, selected) => {
+  const qtMap = {};
+  questions.forEach((q, i) => {
+    const topic = q.topic;
+    const qtype = q.questionType;
+    if (!topic || !qtype) return;
+    const key = `${topic}::${qtype}`;
+    if (!qtMap[key]) qtMap[key] = { correct: 0, total: 0, topic, questionType: qtype };
+    qtMap[key].total += 1;
+    if (selected && selected[i] === q.correct) qtMap[key].correct += 1;
+  });
+  return qtMap;
+};
+
+// Save question type scores to Supabase (question_type_scores table)
+const saveQuestionTypeScores = async (userId, subject, qtMap) => {
+  if (!userId || !qtMap || Object.keys(qtMap).length === 0) return;
+  try {
+    for (const [key, scores] of Object.entries(qtMap)) {
+      const { topic, questionType, correct, total } = scores;
+      const { data: existing } = await supabase
+        .from('question_type_scores')
+        .select('id, correct, total')
+        .eq('user_id', userId)
+        .eq('subject', subject)
+        .eq('topic_key', topic)
+        .eq('question_type', questionType)
+        .single();
+      if (existing) {
+        await supabase.from('question_type_scores').update({
+          correct: existing.correct + correct,
+          total: existing.total + total,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+      } else {
+        await supabase.from('question_type_scores').insert({
+          user_id: userId, subject, topic_key: topic,
+          question_type: questionType, correct, total,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+  } catch (e) {
+    console.error('saveQuestionTypeScores error:', e);
+  }
+};
+
 // Upsert topic scores to Supabase (increment existing counts)
 const saveTopicScores = async (userId, subject, topicMap) => {
   if (!userId || !topicMap || Object.keys(topicMap).length === 0) return;
@@ -178,6 +226,10 @@ export const saveTestResult = async (subject, yearLevel, correct, total, questio
       if (questions && questions.length > 0 && questions[0]?.topic) {
         const topicMap = extractTopicScores(questions, selected);
         await saveTopicScores(user.id, subject, topicMap);
+
+        // Also save per-question-type scores
+        const qtMap = extractQuestionTypeScores(questions, selected);
+        await saveQuestionTypeScores(user.id, subject, qtMap);
       }
     } else {
       // Fallback to localStorage for demo mode
@@ -304,6 +356,33 @@ const getAllSessions = async () => {
 
 // ── Get topic scores for a subject ───────────────────────────────────────────
 
+// Get question type scores for a subject: { topicKey: { questionType: { correct, total, pct } } }
+export const getQuestionTypeScoresForSubject = async (subject) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return {};
+    const { data, error } = await supabase
+      .from('question_type_scores')
+      .select('topic_key, question_type, correct, total')
+      .eq('user_id', user.id)
+      .eq('subject', subject);
+    if (error || !data) return {};
+    const result = {};
+    data.forEach(row => {
+      if (!result[row.topic_key]) result[row.topic_key] = {};
+      result[row.topic_key][row.question_type] = {
+        correct: row.correct,
+        total: row.total,
+        pct: row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0,
+      };
+    });
+    return result;
+  } catch (e) {
+    console.error('getQuestionTypeScoresForSubject error:', e);
+    return {};
+  }
+};
+
 export const getTopicScoresForSubject = async (subject) => {
   try {
     const user = await getCurrentUser();
@@ -419,7 +498,8 @@ export const getRecentSessions = async (limit = 10) => {
         yearLevel: row.year_level,
         correct: row.correct,
         total: row.total,
-        score: row.score,
+        // For writing sessions, score is stored in percentage column
+        score: row.score || row.percentage || 0,
         percentage: row.percentage,
         type: row.type,
         date: row.date,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions, getTopicScoresForSubject } from '../lib/progress';
+import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions, getTopicScoresForSubject, getQuestionTypeScoresForSubject } from '../lib/progress';
 
 // ── Subject config ─────────────────────────────────────────────────────────────
 const subjects = [
@@ -112,7 +112,7 @@ const buildTopicTrends = (sessions) => {
       // Use session score as the data point for this topic on this date
       trends[topicKey].push({
         date: session.date,
-        score: session.score || 0,
+        score: session.score || session.percentage || 0,
         topicCount: topicTotals[topicKey],
       });
     });
@@ -131,27 +131,7 @@ const buildTopicTrends = (sessions) => {
   return trends;
 };
 
-// ── Build per-question-type scores from full sessions ─────────────────────────
-// Returns { topicKey: { questionType: { correct, total } } }
-const buildQuestionTypeScores = (sessions) => {
-  const result = {};
-  sessions.forEach(session => {
-    const qs = session.questions || [];
-    const sel = session.selectedAnswers || {};
-    qs.forEach((q, idx) => {
-      const topic = q.topic;
-      const qtype = q.questionType;
-      if (!topic || !qtype) return;
-      if (!result[topic]) result[topic] = {};
-      if (!result[topic][qtype]) result[topic][qtype] = { correct: 0, total: 0 };
-      result[topic][qtype].total += 1;
-      if (sel[idx] !== undefined && sel[idx] === q.correct) {
-        result[topic][qtype].correct += 1;
-      }
-    });
-  });
-  return result;
-};
+// buildQuestionTypeScores replaced by Supabase query
 
 // ── Calendar heat map ─────────────────────────────────────────────────────────
 function CalendarHeatmap({ sessions }) {
@@ -874,23 +854,23 @@ export default function ProgressPage() {
         const sessionsFull = progressData.sessions || [];
         setFullSessions(sessionsFull);
 
-        // Compute per-topic trends and question type scores from sessions that have questions[]
+        // Compute topic trends from full sessions
         const trendsMap = {};
-        const qtScoresMap = {};
         subjects.forEach(subj => {
           const subjSessions = sessionsFull.filter(s => s.subject === subj.key);
           trendsMap[subj.key] = buildTopicTrends(subjSessions);
-          qtScoresMap[subj.key] = buildQuestionTypeScores(subjSessions);
         });
         setAllTopicTrends(trendsMap);
-        setAllQTypeScores(qtScoresMap);
 
-        // Also load cumulative topic scores from Supabase
+        // Load cumulative topic scores AND question type scores from Supabase
         const topicData = {};
+        const qtData = {};
         await Promise.all(subjects.map(async s => {
           topicData[s.key] = await getTopicScoresForSubject(s.key);
+          qtData[s.key] = await getQuestionTypeScoresForSubject(s.key);
         }));
         setAllTopicScores(topicData);
+        setAllQTypeScores(qtData);
 
       } catch (e) {
         console.error('Failed to load progress data:', e);
