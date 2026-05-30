@@ -12,30 +12,30 @@ const CFG = {
 };
 
 const ENGLISH_TOPICS = [
-  { key: 'spelling', label: 'Spelling' },
-  { key: 'punctuation', label: 'Punctuation' },
-  { key: 'capitals', label: 'Capital Letters' },
-  { key: 'plural', label: 'Plural' },
-  { key: 'nouns', label: 'Nouns' },
-  { key: 'adjectives', label: 'Adjectives' },
-  { key: 'verbs', label: 'Verbs' },
-  { key: 'adverbs', label: 'Adverbs' },
-  { key: 'inged', label: 'Adding -ing and -ed' },
-  { key: 'ieei', label: 'ie and ei' },
-  { key: 'tense', label: 'Tense' },
-  { key: 'agreement', label: 'Subject-Verb Agreement' },
-  { key: 'endingy', label: 'Words ending in -y' },
-  { key: 'homophones', label: 'Homophones' },
-  { key: 'days', label: 'Days, Months & Seasons' },
-  { key: 'prepositions', label: 'Prepositions' },
-  { key: 'pronouns', label: 'Pronouns' },
-  { key: 'apostrophes', label: 'Apostrophes' },
-  { key: 'sentenceorder', label: 'Sentence Order' },
-  { key: 'conjunctions', label: 'Conjunctions' },
-  { key: 'prefixsuffix', label: 'Prefixes & Suffixes' },
-  { key: 'synonymsant', label: 'Synonyms & Antonyms' },
-  { key: 'compound', label: 'Compound Words' },
-  { key: 'figurative', label: 'Similes & Metaphors' },
+  { key: 'spelling', label: 'Spelling', types: ['Correct the spelling', 'Choose the correct spelling', 'Fill in the missing letters'] },
+  { key: 'punctuation', label: 'Punctuation', types: ['Add the missing punctuation', 'Identify the error', 'Choose the correctly punctuated sentence'] },
+  { key: 'capitals', label: 'Capital Letters', types: ['Identify where capitals are needed', 'Correct the sentence'] },
+  { key: 'plural', label: 'Plural', types: ['Write the plural', 'Choose the correct plural', 'Irregular plurals'] },
+  { key: 'nouns', label: 'Nouns', types: ['Identify the noun', 'Common nouns', 'Proper nouns', 'Collective nouns'] },
+  { key: 'adjectives', label: 'Adjectives', types: ['Identify the adjective', 'Adjectival phrases', 'Comparative adjectives'] },
+  { key: 'verbs', label: 'Verbs', types: ['Identify the verb', 'Action verbs', 'Helping/auxiliary verbs'] },
+  { key: 'adverbs', label: 'Adverbs', types: ['Identify the adverb', 'Adverbial phrases', 'Choose the correct adverb'] },
+  { key: 'inged', label: 'Adding -ing and -ed', types: ['Add the correct suffix', 'Identify the error', 'Doubling rule'] },
+  { key: 'ieei', label: 'ie and ei', types: ['Choose the correct spelling', 'Fill in the blank'] },
+  { key: 'tense', label: 'Tense', types: ['Present tense', 'Past tense', 'Future tense', 'Identify the tense'] },
+  { key: 'agreement', label: 'Subject-Verb Agreement', types: ['Choose the correct verb form', 'Correct the sentence'] },
+  { key: 'endingy', label: 'Words ending in -y', types: ['Plural of words ending in -y', 'Adding suffixes to -y words'] },
+  { key: 'homophones', label: 'Homophones', types: ['Choose the correct homophone', 'Fill in the blank'] },
+  { key: 'days', label: 'Days, Months & Seasons', types: ['Spelling of days/months', 'Capitalisation rules'] },
+  { key: 'prepositions', label: 'Prepositions', types: ['Identify the preposition', 'Choose the correct preposition', 'Prepositional phrases'] },
+  { key: 'pronouns', label: 'Pronouns', types: ['Identify the pronoun', 'Subject vs object pronouns', 'Possessive pronouns'] },
+  { key: 'apostrophes', label: 'Apostrophes', types: ['Apostrophe for possession', 'Apostrophe for contraction', 'Correct the error'] },
+  { key: 'sentenceorder', label: 'Sentence Order', types: ['Arrange words into a correct sentence', 'Arrange sentences into a correct paragraph', 'Sequence the steps'] },
+  { key: 'conjunctions', label: 'Conjunctions', types: ['Choose the correct conjunction', 'Join two sentences'] },
+  { key: 'prefixsuffix', label: 'Prefixes & Suffixes', types: ['Identify the prefix/suffix', 'Choose the correct word with prefix/suffix'] },
+  { key: 'synonymsant', label: 'Synonyms & Antonyms', types: ['Choose the synonym', 'Choose the antonym'] },
+  { key: 'compound', label: 'Compound Words', types: ['Identify/form compound words'] },
+  { key: 'figurative', label: 'Similes & Metaphors', types: ['Identify the figure of speech', 'Complete the simile'] },
 ];
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
@@ -43,17 +43,36 @@ function SetupScreen({ yearLevel, onStart }) {
   const [qCount, setQCount] = useState(10);
   const [timer, setTimer] = useState(0);
   const [reviewMode, setReviewMode] = useState('each');
-  const [showTopicPicker, setShowTopicPicker] = useState(false);
-  const [topicCounts, setTopicCounts] = useState({});
+  const [pickerMode, setPickerMode] = useState('none'); // 'none' | 'topic' | 'qtype'
+  const [topicCounts, setTopicCounts] = useState({});     // { topicKey: n }
+  const [qtypeCounts, setQtypeCounts] = useState({});     // { 'topicKey::qtype': n }
 
   const topicTotal = Object.values(topicCounts).reduce((s, n) => s + n, 0);
-  const usingTopics = topicTotal > 0;
+  const qtypeTotal = Object.values(qtypeCounts).reduce((s, n) => s + n, 0);
+  const usingTopics = pickerMode === 'topic' && topicTotal > 0;
+  const usingQtypes = pickerMode === 'qtype' && qtypeTotal > 0;
+  const effectiveCount = usingTopics ? topicTotal : usingQtypes ? qtypeTotal : qCount;
 
-  const setTopicCount = (key, count) =>
-    setTopicCounts(p => ({ ...p, [key]: Math.max(0, count) }));
+  const setTopicCount = (key, count) => setTopicCounts(p => ({ ...p, [key]: Math.max(0, count) }));
+  const setQtypeCount = (compKey, count) => setQtypeCounts(p => ({ ...p, [compKey]: Math.max(0, count) }));
 
   const handleStart = () => {
-    onStart(usingTopics ? topicTotal : qCount, timer, reviewMode, usingTopics ? topicCounts : null);
+    let focus = null;
+    if (usingTopics) {
+      const parts = Object.entries(topicCounts).filter(([, n]) => n > 0).map(([k, n]) => {
+        const label = ENGLISH_TOPICS.find(t => t.key === k)?.label || k;
+        return `${n} question${n > 1 ? 's' : ''} on ${label}`;
+      });
+      focus = parts.join(', ');
+    } else if (usingQtypes) {
+      const parts = Object.entries(qtypeCounts).filter(([, n]) => n > 0).map(([compKey, n]) => {
+        const [topicKey, qtype] = compKey.split('::');
+        const topicLabel = ENGLISH_TOPICS.find(t => t.key === topicKey)?.label || topicKey;
+        return `${n} question${n > 1 ? 's' : ''} on ${topicLabel} — ${qtype}`;
+      });
+      focus = parts.join(', ');
+    }
+    onStart(effectiveCount, timer, reviewMode, focus ? { _focus: focus } : null);
   };
 
   return (
@@ -71,7 +90,7 @@ function SetupScreen({ yearLevel, onStart }) {
       </div>
 
       {/* Number of questions — hidden when topic picker is active */}
-      {!usingTopics && (
+      {pickerMode === 'none' && (
         <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>
             Number of questions
@@ -92,37 +111,28 @@ function SetupScreen({ yearLevel, onStart }) {
         </div>
       )}
 
-      {/* Topic picker */}
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14,
-        border: `1px solid ${(showTopicPicker || usingTopics) ? CFG.color + '40' : 'rgba(67,56,202,0.08)'}`,
-        boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTopicPicker ? 16 : 0 }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>
-              Pick specific topics
-            </div>
-            {usingTopics
-              ? <div style={{ fontSize: 12, color: CFG.color, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>{topicTotal} questions across selected topics</div>
-              : !showTopicPicker && <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or use random mix above</div>
-            }
-          </div>
-          <button
-            onClick={() => setShowTopicPicker(p => !p)}
-            style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showTopicPicker ? CFG.lightBg : '#F8F9FF', color: showTopicPicker ? CFG.color : '#64748B', border: `1.5px solid ${showTopicPicker ? CFG.color : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
-          >
-            {showTopicPicker ? '▲ Hide' : '▼ Choose'}
-          </button>
+      {/* Focus picker — 3 modes */}
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 14, border: `1px solid ${pickerMode !== 'none' ? CFG.color + '40' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)', transition: 'border-color 0.2s' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Focus (optional)</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: pickerMode !== 'none' ? 16 : 0 }}>
+          {[['none', 'Random mix'], ['topic', 'By topic'], ['qtype', 'By question type']].map(([mode, label]) => (
+            <button key={mode} onClick={() => { setPickerMode(mode); setTopicCounts({}); setQtypeCounts({}); }}
+              style={{
+                padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: pickerMode === mode ? CFG.lightBg : '#F8F9FF',
+                color: pickerMode === mode ? CFG.color : '#64748B',
+                border: `1.5px solid ${pickerMode === mode ? CFG.color : 'rgba(67,56,202,0.1)'}`,
+                fontFamily: 'Inter, sans-serif'
+              }}>
+              {label}
+            </button>
+          ))}
         </div>
 
-        {showTopicPicker && (
+        {/* Topic picker */}
+        {pickerMode === 'topic' && (
           <div>
-            {usingTopics && (
-              <button onClick={() => setTopicCounts({})} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>
-                ✕ Clear selection
-              </button>
-            )}
+            {topicTotal > 0 && <div style={{ fontSize: 12, color: CFG.color, fontWeight: 600, marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>{topicTotal} questions selected</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {ENGLISH_TOPICS.map(t => {
                 const count = topicCounts[t.key] || 0;
@@ -137,6 +147,34 @@ function SetupScreen({ yearLevel, onStart }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Question type picker */}
+        {pickerMode === 'qtype' && (
+          <div>
+            {qtypeTotal > 0 && <div style={{ fontSize: 12, color: CFG.color, fontWeight: 600, marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>{qtypeTotal} questions selected</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {ENGLISH_TOPICS.map(t => (
+                <div key={t.key} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', padding: '8px 4px 4px', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 10 }}>{t.label}</div>
+                  {t.types.map(qt => {
+                    const compKey = `${t.key}::${qt}`;
+                    const count = qtypeCounts[compKey] || 0;
+                    return (
+                      <div key={qt} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px 6px 12px', borderBottom: '1px solid #F8FAFC' }}>
+                        <span style={{ fontSize: 12, fontWeight: count > 0 ? 700 : 400, color: count > 0 ? CFG.color : '#64748B', fontFamily: 'Inter, sans-serif' }}>{qt}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <button onClick={() => setQtypeCount(compKey, count - 1)} style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: count > 0 ? CFG.color : '#94A3B8', minWidth: 18, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
+                          <button onClick={() => setQtypeCount(compKey, count + 1)} style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -373,6 +411,41 @@ function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest
           <div style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✗ {result.total - result.correct} incorrect</div>
         </div>
       </div>
+
+      {/* Question type breakdown */}
+      {(() => {
+        const typeMap = {};
+        questions.forEach((q, i) => {
+          const t = q.topic || 'Other';
+          if (!typeMap[t]) typeMap[t] = { correct: 0, total: 0 };
+          typeMap[t].total += 1;
+          if (selected[i] === q.correct) typeMap[t].correct += 1;
+        });
+        const entries = Object.entries(typeMap).filter(([, v]) => v.total > 0);
+        if (entries.length < 2) return null;
+        return (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.04)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Score by topic</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {entries.sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total)).map(([topic, v]) => {
+                const pct = Math.round((v.correct / v.total) * 100);
+                const col = pct >= 70 ? '#059669' : pct >= 50 ? '#A07010' : '#BE123C';
+                return (
+                  <div key={topic}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{topic}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: col, fontFamily: 'Inter, sans-serif' }}>{v.correct}/{v.total} ({pct}%)</span>
+                    </div>
+                    <div style={{ height: 6, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: col, borderRadius: 3, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {

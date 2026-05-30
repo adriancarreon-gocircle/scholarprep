@@ -510,6 +510,41 @@ function ResultsScreen({ subject, questions, selected, result, onRetry, onHome, 
         </div>
       </div>
 
+      {/* Question type / topic breakdown */}
+      {(() => {
+        const typeMap = {};
+        questions.forEach((q, i) => {
+          const t = q.topic || q.questionType || 'Other';
+          if (!typeMap[t]) typeMap[t] = { correct: 0, total: 0 };
+          typeMap[t].total += 1;
+          if (selected[i] === q.correct) typeMap[t].correct += 1;
+        });
+        const entries = Object.entries(typeMap).filter(([, v]) => v.total > 0);
+        if (entries.length < 2) return null;
+        return (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.04)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Score by topic</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {entries.sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total)).map(([topic, v]) => {
+                const pct = Math.round((v.correct / v.total) * 100);
+                const col = pct >= 70 ? '#059669' : pct >= 50 ? '#A07010' : '#BE123C';
+                return (
+                  <div key={topic}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{topic}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: col, fontFamily: 'Inter, sans-serif' }}>{v.correct}/{v.total} ({pct}%)</span>
+                    </div>
+                    <div style={{ height: 6, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: col, borderRadius: 3, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const userAnswer = selected[i];
