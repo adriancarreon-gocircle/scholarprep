@@ -275,50 +275,60 @@ function CalendarHeatmap({ sessions }) {
 }
 
 // ── Score trend bar chart ─────────────────────────────────────────────────────
-const BAR_HEIGHT = 100; // px — the max bar height representing 100%
+const BAR_H = 80;   // px — full height = 100%
+const BAR_W = 34;   // px per bar slot
+const MAX_VISIBLE = 10; // visible bars before scroll kicks in
 
 function ScoreTrendChart({ sessions, color }) {
   const scrollRef = useRef(null);
   const sorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
   if (sorted.length === 0) return null;
   const avg = Math.round(sorted.reduce((s, r) => s + (r.score || 0), 0) / sorted.length);
+  const hasMore = sorted.length > MAX_VISIBLE;
 
-  // avgTop: distance from top of bar area to where the avg line sits
-  // score 100% → bar fills full BAR_HEIGHT → avgTop for 50% = BAR_HEIGHT * 0.5
-  const avgTop = BAR_HEIGHT - (avg / 100) * BAR_HEIGHT;
+  // Scroll to rightmost (most recent) on mount
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, []);
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>Score trend</div>
         <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-          Avg: <strong style={{ color }}>{avg}%</strong> · scroll left for older
+          Avg: <strong style={{ color }}>{avg}%</strong>
+          {hasMore && <span style={{ marginLeft: 8, fontSize: 10 }}>← scroll for older tests</span>}
         </div>
       </div>
-      <div ref={scrollRef} style={{ overflowX: 'auto', paddingBottom: 4 }}>
-        {/* Outer wrapper: fixed pixel height = BAR_HEIGHT + room for labels */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, minWidth: sorted.length * 44, position: 'relative', padding: '0 4px' }}>
+      {/* Container: fixed width = 10 bars max, scroll reveals older */}
+      <div ref={scrollRef} style={{
+        overflowX: 'auto', width: '100%', paddingBottom: 2,
+        /* hide scrollbar but keep scrollable */
+        scrollbarWidth: 'thin',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-end', gap: 3,
+          minWidth: sorted.length * BAR_W,
+          paddingTop: 14, paddingLeft: 2, paddingRight: 2,
+          position: 'relative',
+        }}>
           {sorted.map((s, i) => {
             const score = s.score || 0;
-            const barPx = Math.max(3, (score / 100) * BAR_HEIGHT); // pixel height proportional to score
+            const barPx = Math.max(3, Math.round((score / 100) * BAR_H));
             const date = new Date(s.date);
             const label = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
             return (
               <div key={i} title={`${label}: ${score}%`}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: '0 0 40px', zIndex: 2 }}>
-                {/* Score label sits above the bar */}
-                <span style={{ fontSize: 10, fontWeight: 700, color: getGradeColor(score), fontFamily: 'Inter, sans-serif', height: 14, display: 'flex', alignItems: 'flex-end' }}>{score}%</span>
-                {/* Spacer pushes bar to correct height within the BAR_HEIGHT frame */}
-                <div style={{ height: BAR_HEIGHT - barPx }} />
-                {/* The bar itself — fixed pixel height */}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, flex: `0 0 ${BAR_W - 2}px` }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: getGradeColor(score), fontFamily: 'Inter, sans-serif', lineHeight: 1 }}>{score}%</span>
+                <div style={{ height: BAR_H - barPx }} />
                 <div style={{
-                  width: 28,
+                  width: BAR_W - 6,
                   height: barPx,
                   background: score >= 70 ? color : score >= 50 ? `${color}99` : `${color}55`,
-                  borderRadius: '4px 4px 0 0',
+                  borderRadius: '3px 3px 0 0',
                 }} />
-                {/* Date label */}
-                <span style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.2, marginTop: 3 }}>{label}</span>
+                <span style={{ fontSize: 8, color: '#94A3B8', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.2, marginTop: 2, whiteSpace: 'nowrap' }}>{label}</span>
               </div>
             );
           })}
@@ -327,7 +337,6 @@ function ScoreTrendChart({ sessions, color }) {
     </div>
   );
 }
-
 // ── Topic trend line chart — proper date x-axis, % y-axis ───────────────────
 function TopicLineChart({ topicKey, trendPoints, color }) {
   if (!trendPoints || trendPoints.length === 0) {
@@ -490,73 +499,80 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
 
   return (
     <div style={{ borderBottom: '1px solid rgba(13,27,42,0.06)', background: '#fff' }}>
-      {/* Main row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 80px 260px 180px', gap: 0, alignItems: 'stretch' }}>
 
-        {/* Column 1: Topic name + band bar — narrower */}
-        <div style={{ padding: '12px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#0D1B2A', marginBottom: 6 }}>{topic.label}</div>
-          <div style={{ position: 'relative', height: 22, marginBottom: 2 }}>
+      {/* Main 4-column row: Topic+bar | Trend | Score | Feedback */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 90px 160px', alignItems: 'stretch' }}>
+
+        {/* Column 1: Topic name + band bar + QT breakdown toggle */}
+        <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#0D1B2A', marginBottom: 5 }}>{topic.label}</div>
+          {/* Band bar */}
+          <div style={{ position: 'relative', height: 20, marginBottom: 2 }}>
             <div style={{ position: 'absolute', inset: 0, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
               <div style={{ width: '40%', background: '#FDEAEA' }} />
               <div style={{ width: '20%', background: '#FEF3D0' }} />
               <div style={{ width: '20%', background: '#E8F5EE' }} />
               <div style={{ width: '20%', background: '#C8EDD8' }} />
             </div>
-            {/* National average marker */}
             <div style={{ position: 'absolute', top: '50%', left: `${na}%`, transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A', zIndex: 2 }} />
-            {/* Your score marker */}
             {hasScore && <div style={{ position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`, transform: 'translate(-50%,-50%)', width: 16, height: 16, borderRadius: '50%', background: color, border: '2.5px solid #fff', zIndex: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }} />}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#9AA5B0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#9AA5B0', marginBottom: hasQTData ? 6 : 0 }}>
             <span>0</span><span>50</span><span>100</span>
           </div>
+
+          {/* QT expand button — directly under the band bar, same width */}
+          {hasQTData && (
+            <button onClick={() => setShowQTypes(v => !v)} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 10, color: '#4338CA', background: '#EEF2FF',
+              border: '1px solid #C7D2FE', borderRadius: 4,
+              cursor: 'pointer', padding: '3px 8px',
+              fontFamily: 'Inter, sans-serif', fontWeight: 600,
+              width: '100%', justifyContent: 'center',
+            }}>
+              {showQTypes ? '▲' : '▼'} {showQTypes ? 'Hide question types' : `${qtEntries.length} question type${qtEntries.length !== 1 ? 's' : ''}`}
+            </button>
+          )}
+
+          {/* QT breakdown — expands inline under the band bar, same column width */}
+          {showQTypes && hasQTData && (
+            <div style={{ marginTop: 8, borderTop: '1px solid #EEF2FF', paddingTop: 8 }}>
+              {qtEntries.map((e, i) => (
+                <div key={i} style={{ marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, color: '#374151', fontFamily: 'Inter, sans-serif', flex: 1, marginRight: 6, lineHeight: 1.3 }}>{e.qtype}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>
+                      {e.pct}%
+                      <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 400 }}> ({e.correct}/{e.total})</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 3 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Column 2: Score */}
-        <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+        {/* Column 2: Trend line chart */}
+        <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
+        </div>
+
+        {/* Column 3: Score */}
+        <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1.1 }}>{hasScore ? `${score}%` : '—'}</div>
           <div style={{ fontSize: 16, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
           <div style={{ fontSize: 8, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
         </div>
 
-        {/* Column 3: Trend line chart — 3x wider */}
-        <div style={{ padding: '10px 16px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
-        </div>
-
         {/* Column 4: AI Feedback */}
-        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+        <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.55 }}>{getFeedback()}</div>
-          {hasQTData && (
-            <button onClick={() => setShowQTypes(v => !v)} style={{ fontSize: 10, color: '#4338CA', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
-              {showQTypes ? '▲ Hide' : '▼ Question types'}
-            </button>
-          )}
         </div>
       </div>
-
-      {/* Question type breakdown — expandable under each topic row */}
-      {showQTypes && hasQTData && (
-        <div style={{ padding: '8px 14px 12px 340px', background: '#FAFAF8', borderTop: '1px solid #F1F5F9' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
-            Question type breakdown
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '6px 16px' }}>
-            {qtEntries.map((e, i) => (
-              <div key={i}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', flex: 1, marginRight: 6 }}>{e.qtype}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}% <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 400 }}>({e.correct}/{e.total})</span></span>
-                </div>
-                <div style={{ height: 5, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 3, transition: 'width 0.3s' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -676,7 +692,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           )}
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '380px 80px 260px 180px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 90px 160px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
             <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
               Topic
               <span style={{ display: 'flex', gap: 6 }}>
