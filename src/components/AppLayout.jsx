@@ -8,6 +8,7 @@ const navItems = [
   { to: '/app/maths', icon: '🔢', label: 'Mathematics' },
   { to: '/app/reading', icon: '📖', label: 'Reading' },
   { to: '/app/general', icon: '🧩', label: 'General Ability' },
+  { to: '/app/english', icon: '📝', label: 'English' },
   { to: '/app/writing', icon: '✏️', label: 'Writing' },
   { to: '/app/progress', icon: '📊', label: 'Progress' },
 ];

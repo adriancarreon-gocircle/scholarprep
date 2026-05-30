@@ -18,6 +18,7 @@ import CustomTestPage from './pages/CustomTestPage';
 import SupportPage from './pages/SupportPage';
 import HandwritingFeedbackPage from './pages/HandwritingFeedbackPage';
 import HelpPage from './pages/HelpPage';
+import EnglishPage from './pages/EnglishPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/app/maths" element={<ProtectedRoute><AppLayout><TestPage subject="mathematics" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/reading" element={<ProtectedRoute><AppLayout><TestPage subject="reading" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/general" element={<ProtectedRoute><AppLayout><TestPage subject="general" /></AppLayout></ProtectedRoute>} />
+      <Route path="/app/english" element={<ProtectedRoute><AppLayout><EnglishPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/writing" element={<ProtectedRoute><AppLayout><WritingPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/progress" element={<ProtectedRoute><AppLayout><ProgressPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/simulated-exam" element={<ProtectedRoute><AppLayout><SimulatedExamPage /></AppLayout></ProtectedRoute>} />

@@ -13,7 +13,6 @@ const callClaude = async (systemPrompt, userPrompt) => {
 const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondary school';
 
 // ── Maths question blueprint by year level ────────────────────────────────────
-// Based on ScholarPrep Question Bank document (Levels 1-6 from spreadsheet, 7-11 extended)
 
 const getMathsBlueprint = (yearLevel) => {
   if (yearLevel <= 2) return `
@@ -308,8 +307,6 @@ For questions with visuals, replace null with the visual object. For questions w
 
 // ── Generate Reading Questions ────────────────────────────────────────────────
 
-// ── Generate Reading Questions ────────────────────────────────────────────────
-
 const READING_THEMES = [
   'Environment (e.g. climate change, wildlife conservation, ecosystems, pollution)',
   'Science (e.g. space exploration, the human body, inventions, experiments)',
@@ -324,12 +321,10 @@ const READING_THEMES = [
 ];
 
 export const generateReadingQuestions = async (yearLevel, count, themeOverride) => {
-  // Use the provided theme or pick a random one
   const theme = themeOverride
     ? READING_THEMES.find(t => t.startsWith(themeOverride)) || themeOverride
     : READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
 
-  // 100 story seeds — 10 per theme — matched to the theme being used
   const SEEDS_BY_THEME = {
     'Environment': [
       'a teenager who discovers a secret forest that filters city pollution',
@@ -453,7 +448,6 @@ export const generateReadingQuestions = async (yearLevel, count, themeOverride) 
     ],
   };
 
-  // Match the seed pool to the current theme, or fall back to all seeds
   const themeKey = Object.keys(SEEDS_BY_THEME).find(k => theme.startsWith(k)) || 'Fiction / Narrative';
   const seedPool = SEEDS_BY_THEME[themeKey];
   const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
@@ -490,16 +484,6 @@ Real scholarship exams (ACER, Edutest, NAPLAN) use consistent, concise answer op
 
 4. DISTRACTOR QUALITY: Wrong options must be plausible and similar in structure to the correct answer. They should NOT be obviously wrong — a student who hasn't read carefully should find them believable.
 
-5. CONCRETE EXAMPLE — Good (balanced lengths):
-   Q: What was the main reason Mia climbed to the roof?
-   A: To watch the sky change colour (6 words) ← CORRECT
-   B: To escape the noise inside the house (7 words)
-   C: To signal to ships passing the lighthouse (7 words)  
-   D: To complete her homework in the evening air (8 words)
-   
-   Bad (correct answer padded):
-   A: To observe and study the changing patterns of the evening sky as her grandfather had taught her (17 words) ← WRONG — too long, obviously correct
-
 EXPLANATION RULES:
 - State why the correct answer is right in 1-2 sentences maximum
 - Reference the specific part of the passage that supports the answer
@@ -509,7 +493,6 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
 
-  // Post-process: safety net to equalise answer lengths if correct answer is padded
   if (parsed.questions) {
     parsed.questions = parsed.questions.map(q => {
       const opts = { ...q.options };
@@ -518,7 +501,6 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
       const correctLen = lengths.find(l => l.k === q.correct)?.words || 0;
       const otherLens = lengths.filter(l => l.k !== q.correct).map(l => l.words);
       const maxOther = Math.max(...otherLens);
-      // If correct answer is 5+ words longer than every distractor, trim it
       if (correctLen > maxOther + 4) {
         const words = opts[q.correct].trim().split(/\s+/);
         opts[q.correct] = words.slice(0, maxOther + 2).join(' ');
@@ -630,6 +612,91 @@ For picture pattern questions, replace null with the visual object. For text-onl
   return JSON.parse(raw).questions;
 };
 
+// ── Generate English Questions ────────────────────────────────────────────────
+
+export const generateEnglishQuestions = async (yearLevel, count, questionTypeFocus) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate grammar, spelling, punctuation and language questions that closely match these exams. Always respond with ONLY valid JSON, no other text.`;
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: ${questionTypeFocus}. Do NOT generate questions about any other topic unless explicitly listed above.`
+    : '';
+
+  const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+${focusInstruction}
+
+QUESTION TYPES AVAILABLE (choose appropriate ones based on year level and focus):
+- Spelling: "Correct the spelling", "Choose the correct spelling", "Fill in the missing letters"
+- Punctuation: "Add the missing punctuation", "Identify the error", "Choose the correctly punctuated sentence"
+- Capital Letters: "Identify where capitals are needed", "Correct the sentence"
+- Plural: "Write the plural", "Choose the correct plural", "Irregular plurals"
+- Nouns: "Identify the noun", "Common nouns", "Proper nouns", "Collective nouns"
+- Adjectives: "Identify the adjective", "Adjectival phrases", "Comparative adjectives"
+- Verbs: "Identify the verb", "Action verbs", "Helping/auxiliary verbs"
+- Adverbs: "Identify the adverb", "Adverbial phrases", "Choose the correct adverb"
+- Adding -ing and -ed: "Add the correct suffix", "Identify the error", "Doubling rule"
+- ie and ei: "Choose the correct spelling", "Fill in the blank"
+- Tense: "Present tense", "Past tense", "Future tense", "Identify the tense"
+- Subject-Verb Agreement: "Choose the correct verb form", "Correct the sentence"
+- Words ending in -y: "Plural of words ending in -y", "Adding suffixes to -y words"
+- Homophones: "Choose the correct homophone", "Fill in the blank"
+- Days, Months & Seasons: "Spelling of days/months", "Capitalisation rules"
+- Prepositions: "Identify the preposition", "Choose the correct preposition", "Prepositional phrases"
+- Pronouns: "Identify the pronoun", "Subject vs object pronouns", "Possessive pronouns"
+- Apostrophes: "Apostrophe for possession", "Apostrophe for contraction", "Correct the error"
+- Sentence Order: "Arrange words into a correct sentence", "Arrange sentences into a correct paragraph", "Sequence the steps"
+- Conjunctions: "Choose the correct conjunction", "Join two sentences"
+- Prefixes & Suffixes: "Identify the prefix/suffix", "Choose the correct word with prefix/suffix"
+- Synonyms & Antonyms: "Choose the synonym", "Choose the antonym"
+- Compound Words: "Identify/form compound words"
+- Similes & Metaphors: "Identify the figure of speech", "Complete the simile"
+
+SPECIAL FORMAT FOR "Sequence the steps" questions:
+- Present 4 steps from a real-world process in SHUFFLED / OUT-OF-ORDER numbering
+- The question text lists all 4 steps as numbered items (1. 2. 3. 4.)
+- The 4 answer options (A/B/C/D) show different orderings using dash notation e.g. "2 – 4 – 3 – 1"
+- Only ONE ordering is correct — the others must be plausible but wrong
+- The "correct" field is the letter (A/B/C/D) of the correct ordering
+- The "explanation" states the correct sequence and briefly explains why
+- Use age-appropriate real-world processes: making toast, planting a seed, posting a letter, brushing teeth, making a sandwich, sending an email, baking a cake, etc.
+- Example: Steps listed as: 1. Spread the butter  2. Put bread in the toaster  3. Take the bread out  4. Get the bread from the bag
+  Answer options: A) 4 – 2 – 3 – 1  B) 2 – 4 – 1 – 3  C) 1 – 3 – 2 – 4  D) 3 – 1 – 4 – 2
+  Correct: A (get bread → toast it → take it out → spread butter)
+
+YEAR LEVEL GUIDANCE:
+- Year 1–2: Simple CVC words, basic punctuation (. ! ?), simple plurals, basic nouns/verbs
+- Year 3–4: Compound words, apostrophes, tense, adjectives, adverbs, homophones
+- Year 5–6: Prefixes/suffixes, subject-verb agreement, adverbial phrases, similes
+- Year 7–9: Metaphors, complex sentence structure, advanced vocabulary, figurative language
+- Year 10–11: Nuanced grammar, advanced literary devices, complex syntax
+
+RULES:
+- All content must use Australian English spelling (colour, favourite, realise, recognise, organise)
+- Keep questions age-appropriate and relevant to Australian school context
+- Vary question types — do not repeat the same type more than 3 times in a batch unless focused
+- Answer options must be A, B, C, D — exactly 4 options per question
+- The correct answer must NOT always be the longest option — vary position and length
+- Never use the same example word or sentence twice in a batch
+
+TOPIC TAGS — assign exactly one to each question:
+- "spelling" — spelling, ie/ei, adding -ing/-ed
+- "punctuation" — punctuation, capital letters, apostrophes
+- "grammar" — nouns, verbs, adjectives, adverbs, pronouns, prepositions, conjunctions, subject-verb agreement, tense
+- "vocabulary" — synonyms, antonyms, homophones, compound words, prefixes/suffixes
+- "sentence" — sentence order, sequence the steps, arranging words/sentences
+- "figurative" — similes, metaphors, figures of speech
+
+EXPLANATION RULES:
+- State the answer in 1-2 sentences maximum
+- Mention the grammar rule or reason
+- Be direct and confident
+
+Return ONLY this JSON: {"questions":[{"id":1,"question":"Question text here. For Sequence the steps, list all 4 numbered steps in the question.","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"spelling","questionType":"Choose the correct spelling","visual":null}]}`;
+
+  const raw = await callClaude(system, user);
+  const parsed = JSON.parse(raw);
+  return parsed.questions;
+};
+
 // ── Writing ───────────────────────────────────────────────────────────────────
 
 const WRITING_THEMES = [
@@ -646,7 +713,6 @@ const WRITING_THEMES = [
 ];
 
 export const generateWritingPrompt = async (type, yearLevel, themeOverride) => {
-  // Use override theme if provided, otherwise pick a random one
   const themeObj = themeOverride
     ? WRITING_THEMES.find(t => t.theme === themeOverride) || WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)]
     : WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
@@ -752,7 +818,6 @@ Return ONLY this JSON (no other text):
 
 Provide 2-4 items in each vocabulary section and 4-6 sentence structure upgrades covering varied techniques from: Simile, Metaphor, Alliteration, Personification, Imagery, Rhetorical Question, Complex Sentence, Conditional Sentence, Parallel Structure, Contrast, Emphasis, Relative Clause, Appositive, Cause and Effect, Conjunction, Inverted Order.`;
 
-  // Call Claude API directly with vision capability
   const response = await fetch('/api/claude-vision', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -763,8 +828,6 @@ Provide 2-4 items in each vocabulary section and 4-6 sentence structure upgrades
   const text = data.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(text);
 };
-
-
 
 const wordCountForMins = (mins) => {
   if (mins <= 15) return 200;
@@ -800,5 +863,6 @@ export const generatePDFQuestions = async (subject, count, yearLevel) => {
   if (subject === 'mathematics') return await generateMathsQuestions(yearLevel, count);
   if (subject === 'reading') return await generateReadingQuestions(yearLevel, count);
   if (subject === 'general') return await generateGeneralAbilityQuestions(yearLevel, count);
+  if (subject === 'english') return await generateEnglishQuestions(yearLevel, count);
   return [];
 };
