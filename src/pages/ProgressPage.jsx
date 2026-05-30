@@ -78,18 +78,72 @@ const getStatusLabel = (score, na) => {
   if (d >= -15) return { text: 'Below average', color: '#E07A5F' };
   return { text: 'Well below average', color: '#B04030' };
 };
-
 const SUBJECT_COLORS = Object.fromEntries(subjects.map(s => [s.key, s.color]));
+
+// ── Build per-topic trend data from full sessions (which include questions[]) ──
+// Returns { topicKey: [{ date, score }] }
+const buildTopicTrends = (sessions) => {
+  const trends = {};
+  sessions.forEach(session => {
+    const qs = session.questions || [];
+    if (!qs.length) return;
+    // Group questions by topic, compute % correct for this session
+    const topicMap = {};
+    qs.forEach((q, idx) => {
+      const topic = q.topic;
+      if (!topic) return;
+      if (!topicMap[topic]) topicMap[topic] = { correct: 0, total: 0 };
+      topicMap[topic].total += 1;
+      // questions may have _correct or we infer from session selected answers (not stored here)
+      // Use the question's correct field vs selectedAnswers if available on session
+      const sel = session.selectedAnswers || {};
+      if (sel[idx] !== undefined) {
+        if (sel[idx] === q.correct) topicMap[topic].correct += 1;
+      } else if (q._wasCorrect !== undefined) {
+        if (q._wasCorrect) topicMap[topic].correct += 1;
+      } else {
+        // No answer data — skip this session for per-topic trend
+        return;
+      }
+    });
+    Object.entries(topicMap).forEach(([topicKey, { correct, total }]) => {
+      if (total === 0) return;
+      if (!trends[topicKey]) trends[topicKey] = [];
+      trends[topicKey].push({ date: session.date, score: Math.round((correct / total) * 100) });
+    });
+  });
+  return trends;
+};
+
+// ── Build per-question-type scores from full sessions ─────────────────────────
+// Returns { topicKey: { questionType: { correct, total } } }
+const buildQuestionTypeScores = (sessions) => {
+  const result = {};
+  sessions.forEach(session => {
+    const qs = session.questions || [];
+    const sel = session.selectedAnswers || {};
+    qs.forEach((q, idx) => {
+      const topic = q.topic;
+      const qtype = q.questionType;
+      if (!topic || !qtype) return;
+      if (!result[topic]) result[topic] = {};
+      if (!result[topic][qtype]) result[topic][qtype] = { correct: 0, total: 0 };
+      result[topic][qtype].total += 1;
+      if (sel[idx] !== undefined && sel[idx] === q.correct) {
+        result[topic][qtype].correct += 1;
+      }
+    });
+  });
+  return result;
+};
 
 // ── Calendar heat map ─────────────────────────────────────────────────────────
 function CalendarHeatmap({ sessions }) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
 
   const monthName = new Date(viewYear, viewMonth, 1).toLocaleString('en-AU', { month: 'long', year: 'numeric' });
-
-  // Build day map: { 'YYYY-MM-DD': [session, ...] }
   const dayMap = {};
   sessions.forEach(s => {
     const d = new Date(s.date);
@@ -98,60 +152,55 @@ function CalendarHeatmap({ sessions }) {
     dayMap[key].push(s);
   });
 
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const blanks = firstDay === 0 ? 6 : firstDay - 1; // Mon-start offset
+  const blanks = firstDay === 0 ? 6 : firstDay - 1;
 
-  const totalTests = Object.values(dayMap).filter(arr => {
-    const d = new Date(arr[0].date);
-    return d.getMonth() === viewMonth && d.getFullYear() === viewYear;
-  }).reduce((s, arr) => s + arr.length, 0);
+  const totalTests = Object.entries(dayMap).filter(([key]) => {
+    const [y, m] = key.split('-').map(Number);
+    return m - 1 === viewMonth && y === viewYear;
+  }).reduce((s, [, arr]) => s + arr.length, 0);
 
   const getHeatColor = (count) => {
-    if (!count || count === 0) return '#F1F5F9';
+    if (!count) return '#F1F5F9';
     if (count <= 2) return '#BFDBFE';
     if (count <= 4) return '#60A5FA';
     return '#1D4ED8';
   };
+  const getTextColor = (count) => count >= 3 ? '#fff' : '#1e293b';
 
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-    else setViewMonth(m => m - 1);
-  };
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
   const nextMonth = () => {
-    const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
-    const nm = viewMonth === 11 ? 0 : viewMonth + 1;
-    if (ny > today.getFullYear() || (ny === today.getFullYear() && nm > today.getMonth())) return;
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-    else setViewMonth(m => m + 1);
+    const isLast = viewYear === today.getFullYear() && viewMonth >= today.getMonth();
+    if (isLast) return;
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1);
   };
-
   const isNextDisabled = viewYear > today.getFullYear() || (viewYear === today.getFullYear() && viewMonth >= today.getMonth());
 
   return (
-    <div style={{ background: '#fff', borderRadius: 20, padding: 24, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', boxShadow: '0 2px 12px rgba(13,27,42,0.04)' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)' }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 17, fontWeight: 800, color: '#0F172A' }}>📅 Practice Calendar</div>
-          <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>{totalTests} test{totalTests !== 1 ? 's' : ''} completed in {monthName}</div>
+          <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A' }}>📅 Practice Calendar</div>
+          <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>{totalTests} test{totalTests !== 1 ? 's' : ''} completed in {monthName}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={prevMonth} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', minWidth: 130, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{monthName}</span>
-          <button onClick={nextMonth} disabled={isNextDisabled} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #E2E8F0', background: '#fff', cursor: isNextDisabled ? 'default' : 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isNextDisabled ? 0.3 : 1 }}>›</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={prevMonth} style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', minWidth: 110, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{monthName}</span>
+          <button onClick={nextMonth} disabled={isNextDisabled} style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid #E2E8F0', background: '#fff', cursor: isNextDisabled ? 'default' : 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isNextDisabled ? 0.3 : 1 }}>›</button>
         </div>
       </div>
 
       {/* Day headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 3 }}>
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#94A3B8', fontFamily: 'Inter, sans-serif', paddingBottom: 4 }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{d}</div>
         ))}
       </div>
 
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+      {/* Grid — compact cells */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
         {Array(blanks).fill(null).map((_, i) => <div key={`b${i}`} />)}
         {Array(daysInMonth).fill(null).map((_, i) => {
           const day = i + 1;
@@ -161,20 +210,24 @@ function CalendarHeatmap({ sessions }) {
           const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
           const subjectCounts = {};
           daySessions.forEach(s => { subjectCounts[s.subject] = (subjectCounts[s.subject] || 0) + 1; });
-
+          const tooltip = count > 0
+            ? `${count} test${count > 1 ? 's' : ''}: ${Object.entries(subjectCounts).map(([k, v]) => `${v} ${subjects.find(s => s.key === k)?.shortLabel || k}`).join(', ')}`
+            : '';
           return (
-            <div key={day} title={count > 0 ? `${count} test${count > 1 ? 's' : ''}: ${Object.entries(subjectCounts).map(([k, v]) => `${v} ${subjects.find(s => s.key === k)?.shortLabel || k}`).join(', ')}` : ''} style={{
-              aspectRatio: '1', borderRadius: 6, background: getHeatColor(count),
-              border: isToday ? '2px solid #4338CA' : '1px solid transparent',
+            <div key={day} title={tooltip} style={{
+              height: 38, borderRadius: 5, background: getHeatColor(count),
+              border: isToday ? '2px solid #4338CA' : '1px solid rgba(0,0,0,0.04)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              cursor: count > 0 ? 'pointer' : 'default', position: 'relative', overflow: 'hidden',
+              cursor: count > 0 ? 'pointer' : 'default', gap: 2,
             }}>
-              <span style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: count >= 3 ? '#fff' : '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1 }}>{day}</span>
+              {/* Day number — larger and more readable */}
+              <span style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: getTextColor(count), fontFamily: 'Inter, sans-serif', lineHeight: 1 }}>{day}</span>
+              {/* Subject dots — bigger */}
               {count > 0 && (
-                <div style={{ display: 'flex', gap: 1, marginTop: 2, flexWrap: 'wrap', justifyContent: 'center', maxWidth: '90%' }}>
+                <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 32 }}>
                   {Object.entries(subjectCounts).map(([sk, c]) =>
-                    Array(c).fill(null).map((_, ci) => (
-                      <div key={`${sk}${ci}`} style={{ width: 4, height: 4, borderRadius: '50%', background: SUBJECT_COLORS[sk] || '#94A3B8', flexShrink: 0 }} />
+                    Array(Math.min(c, 3)).fill(null).map((_, ci) => (
+                      <div key={`${sk}${ci}`} style={{ width: 6, height: 6, borderRadius: '50%', background: SUBJECT_COLORS[sk] || '#94A3B8', flexShrink: 0, border: '1px solid rgba(255,255,255,0.6)' }} />
                     ))
                   )}
                 </div>
@@ -185,19 +238,19 @@ function CalendarHeatmap({ sessions }) {
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Tests per day:</span>
-        {[['0', '#F1F5F9', '#374151'], ['1–2', '#BFDBFE', '#374151'], ['3–4', '#60A5FA', '#374151'], ['5+', '#1D4ED8', '#fff']].map(([label, bg, fg]) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: '1px solid #E2E8F0' }} />
-            <span style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Tests/day:</span>
+        {[['0', '#F1F5F9', '#374151'], ['1–2', '#BFDBFE', '#374151'], ['3–4', '#60A5FA', '#374151'], ['5+', '#1D4ED8', '#fff']].map(([label, bg]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ width: 11, height: 11, borderRadius: 2, background: bg, border: '1px solid #E2E8F0' }} />
+            <span style={{ fontSize: 10, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{label}</span>
           </div>
         ))}
-        <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 8, fontFamily: 'Inter, sans-serif' }}>Dots = subjects</span>
+        <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 6, fontFamily: 'Inter, sans-serif' }}>Dots = subjects:</span>
         {subjects.map(s => (
-          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
-            <span style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{s.shortLabel}</span>
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: s.color }} />
+            <span style={{ fontSize: 10, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{s.shortLabel}</span>
           </div>
         ))}
       </div>
@@ -205,39 +258,61 @@ function CalendarHeatmap({ sessions }) {
   );
 }
 
-// ── Score trend bar chart (last 10 tests per subject) ─────────────────────────
+// ── Score trend bar chart ─────────────────────────────────────────────────────
+const BAR_HEIGHT = 100; // px — the max bar height representing 100%
+
 function ScoreTrendChart({ sessions, color }) {
   const scrollRef = useRef(null);
   const sorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
   if (sorted.length === 0) return null;
-
   const avg = Math.round(sorted.reduce((s, r) => s + (r.score || 0), 0) / sorted.length);
-  const maxVisible = 10;
-  const hasMore = sorted.length > maxVisible;
+
+  // avgTop: distance from top of bar area to where the avg line sits
+  // score 100% → bar fills full BAR_HEIGHT → avgTop for 50% = BAR_HEIGHT * 0.5
+  const avgTop = BAR_HEIGHT - (avg / 100) * BAR_HEIGHT;
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>Score trend</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>Score trend</div>
         <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-          Avg: <strong style={{ color }}>{avg}%</strong>
-          {hasMore && ' · scroll left for older tests'}
+          Avg: <strong style={{ color }}>{avg}%</strong> · scroll left for older
         </div>
       </div>
       <div ref={scrollRef} style={{ overflowX: 'auto', paddingBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, minWidth: sorted.length * 44, height: 100, position: 'relative', padding: '0 4px' }}>
-          {/* Avg line */}
-          <div style={{ position: 'absolute', left: 0, right: 0, top: `${100 - avg}%`, height: 1, background: `${color}60`, borderTop: `2px dashed ${color}80`, zIndex: 1 }} />
+        {/* Outer wrapper: fixed pixel height = BAR_HEIGHT + room for labels */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, minWidth: sorted.length * 44, position: 'relative', padding: '0 4px' }}>
+          {/* Average dashed line — absolutely positioned inside a relative wrapper */}
+          <div style={{ position: 'absolute', left: 4, right: 4, bottom: 28, height: BAR_HEIGHT, pointerEvents: 'none' }}>
+            <div style={{
+              position: 'absolute', left: 0, right: 0,
+              bottom: (avg / 100) * BAR_HEIGHT,   // from bottom: score% of total height
+              borderTop: `2px dashed ${color}80`,
+              zIndex: 1
+            }} />
+          </div>
+
           {sorted.map((s, i) => {
             const score = s.score || 0;
-            const barH = Math.max(4, score);
+            const barPx = Math.max(3, (score / 100) * BAR_HEIGHT); // pixel height proportional to score
             const date = new Date(s.date);
             const label = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
             return (
-              <div key={i} title={`${label}: ${score}%`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flex: '0 0 40px', zIndex: 2 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: getGradeColor(score), fontFamily: 'Inter, sans-serif' }}>{score}%</span>
-                <div style={{ width: 28, height: `${barH}%`, background: score >= 70 ? color : score >= 50 ? `${color}99` : `${color}55`, borderRadius: '4px 4px 0 0', minHeight: 4, transition: 'height 0.3s', position: 'relative' }} />
-                <span style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.2 }}>{label}</span>
+              <div key={i} title={`${label}: ${score}%`}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: '0 0 40px', zIndex: 2 }}>
+                {/* Score label sits above the bar */}
+                <span style={{ fontSize: 10, fontWeight: 700, color: getGradeColor(score), fontFamily: 'Inter, sans-serif', height: 14, display: 'flex', alignItems: 'flex-end' }}>{score}%</span>
+                {/* Spacer pushes bar to correct height within the BAR_HEIGHT frame */}
+                <div style={{ height: BAR_HEIGHT - barPx }} />
+                {/* The bar itself — fixed pixel height */}
+                <div style={{
+                  width: 28,
+                  height: barPx,
+                  background: score >= 70 ? color : score >= 50 ? `${color}99` : `${color}55`,
+                  borderRadius: '4px 4px 0 0',
+                }} />
+                {/* Date label */}
+                <span style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center', fontFamily: 'Inter, sans-serif', lineHeight: 1.2, marginTop: 3 }}>{label}</span>
               </div>
             );
           })}
@@ -247,105 +322,146 @@ function ScoreTrendChart({ sessions, color }) {
   );
 }
 
-// ── Topic line chart ──────────────────────────────────────────────────────────
-function TopicLineChart({ topicKey, sessions, color }) {
-  // Filter sessions that have questions with this topic
-  const points = [];
-  sessions.forEach(s => {
-    const qs = s.questions || [];
-    const topicQs = qs.filter(q => q.topic === topicKey);
-    if (topicQs.length === 0) return;
-    // We need the selected answers — stored in session as selectedAnswers or we compute from questions
-    // Since we don't store per-question answers in the session list easily, use score as a proxy for sessions
-    // that had this topic. We'll mark the score on the date.
-    points.push({ date: s.date, score: s.score || 0 });
-  });
-
-  if (points.length < 2) {
-    if (points.length === 1) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: getGradeColor(points[0].score) }}>{points[0].score}%</span>
-        </div>
-      );
-    }
-    return <div style={{ fontSize: 10, color: '#CBD5E1', textAlign: 'center', paddingTop: 16, fontFamily: 'Inter, sans-serif' }}>No data yet</div>;
+// ── Topic trend line chart — uses precomputed trend points ────────────────────
+function TopicLineChart({ topicKey, trendPoints, color }) {
+  if (!trendPoints || trendPoints.length === 0) {
+    return <div style={{ fontSize: 10, color: '#CBD5E1', textAlign: 'center', width: '100%', fontFamily: 'Inter, sans-serif' }}>No data yet</div>;
+  }
+  if (trendPoints.length === 1) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: getGradeColor(trendPoints[0].score) }}>{trendPoints[0].score}%</div>
+        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>1 test</div>
+      </div>
+    );
   }
 
-  const W = 120, H = 48;
-  const sorted = [...points].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-8);
-  const xs = sorted.map((_, i) => (i / (sorted.length - 1)) * (W - 12) + 6);
-  const ys = sorted.map(p => H - 8 - ((p.score / 100) * (H - 16)));
+  const W = 240, H = 56;
+  const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-10);
+  const minS = Math.max(0, Math.min(...sorted.map(p => p.score)) - 10);
+  const maxS = Math.min(100, Math.max(...sorted.map(p => p.score)) + 10);
+  const range = maxS - minS || 20;
+  const xs = sorted.map((_, i) => (i / (sorted.length - 1)) * (W - 20) + 10);
+  const ys = sorted.map(p => H - 6 - ((p.score - minS) / range) * (H - 16));
   const pathD = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
+  const areaD = `${pathD} L ${xs[xs.length - 1]} ${H} L ${xs[0]} ${H} Z`;
   const last = sorted[sorted.length - 1];
+  const trend = sorted.length >= 2 ? sorted[sorted.length - 1].score - sorted[sorted.length - 2].score : 0;
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', width: W }}>
       <svg width={W} height={H} style={{ overflow: 'visible' }}>
+        {/* Area fill */}
+        <path d={areaD} fill={`${color}18`} />
+        {/* Line */}
         <path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {/* Dots */}
         {sorted.map((p, i) => (
-          <circle key={i} cx={xs[i]} cy={ys[i]} r={i === sorted.length - 1 ? 4 : 2.5} fill={color} stroke="#fff" strokeWidth={1} />
+          <g key={i}>
+            <circle cx={xs[i]} cy={ys[i]} r={i === sorted.length - 1 ? 4 : 2.5} fill={color} stroke="#fff" strokeWidth={1.5} />
+            {i === sorted.length - 1 && (
+              <text x={xs[i]} y={ys[i] - 8} textAnchor="middle" fontSize={9} fontWeight="700" fill={getGradeColor(p.score)} fontFamily="Inter, sans-serif">{p.score}%</text>
+            )}
+          </g>
         ))}
+        {/* Date labels at first and last */}
+        <text x={xs[0]} y={H + 12} textAnchor="start" fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
+          {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+        </text>
+        <text x={xs[xs.length - 1]} y={H + 12} textAnchor="end" fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
+          {new Date(sorted[sorted.length - 1].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+        </text>
       </svg>
-      <div style={{ position: 'absolute', right: 0, top: -4, fontSize: 11, fontWeight: 700, color: getGradeColor(last.score), fontFamily: 'Inter, sans-serif' }}>{last.score}%</div>
+      {/* Trend arrow */}
+      {trend !== 0 && (
+        <div style={{ position: 'absolute', right: 0, top: 0, fontSize: 10, fontWeight: 700, color: trend > 0 ? '#2D6A4F' : '#B04030', fontFamily: 'Inter, sans-serif' }}>
+          {trend > 0 ? `↑+${trend}%` : `↓${trend}%`}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Topic Row with line chart ─────────────────────────────────────────────────
-function TopicRow({ topic, score, color, sessions }) {
+// ── Topic Row ─────────────────────────────────────────────────────────────────
+function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
   const na = topic.nationalAvg;
   const hasScore = score > 0;
   const status = hasScore ? getStatusLabel(score, na) : { text: 'Not yet tested', color: '#9AA5B0' };
   const grade = hasScore ? getGrade(score) : '—';
   const gradeColor = hasScore ? getGradeColor(score) : '#9AA5B0';
 
-  // AI feedback — more specific about question types
+  // AI feedback — uses actual question type data where available
   const getFeedback = () => {
-    if (!hasScore) return `Complete a practice test to see your ${topic.label} performance here.`;
+    if (!hasScore) return `Complete a test to see your ${topic.label} performance.`;
     const diff = score - na;
-    if (diff >= 15) return `Excellent — well ahead of average. To maintain this, try harder question types within ${topic.label}.`;
-    if (diff >= 5) return `Good work — above average on ${topic.label}. Focus on any question types you find tricky to push higher.`;
-    if (diff >= -5) return `On track with the average for ${topic.label}. Identify which specific question types within this topic cost you marks and drill those.`;
-    if (diff >= -15) return `Below average on ${topic.label}. Target the specific question types you missed — do 2–3 short focused sessions on those only.`;
-    return `Significant gap on ${topic.label}. Prioritise the hardest question types in this area daily — use the topic picker to isolate them.`;
+
+    // Build question type analysis from real data
+    const qtData = questionTypeScores?.[topic.key] || {};
+    const qtEntries = Object.entries(qtData)
+      .filter(([, v]) => v.total >= 2)
+      .map(([qtype, v]) => ({ qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total }))
+      .sort((a, b) => a.pct - b.pct);
+
+    const weakTypes = qtEntries.filter(e => e.pct < 50).slice(0, 2);
+    const strongTypes = qtEntries.filter(e => e.pct >= 75).slice(0, 2);
+
+    let feedback = '';
+    if (diff >= 15) feedback = `Excellent — ${score}% is well above the national average of ${na}%.`;
+    else if (diff >= 5) feedback = `Good — ${score}% is above the ${na}% national average.`;
+    else if (diff >= -5) feedback = `At the ${na}% national average for ${topic.label}.`;
+    else if (diff >= -15) feedback = `Below average — ${score}% vs ${na}% national. Needs focus.`;
+    else feedback = `Significantly below average — ${score}% vs ${na}% national. High priority.`;
+
+    if (weakTypes.length > 0) {
+      feedback += ` Weakest question types: ${weakTypes.map(e => `${e.qtype} (${e.pct}%)`).join(', ')} — drill these specifically.`;
+    } else if (qtEntries.length === 0 && diff < 0) {
+      feedback += ` Use the question type picker to identify exactly which types within ${topic.label} are costing you marks.`;
+    }
+    if (strongTypes.length > 0 && diff >= 5) {
+      feedback += ` Strong on: ${strongTypes.map(e => e.qtype).join(', ')}.`;
+    }
+    return feedback;
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 130px 140px', gap: 0, borderBottom: '1px solid rgba(13,27,42,0.06)', alignItems: 'stretch', background: '#fff' }}>
-      {/* Column 1: Topic + band bar */}
-      <div style={{ padding: '12px 16px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0D1B2A', marginBottom: 8 }}>{topic.label}</div>
-        <div style={{ position: 'relative', height: 28, marginBottom: 3 }}>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 5, display: 'flex', overflow: 'hidden' }}>
+    // Layout: Topic+bar (narrow) | Score | Trend (wide) | AI Feedback
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 80px 1fr 200px', gap: 0, borderBottom: '1px solid rgba(13,27,42,0.06)', alignItems: 'stretch', background: '#fff' }}>
+
+      {/* Column 1: Topic name + band bar — narrower */}
+      <div style={{ padding: '12px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#0D1B2A', marginBottom: 6 }}>{topic.label}</div>
+        <div style={{ position: 'relative', height: 22, marginBottom: 2 }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
             <div style={{ width: '40%', background: '#FDEAEA' }} />
             <div style={{ width: '20%', background: '#FEF3D0' }} />
             <div style={{ width: '20%', background: '#E8F5EE' }} />
             <div style={{ width: '20%', background: '#C8EDD8' }} />
           </div>
-          <div style={{ position: 'absolute', top: '50%', left: `${na}%`, transform: 'translate(-50%,-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2.5px solid #5A6A7A', zIndex: 2 }} />
-          {hasScore && <div style={{ position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`, transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%', background: color, border: '2.5px solid #fff', zIndex: 3, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} />}
+          {/* National average marker */}
+          <div style={{ position: 'absolute', top: '50%', left: `${na}%`, transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A', zIndex: 2 }} />
+          {/* Your score marker */}
+          {hasScore && <div style={{ position: 'absolute', top: '50%', left: `${Math.min(score, 99)}%`, transform: 'translate(-50%,-50%)', width: 16, height: 16, borderRadius: '50%', background: color, border: '2.5px solid #fff', zIndex: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }} />}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#9AA5B0' }}>
-          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#9AA5B0' }}>
+          <span>0</span><span>50</span><span>100</span>
         </div>
       </div>
 
-      {/* Column 2: Score + Grade */}
-      <div style={{ padding: '12px 8px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>{hasScore ? `${score}%` : '—'}</div>
-        <div style={{ fontSize: 18, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
-        <div style={{ fontSize: 9, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
+      {/* Column 2: Score */}
+      <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1.1 }}>{hasScore ? `${score}%` : '—'}</div>
+        <div style={{ fontSize: 16, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
+        <div style={{ fontSize: 8, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
       </div>
 
-      {/* Column 3: Topic trend line chart */}
-      <div style={{ padding: '12px 10px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <TopicLineChart topicKey={topic.key} sessions={sessions} color={color} />
+      {/* Column 3: Trend line chart — 3x wider */}
+      <div style={{ padding: '10px 16px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
       </div>
 
-      {/* Column 4: AI Feedback */}
-      <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.6 }}>{getFeedback()}</div>
+      {/* Column 4: AI Feedback — narrower but specific */}
+      <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.55 }}>{getFeedback()}</div>
       </div>
     </div>
   );
@@ -357,141 +473,217 @@ function SubjectSummaryCard({ subject, avg, totalQuestions, onClick }) {
   const vsNational = hasData ? avg - subject.nationalAvg : null;
   const grade = hasData ? getGrade(avg) : '—';
   const gradeColor = hasData ? getGradeColor(avg) : '#9AA5B0';
-
   return (
-    <div onClick={onClick} style={{ background: '#fff', borderRadius: 16, padding: '20px 20px', border: '1px solid rgba(13,27,42,0.08)', borderTop: `4px solid ${subject.color}`, cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 2px 8px rgba(13,27,42,0.04)' }}
+    <div onClick={onClick} style={{ background: '#fff', borderRadius: 16, padding: '18px 16px', border: '1px solid rgba(13,27,42,0.08)', borderTop: `4px solid ${subject.color}`, cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 2px 8px rgba(13,27,42,0.04)' }}
       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
       onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 10, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{subject.icon}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{subject.icon}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#0D1B2A' }}>{subject.shortLabel}</div>
       </div>
       {hasData ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{avg}%</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: gradeColor }}>{grade}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+            <div style={{ fontSize: 30, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{avg}%</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: gradeColor }}>{grade}</div>
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: vsNational >= 0 ? '#2D6A4F' : '#B04030', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: vsNational >= 0 ? '#2D6A4F' : '#B04030', marginBottom: 8 }}>
             {vsNational >= 0 ? `↑ +${vsNational}%` : `↓ ${vsNational}%`} vs national avg
           </div>
-          <div style={{ height: 5, background: '#F0E8D8', borderRadius: 3, marginBottom: 10, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${avg}%`, background: subject.color, borderRadius: 3 }} />
+          <div style={{ height: 4, background: '#F0E8D8', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${avg}%`, background: subject.color, borderRadius: 2 }} />
           </div>
-          <div style={{ fontSize: 12, color: '#5A6A7A' }}>{totalQuestions} question{totalQuestions !== 1 ? 's' : ''} attempted</div>
+          <div style={{ fontSize: 11, color: '#5A6A7A', marginTop: 6 }}>{totalQuestions}q attempted</div>
         </>
       ) : (
-        <div style={{ fontSize: 13, color: '#9AA5B0', lineHeight: 1.5 }}>No tests completed yet.<br /><span style={{ color: subject.color, fontWeight: 600 }}>Start practising →</span></div>
+        <div style={{ fontSize: 12, color: '#9AA5B0', lineHeight: 1.5 }}>No tests yet.<br /><span style={{ color: subject.color, fontWeight: 600 }}>Start →</span></div>
       )}
     </div>
   );
 }
 
 // ── Subject Detail Card ───────────────────────────────────────────────────────
-function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
+function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, questionTypeScores, anchorId }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(true);
   const vsNational = avg !== null ? avg - subject.nationalAvg : null;
 
-  // AI analysis — more specific
   const getAIAnalysis = () => {
     if (avg === null) return 'Complete a test to get your AI analysis.';
+    const vsNat = avg - subject.nationalAvg;
+    let text = vsNat >= 10
+      ? `Strong overall — ${vsNat}% above the national average. `
+      : vsNat >= 0 ? `At or just above the national average. `
+        : `Currently ${Math.abs(vsNat)}% below the national average. `;
+
     const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
     const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
-    const vsNat = avg - subject.nationalAvg;
-    let text = '';
-    if (vsNat >= 10) text += `Strong overall — ${vsNat}% above the national average. `;
-    else if (vsNat >= 0) text += `At or just above the national average. `;
-    else text += `Currently ${Math.abs(vsNat)}% below the national average. `;
-    if (strong.length > 0) text += `Strengths: ${strong.join(', ')}. `;
-    if (weak.length > 0) text += `Priority areas: ${weak.join(', ')} — use the topic picker to select these specifically, then drill the individual question types within each topic to pinpoint exactly what to fix. `;
-    if (weak.length === 0 && avg >= 70) text += `All topics performing well. Push further by testing harder question types within each topic.`;
+    if (strong.length > 0) text += `Strong topics: ${strong.join(', ')}. `;
+    if (weak.length > 0) {
+      text += `Weak topics: ${weak.join(', ')}. `;
+      // Find worst question types within weak topics
+      const worstQTypes = [];
+      weak.forEach(topicLabel => {
+        const topicObj = subject.topics.find(t => t.label === topicLabel);
+        if (!topicObj) return;
+        const qtData = questionTypeScores?.[topicObj.key] || {};
+        Object.entries(qtData)
+          .filter(([, v]) => v.total >= 2)
+          .map(([qtype, v]) => ({ topic: topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100) }))
+          .filter(e => e.pct < 50)
+          .sort((a, b) => a.pct - b.pct)
+          .slice(0, 2)
+          .forEach(e => worstQTypes.push(e));
+      });
+      if (worstQTypes.length > 0) {
+        text += `Lowest question types to fix first: ${worstQTypes.map(e => `${e.qtype} in ${e.topic} (${e.pct}%)`).join('; ')}. `;
+      } else {
+        text += `Use the question type picker to isolate the specific types within these topics. `;
+      }
+    }
+    if (weak.length === 0 && avg >= 70) text += `All topics above 55%. Push further by testing harder question types.`;
     return text;
   };
 
   return (
     <div id={anchorId} style={{ background: '#fff', borderRadius: 20, marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', boxShadow: '0 2px 12px rgba(13,27,42,0.04)', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#FAFAF8' }}
+      <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(13,27,42,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#FAFAF8' }}
         onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{subject.icon}</div>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{subject.icon}</div>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
             <div style={{ fontSize: 12, color: '#5A6A7A' }}>{stats.attempts} session{stats.attempts !== 1 ? 's' : ''} · {stats.totalQuestions || 0} questions attempted</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {avg !== null && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: avg >= 70 ? '#2D6A4F' : avg >= 50 ? '#A07010' : '#B04030' }}>
-                {avg}% <span style={{ fontSize: 20 }}>{getGrade(avg)}</span>
+              <div style={{ fontSize: 28, fontWeight: 800, color: avg >= 70 ? '#2D6A4F' : avg >= 50 ? '#A07010' : '#B04030' }}>
+                {avg}% <span style={{ fontSize: 18 }}>{getGrade(avg)}</span>
               </div>
               <div style={{ fontSize: 11, color: vsNational >= 0 ? '#2D6A4F' : '#B04030', fontWeight: 600 }}>
                 {vsNational >= 0 ? `↑ +${vsNational}%` : `↓ ${vsNational}%`} vs national avg ({subject.nationalAvg}%)
               </div>
             </div>
           )}
-          <div style={{ fontSize: 18, color: '#9AA5B0' }}>{expanded ? '▲' : '▼'}</div>
+          <div style={{ fontSize: 16, color: '#9AA5B0' }}>{expanded ? '▲' : '▼'}</div>
         </div>
       </div>
 
       {expanded && (
         <div>
-          {/* Score trend chart */}
+          {/* Score trend */}
           {sessions.length > 1 && (
-            <div style={{ padding: '20px 24px 0' }}>
+            <div style={{ padding: '16px 24px 0' }}>
               <ScoreTrendChart sessions={sessions} color={subject.color} />
             </div>
           )}
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 130px 140px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
-            <div style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '220px 80px 1fr 200px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
+            <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
               Topic
-              <span style={{ display: 'flex', gap: 8 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: subject.color, border: '2px solid #fff' }} />
-                  <span style={{ fontSize: 9, color: '#9AA5B0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>You</span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: subject.color, border: '2px solid #fff', display: 'inline-block' }} />
+                  <span style={{ fontSize: 8, color: '#9AA5B0', fontWeight: 400 }}>You</span>
                 </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A' }} />
-                  <span style={{ fontSize: 9, color: '#9AA5B0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>National</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', border: '2px solid #5A6A7A', display: 'inline-block' }} />
+                  <span style={{ fontSize: 8, color: '#9AA5B0', fontWeight: 400 }}>Nat.</span>
                 </span>
               </span>
             </div>
-            <div style={{ padding: '8px 8px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
-            <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Trend</div>
-            <div style={{ padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
+            <div style={{ padding: '7px 6px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
+            <div style={{ padding: '7px 16px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Trend over time</div>
+            <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
           </div>
 
           {subject.topics.map((topic, i) => (
-            <TopicRow key={topic.key} topic={topic} score={topicScores[i] || 0} color={subject.color} sessions={sessions} />
+            <TopicRow
+              key={topic.key}
+              topic={topic}
+              score={topicScores[i] || 0}
+              color={subject.color}
+              trendPoints={topicTrends?.[topic.key] || []}
+              questionTypeScores={questionTypeScores}
+            />
           ))}
 
-          <div style={{ padding: '20px 24px' }}>
-            {/* AI Analysis block */}
-            <div style={{ background: '#0D1B2A', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#E8B84B', marginBottom: 6 }}>🤖 AI Analysis — {subject.label}</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.75 }}>{getAIAnalysis()}</div>
+          <div style={{ padding: '18px 24px' }}>
+            {/* AI Analysis */}
+            <div style={{ background: '#0D1B2A', borderRadius: 12, padding: '14px 18px', marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#E8B84B', marginBottom: 5 }}>🤖 AI Analysis — {subject.label}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.75 }}>{getAIAnalysis()}</div>
             </div>
+
+            {/* Question type breakdown — shown if data available */}
+            {questionTypeScores && Object.keys(questionTypeScores).length > 0 && (() => {
+              const allQT = [];
+              Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
+                const topicLabel = subject.topics.find(t => t.key === topicKey)?.label || topicKey;
+                Object.entries(qtData).filter(([, v]) => v.total >= 2).forEach(([qtype, v]) => {
+                  allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
+                });
+              });
+              if (allQT.length === 0) return null;
+              const worst = [...allQT].sort((a, b) => a.pct - b.pct).slice(0, 5);
+              const best = [...allQT].sort((a, b) => b.pct - a.pct).slice(0, 3);
+              return (
+                <div style={{ background: '#F8F9FF', borderRadius: 12, padding: '14px 16px', marginBottom: 18, border: '1px solid #EEF2FF' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 }}>📊 Question type breakdown</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work</div>
+                      {worst.map((e, i) => (
+                        <div key={i} style={{ marginBottom: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                            <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif' }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct) }}>{e.pct}%</div>
+                          </div>
+                          <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 2 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest</div>
+                      {best.map((e, i) => (
+                        <div key={i} style={{ marginBottom: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                            <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif' }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct) }}>{e.pct}%</div>
+                          </div>
+                          <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${e.pct}%`, background: '#52B788', borderRadius: 2 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Test history */}
             {sessions.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Test history</div>
-                <div style={{ borderRadius: 12, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', background: '#FAF6EE', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Test history</div>
+                <div style={{ borderRadius: 10, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 100px 55px 55px', background: '#FAF6EE', padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     <div>Date</div><div>Year</div><div>Result</div><div>Score</div><div>Grade</div>
                   </div>
-                  <div style={{ maxHeight: sessions.length > 10 ? 440 : 'none', overflowY: sessions.length > 10 ? 'auto' : 'visible' }}>
+                  <div style={{ maxHeight: sessions.length > 10 ? 360 : 'none', overflowY: sessions.length > 10 ? 'auto' : 'visible' }}>
                     {sessions.map((s, i) => {
                       const score = s.score || s.percentage || 0;
                       return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 110px 60px 60px', padding: '10px 14px', fontSize: 13, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
-                          <div style={{ color: '#5A6A7A', fontSize: 12 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 100px 55px 55px', padding: '8px 12px', fontSize: 12, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
+                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                           <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
-                          <div style={{ color: '#5A6A7A', fontSize: 12 }}>{s.correct !== undefined ? `${s.correct} / ${s.total} correct` : '—'}</div>
+                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>{s.correct !== undefined ? `${s.correct} / ${s.total}` : '—'}</div>
                           <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
                           <div style={{ fontWeight: 800, color: getGradeColor(score) }}>{getGrade(score)}</div>
                         </div>
@@ -502,7 +694,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, anchorId }) {
               </div>
             )}
 
-            <button onClick={() => navigate(subject.path)} style={{ padding: '9px 22px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <button onClick={() => navigate(subject.path)} style={{ padding: '8px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer' }}>
               Practise {subject.label} →
             </button>
           </div>
@@ -517,10 +709,13 @@ export default function ProgressPage() {
   const navigate = useNavigate();
   const { yearLevel, user } = useAuth();
   const [progress, setProgress] = useState({ sessions: [], subjectStats: {} });
+  const [fullSessions, setFullSessions] = useState([]); // sessions WITH questions[] for charts
   const [weekly, setWeekly] = useState({ testsCompleted: 0, avgScore: 0 });
-  const [recent, setRecent] = useState([]);
+  const [recent, setRecent] = useState([]); // sessions without questions (for calendar/history)
   const [subjectAverages, setSubjectAverages] = useState({});
   const [allTopicScores, setAllTopicScores] = useState({});
+  const [allTopicTrends, setAllTopicTrends] = useState({});   // { subjectKey: { topicKey: [{date, score}] } }
+  const [allQTypeScores, setAllQTypeScores] = useState({});   // { subjectKey: { topicKey: { qtype: {correct,total} } } }
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -533,17 +728,37 @@ export default function ProgressPage() {
           getRecentSessions(200),
           ...subjects.map(s => getSubjectAverage(s.key))
         ]);
+
         setProgress(progressData);
         setWeekly(weeklyData);
         setRecent(recentData);
+
         const avgMap = {};
         subjects.forEach((s, i) => { avgMap[s.key] = avgs[i]; });
         setSubjectAverages(avgMap);
+
+        // Use full sessions (include questions[]) for topic trend + question type analysis
+        const sessionsFull = progressData.sessions || [];
+        setFullSessions(sessionsFull);
+
+        // Compute per-topic trends and question type scores from sessions that have questions[]
+        const trendsMap = {};
+        const qtScoresMap = {};
+        subjects.forEach(subj => {
+          const subjSessions = sessionsFull.filter(s => s.subject === subj.key);
+          trendsMap[subj.key] = buildTopicTrends(subjSessions);
+          qtScoresMap[subj.key] = buildQuestionTypeScores(subjSessions);
+        });
+        setAllTopicTrends(trendsMap);
+        setAllQTypeScores(qtScoresMap);
+
+        // Also load cumulative topic scores from Supabase
         const topicData = {};
         await Promise.all(subjects.map(async s => {
           topicData[s.key] = await getTopicScoresForSubject(s.key);
         }));
         setAllTopicScores(topicData);
+
       } catch (e) {
         console.error('Failed to load progress data:', e);
       }
@@ -591,51 +806,46 @@ export default function ProgressPage() {
 
   return (
     <div>
-      {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px' }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 900, color: '#0F172A', letterSpacing: -0.5 }}>📊 Progress Report Dashboard</div>
-        <div style={{ fontSize: 14, color: '#64748B', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Track your strengths and weaknesses across all subjects and topics</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 900, color: '#0F172A', letterSpacing: -0.5 }}>📊 Progress Dashboard</div>
+        <div style={{ fontSize: 13, color: '#64748B', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Track your strengths, weaknesses and progress over time</div>
       </div>
 
-      <div style={{ padding: 32 }}>
+      <div style={{ padding: '24px 32px' }}>
         {totalTests === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 900, color: '#0F172A', marginBottom: 8 }}>No results yet</div>
-            <div style={{ fontSize: 15, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>Complete your first practice test to start tracking your progress</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 900, color: '#0F172A', marginBottom: 8 }}>No results yet</div>
+            <div style={{ fontSize: 14, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>Complete a practice test to start tracking your progress</div>
             <button onClick={() => navigate('/app/maths')} style={{ background: '#4338CA', color: '#fff', padding: '12px 28px', borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Start practising →</button>
           </div>
         ) : (
           <>
             {/* Subject summary cards */}
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Subject summary</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontFamily: 'Inter, sans-serif' }}>Subject summary</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
               {subjects.map(s => (
                 <SubjectSummaryCard key={s.key} subject={s} avg={subjectAverages[s.key]} totalQuestions={getTotalQuestions(s.key)}
-                  onClick={() => {
-                    const stats = progress.subjectStats[s.key];
-                    if (stats && stats.attempts > 0) scrollToSubject(s.key);
-                    else navigate(s.path);
-                  }}
+                  onClick={() => { const stats = progress.subjectStats[s.key]; if (stats && stats.attempts > 0) scrollToSubject(s.key); else navigate(s.path); }}
                 />
               ))}
             </div>
 
             {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
               {[
                 { label: 'Total tests completed', value: totalTests },
                 { label: 'Tests this week', value: weekly.testsCompleted },
                 { label: 'Overall average', value: overallAvg !== null ? `${overallAvg}% ${getGrade(overallAvg)}` : '—' },
               ].map((s, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
-                  <div style={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>{s.label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{s.value}</div>
+                <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)' }}>
+                  <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: 3, fontFamily: 'Inter, sans-serif' }}>{s.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            {/* Calendar heatmap */}
+            {/* Calendar — compact */}
             <CalendarHeatmap sessions={recent} />
 
             {/* Subject detail cards */}
@@ -645,25 +855,30 @@ export default function ProgressPage() {
               if (!stats || (stats.attempts || 0) === 0) return null;
               const topicScores = getTopicScores(s.key, avg);
               const sessions = getSubjectSessions(s.key);
+              const topicTrends = allTopicTrends[s.key] || {};
+              const questionTypeScores = allQTypeScores[s.key] || {};
               return (
                 <SubjectCard key={s.key} subject={s} avg={avg}
                   stats={{ ...stats, totalQuestions: getTotalQuestions(s.key) }}
-                  sessions={sessions} topicScores={topicScores} anchorId={`subject-${s.key}`}
+                  sessions={sessions} topicScores={topicScores}
+                  topicTrends={topicTrends}
+                  questionTypeScores={questionTypeScores}
+                  anchorId={`subject-${s.key}`}
                 />
               );
             })}
 
             {/* Overall recommendation */}
-            <div style={{ background: '#1E1B4B', borderRadius: 16, padding: 24 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#A5B4FC', marginBottom: 8, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>🎯 Overall recommendation</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ background: '#1E1B4B', borderRadius: 16, padding: '20px 24px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>🎯 Overall recommendation</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, fontFamily: 'Inter, sans-serif' }}>
                 {(() => {
                   const avgs = subjects.map(s => ({ label: s.label, avg: subjectAverages[s.key], nationalAvg: s.nationalAvg })).filter(s => s.avg !== null && s.avg !== undefined);
                   if (avgs.length === 0) return 'Complete more tests to get personalised recommendations.';
                   const weakest = [...avgs].sort((a, b) => a.avg - b.avg)[0];
                   const strongest = [...avgs].sort((a, b) => b.avg - a.avg)[0];
-                  const belowNational = avgs.filter(s => s.avg < s.nationalAvg);
-                  return `Your strongest subject is ${strongest.label} at ${strongest.avg}% (${getGrade(strongest.avg)}). ${weakest.label} needs the most attention at ${weakest.avg}% (${getGrade(weakest.avg)})${weakest.avg < weakest.nationalAvg ? ` — currently ${weakest.nationalAvg - weakest.avg}% below the national benchmark` : ''}. ${belowNational.length > 0 ? `Focus on bringing ${belowNational.map(s => s.label).join(' and ')} up to benchmark level. Use the topic picker within each subject to drill the specific question types you are weakest on.` : 'You are above the national benchmark across all tested subjects — keep it up!'}`;
+                  const below = avgs.filter(s => s.avg < s.nationalAvg);
+                  return `Strongest subject: ${strongest.label} at ${strongest.avg}% (${getGrade(strongest.avg)}). Needs most work: ${weakest.label} at ${weakest.avg}% (${getGrade(weakest.avg)})${weakest.avg < weakest.nationalAvg ? ` — ${weakest.nationalAvg - weakest.avg}% below benchmark` : ''}. ${below.length > 0 ? `Focus on ${below.map(s => s.label).join(' and ')} to reach national benchmark. Use the question type picker to drill specific weak types.` : 'You are at or above benchmark across all tested subjects — keep it up!'}`;
                 })()}
               </div>
             </div>
