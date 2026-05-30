@@ -194,7 +194,7 @@ function CalendarHeatmap({ sessions }) {
   const isNextDisabled = viewYear > today.getFullYear() || (viewYear === today.getFullYear() && viewMonth >= today.getMonth());
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)' }}>
+    <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 24, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden', maxWidth: '100%' }}>
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
@@ -302,15 +302,18 @@ function ScoreTrendChart({ sessions, color }) {
       </div>
       {/* Container: fixed width = 10 bars max, scroll reveals older */}
       <div ref={scrollRef} style={{
-        overflowX: 'auto', width: '100%', paddingBottom: 2,
-        /* hide scrollbar but keep scrollable */
+        overflowX: 'auto',
+        width: MAX_VISIBLE * BAR_W,   // hard cap: exactly 10 bars wide
+        maxWidth: '100%',             // never wider than parent
+        paddingBottom: 2,
         scrollbarWidth: 'thin',
       }}>
         <div style={{
           display: 'flex', alignItems: 'flex-end', gap: 3,
-          minWidth: sorted.length * BAR_W,
+          width: Math.max(sorted.length, MAX_VISIBLE) * BAR_W,
           paddingTop: 14, paddingLeft: 2, paddingRight: 2,
           position: 'relative',
+          flexShrink: 0,
         }}>
           {sorted.map((s, i) => {
             const score = s.score || 0;
@@ -337,22 +340,35 @@ function ScoreTrendChart({ sessions, color }) {
     </div>
   );
 }
-// ── Topic trend line chart — proper date x-axis, % y-axis ───────────────────
+// ── Topic line chart — responsive width, dates on x-axis, % on each dot ─────
 function TopicLineChart({ topicKey, trendPoints, color }) {
+  const containerRef = useRef(null);
+  const [containerW, setContainerW] = useState(300);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect?.width;
+      if (w > 0) setContainerW(Math.floor(w));
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   if (!trendPoints || trendPoints.length === 0) {
     return (
-      <div style={{ fontSize: 10, color: '#CBD5E1', textAlign: 'center', width: '100%', fontFamily: 'Inter, sans-serif', padding: '4px 0' }}>
+      <div ref={containerRef} style={{ width: '100%', fontSize: 10, color: '#CBD5E1', textAlign: 'center', padding: '12px 0', fontFamily: 'Inter, sans-serif' }}>
         No data yet
       </div>
     );
   }
 
-  const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-10);
+  const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
 
   if (sorted.length === 1) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, padding: '2px 0' }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: getGradeColor(sorted[0].score) }}>{sorted[0].score}%</div>
+      <div ref={containerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 0', gap: 2 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: getGradeColor(sorted[0].score) }}>{sorted[0].score}%</div>
         <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
           {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
         </div>
@@ -360,103 +376,110 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
     );
   }
 
-  // Chart dimensions — use available width, fixed height
-  const W = 220;
-  const H = 60;          // plot area height in px
-  const PAD_L = 26;      // left padding for y-axis labels
-  const PAD_R = 8;
-  const PAD_T = 14;      // top padding so score labels don't clip
-  const PAD_B = 18;      // bottom padding for date labels
+  // Chart layout constants
+  const PAD_L = 24;   // y-axis labels
+  const PAD_R = 16;   // right margin (last label)
+  const PAD_T = 16;   // top (score label above first/last dot)
+  const PAD_B = 20;   // bottom (date labels)
+  const PLOT_H = 70;  // height of the plot area
+  const W = containerW;
   const plotW = W - PAD_L - PAD_R;
-  const plotH = H;
+  const SVG_H = PAD_T + PLOT_H + PAD_B;
 
-  // Y axis: always 0–100 so the line genuinely goes up and down
-  const Y_MIN = 0;
-  const Y_MAX = 100;
-
-  // Map score → y pixel (top of SVG = high score)
-  const toY = (score) => PAD_T + plotH - ((score - Y_MIN) / (Y_MAX - Y_MIN)) * plotH;
-  // Map index → x pixel
+  const toY = (v) => PAD_T + PLOT_H - (v / 100) * PLOT_H;
   const toX = (i) => PAD_L + (sorted.length === 1 ? plotW / 2 : (i / (sorted.length - 1)) * plotW);
 
   const pts = sorted.map((p, i) => ({ x: toX(i), y: toY(p.score), score: p.score, date: p.date }));
-  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaD = `${pathD} L ${pts[pts.length - 1].x} ${PAD_T + plotH} L ${pts[0].x} ${PAD_T + plotH} Z`;
+  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${lineD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} Z`;
 
-  const totalH = PAD_T + plotH + PAD_B;
   const trend = sorted[sorted.length - 1].score - sorted[0].score;
 
-  // Y axis grid lines at 0, 50, 100
-  const yLines = [0, 50, 100];
+  // Decide which points show a % label (avoid overlapping)
+  // Show label if gap from previous labeled point is big enough
+  const minLabelGap = 28;
+  const labeledPts = [];
+  pts.forEach((p, i) => {
+    const isFirst = i === 0;
+    const isLast = i === pts.length - 1;
+    const prev = labeledPts[labeledPts.length - 1];
+    const farEnough = !prev || (p.x - prev.x) >= minLabelGap;
+    if (isFirst || isLast || farEnough) labeledPts.push({ ...p, i });
+  });
+
+  // X-axis date labels: show for first, last, and every ~80px
+  const dateLabeledIdx = new Set([0, pts.length - 1]);
+  pts.forEach((p, i) => {
+    if (i === 0 || i === pts.length - 1) return;
+    const prev = [...dateLabeledIdx].filter(j => j < i).pop();
+    if (prev !== undefined && (p.x - pts[prev].x) >= 70) dateLabeledIdx.add(i);
+  });
+
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 
   return (
-    <div style={{ width: '100%', maxWidth: W }}>
-      <svg width={W} height={totalH} style={{ overflow: 'visible', display: 'block' }}>
-        {/* Y axis grid lines + labels */}
-        {yLines.map(v => {
-          const y = toY(v);
-          return (
-            <g key={v}>
-              <line x1={PAD_L} x2={PAD_L + plotW} y1={y} y2={y}
-                stroke="#E5E7EB" strokeWidth={1} strokeDasharray={v === 0 ? 'none' : '2,3'} />
-              <text x={PAD_L - 3} y={y + 3} textAnchor="end" fontSize={7}
-                fill="#94A3B8" fontFamily="Inter, sans-serif">{v}</text>
-            </g>
-          );
-        })}
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <svg width={W} height={SVG_H} style={{ display: 'block', overflow: 'visible' }}>
+        {/* Y-axis lines at 0, 50, 100 */}
+        {[0, 50, 100].map(v => (
+          <g key={v}>
+            <line x1={PAD_L} x2={PAD_L + plotW} y1={toY(v)} y2={toY(v)}
+              stroke={v === 0 ? '#D1D5DB' : '#E5E7EB'} strokeWidth={v === 0 ? 1 : 1}
+              strokeDasharray={v === 0 ? 'none' : '3,4'} />
+            <text x={PAD_L - 3} y={toY(v) + 3.5} textAnchor="end"
+              fontSize={8} fill="#9AA5B0" fontFamily="Inter, sans-serif">{v}</text>
+          </g>
+        ))}
 
         {/* Area fill */}
-        <path d={areaD} fill={`${color}15`} />
+        <path d={areaD} fill={`${color}18`} />
 
         {/* Line */}
-        <path d={pathD} fill="none" stroke={color} strokeWidth={2}
+        <path d={lineD} fill="none" stroke={color} strokeWidth={2}
           strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* Dots + score labels */}
-        {pts.map((p, i) => {
-          const isLast = i === pts.length - 1;
-          const isFirst = i === 0;
-          const showLabel = isLast || isFirst || pts.length <= 4;
-          const labelY = p.y - 6;
+        {/* All dots */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y}
+            r={i === pts.length - 1 ? 4 : 3}
+            fill={color} stroke="#fff" strokeWidth={1.5} />
+        ))}
+
+        {/* % labels above dots — spaced so they don't overlap */}
+        {labeledPts.map((p) => {
+          // Position label above or below depending on whether there's room above
+          const above = p.y - PAD_T > 14;
+          const labelY = above ? p.y - 7 : p.y + 14;
+          const anchor = p.x < PAD_L + 20 ? 'start' : p.x > W - PAD_R - 20 ? 'end' : 'middle';
           return (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y}
-                r={isLast ? 4 : 2.5}
-                fill={color} stroke="#fff" strokeWidth={1.5} />
-              {showLabel && (
-                <text x={p.x} y={labelY} textAnchor="middle"
-                  fontSize={8} fontWeight="700"
-                  fill={getGradeColor(p.score)} fontFamily="Inter, sans-serif">
-                  {p.score}%
-                </text>
-              )}
-            </g>
+            <text key={p.i} x={p.x} y={labelY} textAnchor={anchor}
+              fontSize={9} fontWeight="700"
+              fill={getGradeColor(p.score)} fontFamily="Inter, sans-serif">
+              {p.score}%
+            </text>
           );
         })}
 
-        {/* X axis date labels — first and last only */}
-        <text x={pts[0].x} y={PAD_T + plotH + 12} textAnchor="middle"
-          fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
-          {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-        </text>
-        {sorted.length > 2 && (
-          <text x={pts[Math.floor(pts.length / 2)].x} y={PAD_T + plotH + 12} textAnchor="middle"
-            fontSize={8} fill="#CBD5E1" fontFamily="Inter, sans-serif">
-            {new Date(sorted[Math.floor(sorted.length / 2)].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-          </text>
-        )}
-        <text x={pts[pts.length - 1].x} y={PAD_T + plotH + 12} textAnchor="middle"
-          fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
-          {new Date(sorted[sorted.length - 1].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-        </text>
+        {/* X-axis date labels */}
+        {[...dateLabeledIdx].map(i => {
+          const p = pts[i];
+          const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
+          return (
+            <text key={i} x={p.x} y={PAD_T + PLOT_H + 13} textAnchor={anchor}
+              fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
+              {fmtDate(sorted[i].date)}
+            </text>
+          );
+        })}
       </svg>
 
-      {/* Trend summary below chart */}
-      {sorted.length >= 2 && (
-        <div style={{ fontSize: 9, fontWeight: 700, color: trend > 0 ? '#2D6A4F' : trend < 0 ? '#B04030' : '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
-          {trend > 0 ? `↑ +${trend}% since first test` : trend < 0 ? `↓ ${trend}% since first test` : '→ No change'}
-        </div>
-      )}
+      {/* Trend tag */}
+      <div style={{
+        fontSize: 9, fontWeight: 700, marginTop: 1, fontFamily: 'Inter, sans-serif',
+        color: trend > 0 ? '#2D6A4F' : trend < 0 ? '#B04030' : '#94A3B8'
+      }}>
+        {trend > 0 ? `↑ +${trend}% since first test` : trend < 0 ? `↓ ${trend}% since first test` : '→ No change'}
+      </div>
     </div>
   );
 }
@@ -501,7 +524,7 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
     <div style={{ borderBottom: '1px solid rgba(13,27,42,0.06)', background: '#fff' }}>
 
       {/* Main 4-column row: Topic+bar | Trend | Score | Feedback */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 90px 160px', alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 100px 180px', alignItems: 'stretch' }}>
 
         {/* Column 1: Topic name + band bar + QT breakdown toggle */}
         <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
@@ -692,7 +715,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           )}
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 90px 160px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 100px 180px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
             <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
               Topic
               <span style={{ display: 'flex', gap: 6 }}>
