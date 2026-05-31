@@ -694,7 +694,11 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
             <div style={{ fontSize: 12, color: '#5A6A7A' }}>
-              {stats.attempts} {subject.key === 'writing' ? 'submission' : 'session'}{stats.attempts !== 1 ? 's' : ''} · {subject.key === 'writing' ? `${stats.totalQuestions || stats.attempts || 0} pieces submitted` : `${stats.totalQuestions || 0} questions attempted`}
+              {subject.key === 'writing'
+                ? (stats.attempts > 0
+                  ? `${stats.attempts} submission${stats.attempts !== 1 ? 's' : ''}`
+                  : 'No submissions yet — submit your first piece of writing to track your progress')
+                : `${stats.attempts} session${stats.attempts !== 1 ? 's' : ''} · ${stats.totalQuestions || 0} questions attempted`}
             </div>
           </div>
         </div>
@@ -719,6 +723,20 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           {sessions.length > 1 && (
             <div style={{ padding: '16px 24px 0' }}>
               <ScoreTrendChart sessions={sessions} color={subject.color} />
+            </div>
+          )}
+          {/* Writing with no submissions yet — show a prompt */}
+          {subject.key === 'writing' && sessions.length === 0 && (
+            <div style={{ padding: '24px 24px 0' }}>
+              <div style={{ background: '#FFF7ED', borderRadius: 12, padding: '20px 24px', border: '1px solid #FED7AA', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ fontSize: 32 }}>✍️</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 4, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>No writing submissions yet</div>
+                  <div style={{ fontSize: 13, color: '#78350F', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                    Submit a typed or handwritten piece of writing to see your scores across the 5 criteria — Ideas, Structure, Language, Sentence Structure and Punctuation — tracked here over time.
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1005,11 +1023,12 @@ export default function ProgressPage() {
             {subjects.map(s => {
               const avg = subjectAverages[s.key];
               const stats = progress.subjectStats[s.key];
-              // For writing: also show if getSubjectAverage returned a value (Supabase data exists)
+              // Writing always shows (even with no data) — other subjects only show when they have data
+              const isWriting = s.key === 'writing';
               const hasData = (stats && (stats.attempts || 0) > 0) || (avg !== null && avg !== undefined);
-              if (!hasData) return null;
-              // Create a minimal stats object for writing if missing
-              const effectiveStats = stats || { attempts: 1, totalQuestions: 0 };
+              if (!isWriting && !hasData) return null;
+              // Create a minimal stats object if missing (writing with no submissions yet)
+              const effectiveStats = stats || { attempts: 0, totalQuestions: 0 };
               const topicScores = getTopicScores(s.key, avg);
               const sessions = getSubjectSessions(s.key);
               const topicTrends = allTopicTrends[s.key] || {};
