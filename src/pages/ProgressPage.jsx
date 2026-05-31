@@ -622,7 +622,7 @@ function SubjectSummaryCard({ subject, avg, totalQuestions, onClick }) {
           </div>
           <div style={{ fontSize: 11, color: '#5A6A7A', marginTop: 6 }}>
             {subject.key === 'writing'
-              ? `${stats?.attempts || 0} submission${(stats?.attempts || 0) !== 1 ? 's' : ''}`
+              ? (totalQuestions > 0 ? `${totalQuestions} submission${totalQuestions !== 1 ? 's' : ''}` : 'No submissions yet')
               : `${totalQuestions}q attempted`}
           </div>
         </>
@@ -695,10 +695,10 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
             <div style={{ fontSize: 12, color: '#5A6A7A' }}>
               {subject.key === 'writing'
-                ? (stats.attempts > 0
+                ? ((stats?.attempts || 0) > 0
                   ? `${stats.attempts} submission${stats.attempts !== 1 ? 's' : ''}`
-                  : 'No submissions yet — submit your first piece of writing to track your progress')
-                : `${stats.attempts} session${stats.attempts !== 1 ? 's' : ''} · ${stats.totalQuestions || 0} questions attempted`}
+                  : 'No submissions yet — submit your first piece of writing')
+                : `${stats?.attempts || 0} session${(stats?.attempts || 0) !== 1 ? 's' : ''} · ${stats?.totalQuestions || 0} questions attempted`}
             </div>
           </div>
         </div>
