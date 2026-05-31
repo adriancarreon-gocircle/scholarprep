@@ -346,38 +346,11 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
   const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
 
   if (sorted.length === 1) {
-    const pt = sorted[0];
-    const scoreColor = getGradeColor(pt.score);
-    const dateLabel = new Date(pt.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
-    // Draw a single dot on a mini chart so it looks consistent with multi-point charts
-    const W2 = containerW || 260;
-    const H2 = 60;
-    const cx = W2 / 2;
-    const cy = H2 - (pt.score / 100) * (H2 - 16) - 4;
     return (
-      <div ref={containerRef} style={{ width: '100%' }}>
-        <svg width={W2} height={H2 + 24} style={{ display: 'block', overflow: 'visible' }}>
-          {/* Y grid lines */}
-          {[0, 50, 100].map(v => (
-            <g key={v}>
-              <line x1={20} x2={W2 - 8} y1={H2 - (v / 100) * (H2 - 16) - 4}
-                y2={H2 - (v / 100) * (H2 - 16) - 4}
-                stroke="#E5E7EB" strokeWidth={1} strokeDasharray={v === 0 ? 'none' : '3,4'} />
-              <text x={17} y={H2 - (v / 100) * (H2 - 16) - 1} textAnchor="end"
-                fontSize={8} fill="#9AA5B0" fontFamily="Inter, sans-serif">{v}</text>
-            </g>
-          ))}
-          {/* Single dot */}
-          <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={2} />
-          {/* Score label above dot */}
-          <text x={cx} y={cy - 9} textAnchor="middle" fontSize={10} fontWeight="700"
-            fill={scoreColor} fontFamily="Inter, sans-serif">{pt.score}%</text>
-          {/* Date label below */}
-          <text x={cx} y={H2 + 14} textAnchor="middle" fontSize={8}
-            fill="#94A3B8" fontFamily="Inter, sans-serif">{dateLabel}</text>
-        </svg>
-        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
-          1 submission — do another to see your trend
+      <div ref={containerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 0', gap: 2 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: getGradeColor(sorted[0].score) }}>{sorted[0].score}%</div>
+        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+          {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
         </div>
       </div>
     );
@@ -722,10 +695,10 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
             <div style={{ fontSize: 12, color: '#5A6A7A' }}>
               {subject.key === 'writing'
-                ? ((stats?.attempts || 0) > 0
+                ? (stats.attempts > 0
                   ? `${stats.attempts} submission${stats.attempts !== 1 ? 's' : ''}`
-                  : 'No submissions yet — submit your first piece of writing')
-                : `${stats?.attempts || 0} session${(stats?.attempts || 0) !== 1 ? 's' : ''} · ${stats?.totalQuestions || 0} questions attempted`}
+                  : 'No submissions yet — submit your first piece of writing to track your progress')
+                : `${stats.attempts} session${stats.attempts !== 1 ? 's' : ''} · ${stats.totalQuestions || 0} questions attempted`}
             </div>
           </div>
         </div>
@@ -747,7 +720,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
       {expanded && (
         <div>
           {/* Score trend */}
-          {sessions.length > 1 && (
+          {sessions.length >= 1 && (
             <div style={{ padding: '16px 24px 0' }}>
               <ScoreTrendChart sessions={sessions} color={subject.color} />
             </div>
@@ -933,23 +906,21 @@ export default function ProgressPage() {
         const sessionsFull = progressData.sessions || [];
         setFullSessions(sessionsFull);
 
-        // Load topic score history from Supabase (accurate per-topic scores per session)
+        // Load accurate per-topic score history from Supabase for all subjects
         const trendsMap = {};
+        await Promise.all(subjects.map(async subj => {
+          trendsMap[subj.key] = await getTopicScoreHistory(subj.key);
+        }));
+        setAllTopicTrends(trendsMap);
+
+        // Load cumulative topic scores AND question type scores from Supabase
         const topicData = {};
         const qtData = {};
         await Promise.all(subjects.map(async s => {
           topicData[s.key] = await getTopicScoresForSubject(s.key);
           qtData[s.key] = await getQuestionTypeScoresForSubject(s.key);
-          if (s.key === 'writing') {
-            // Writing uses session score as criteria proxy (criteria are not topic-tagged questions)
-            const writingSessions = sessionsFull.filter(sess => sess.subject === 'writing');
-            trendsMap[s.key] = buildTopicTrendsForWriting(writingSessions);
-          } else {
-            // All other subjects: use real per-topic history from Supabase
-            trendsMap[s.key] = await getTopicScoreHistory(s.key);
-          }
+          // getTopicScoreHistory already loaded above into trendsMap
         }));
-        setAllTopicTrends(trendsMap);
         setAllTopicScores(topicData);
         setAllQTypeScores(qtData);
 

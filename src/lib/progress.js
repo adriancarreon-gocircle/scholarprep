@@ -340,6 +340,8 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
           if (key) topicMap[key] = { correct: c.score, total: c.maxScore };
         });
         await saveTopicScores(user.id, 'writing', topicMap);
+        // Also save per-session history for trend chart
+        await saveTopicScoreHistory(user.id, 'writing', topicMap, session.date);
       }
     } else {
       const progress = getLocalProgress();
@@ -498,8 +500,7 @@ export const getProgress = async () => {
         progress.subjectStats.writing = { attempts: 0, totalPercentage: 0 };
       }
       progress.subjectStats.writing.attempts += 1;
-      // Use percentage (0-100) — always available from Supabase, not raw score
-      progress.subjectStats.writing.totalPercentage += (s.percentage || s.score || 0);
+      progress.subjectStats.writing.totalPercentage += (session.percentage || session.score || 0);
     } else {
       if (!progress.subjectStats[subj]) {
         progress.subjectStats[subj] = { attempts: 0, totalCorrect: 0, totalQuestions: 0, topics: {} };
