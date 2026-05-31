@@ -59,13 +59,46 @@ const extractTopicScores = (questions, selected) => {
   return topicMap;
 };
 
-// Extract per-question-type correct/total: { 'topicKey::questionType': {correct,total} }
+// Normalise question type names so minor variations merge into the same row
+// e.g. "Word problem - subtraction" and "Worded subtraction problem" → "Word problem"
+const normaliseQType = (qtype, topic) => {
+  if (!qtype) return null;
+  let n = qtype.trim()
+    .replace(/\s*[-–—]\s*/g, ' - ')  // normalise dashes
+    .replace(/\s+/g, ' ')             // collapse whitespace
+    .toLowerCase();
+
+  // Merge common variants
+  if (n.includes('word problem') || n.includes('worded') || n.includes('word-problem')) {
+    // Keep topic context but standardise prefix
+    const topicPart = topic ? ' - ' + topic : '';
+    return 'Word problem' + topicPart;
+  }
+  if (n.includes('single-digit') || n.includes('single digit')) return 'Single-digit ' + topic;
+  if (n.includes('two-digit') && n.includes('one-digit')) return 'Two and one-digit ' + topic;
+  if (n.includes('two-digit') || n.includes('two digit')) return 'Two-digit ' + topic;
+  if (n.includes('place value')) return 'Place value';
+  if (n.includes('number sequence') || n.includes('number pattern')) return 'Number sequence';
+  if (n.includes('shape') || n.includes('geometry')) return 'Shape identification';
+  if (n.includes('basic multiplication') || n.includes('multiplication fact')) return 'Basic multiplication';
+  if (n.includes('basic division') || n.includes('division fact')) return 'Basic division';
+  if (n.includes('fraction')) return 'Fractions';
+  if (n.includes('decimal')) return 'Decimals';
+  if (n.includes('percentage') || n.includes('percent')) return 'Percentages';
+
+  // Default: capitalise first letter, trim
+  return qtype.trim().replace(/^\w/, c => c.toUpperCase());
+};
+
+// Extract per-question-type correct/total: { 'topicKey::normalisedQType': {correct,total} }
 const extractQuestionTypeScores = (questions, selected) => {
   const qtMap = {};
   questions.forEach((q, i) => {
     const topic = q.topic;
-    const qtype = q.questionType;
-    if (!topic || !qtype) return;
+    const rawQtype = q.questionType;
+    if (!topic || !rawQtype) return;
+    const qtype = normaliseQType(rawQtype, topic);
+    if (!qtype) return;
     const key = `${topic}::${qtype}`;
     if (!qtMap[key]) qtMap[key] = { correct: 0, total: 0, topic, questionType: qtype };
     qtMap[key].total += 1;
@@ -445,13 +478,25 @@ export const getQuestionTypeScoresForSubject = async (subject) => {
       .eq('subject', subject);
     if (error || !data) return {};
     const result = {};
+    // Merge rows with similar question type names (normalise on read too)
     data.forEach(row => {
       if (!result[row.topic_key]) result[row.topic_key] = {};
-      result[row.topic_key][row.question_type] = {
-        correct: row.correct,
-        total: row.total,
-        pct: row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0,
-      };
+      const normQtype = normaliseQType(row.question_type, row.topic_key);
+      const key = normQtype || row.question_type;
+      if (result[row.topic_key][key]) {
+        // Merge duplicate normalised entries
+        result[row.topic_key][key].correct += row.correct;
+        result[row.topic_key][key].total += row.total;
+        result[row.topic_key][key].pct = result[row.topic_key][key].total > 0
+          ? Math.round((result[row.topic_key][key].correct / result[row.topic_key][key].total) * 100)
+          : 0;
+      } else {
+        result[row.topic_key][key] = {
+          correct: row.correct,
+          total: row.total,
+          pct: row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0,
+        };
+      }
     });
     return result;
   } catch (e) {
