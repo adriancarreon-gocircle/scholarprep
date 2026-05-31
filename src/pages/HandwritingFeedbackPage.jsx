@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { assessHandwritingPhoto } from '../lib/ai';
+import { saveWritingResult } from '../lib/progress';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -511,6 +512,10 @@ export default function HandwritingFeedbackPage() {
     try {
       const result = await assessHandwritingPhoto(base64, mediaType, yearLevel, writingType);
       setFeedback(result);
+      // Save to progress — works for both camera and file upload paths
+      if (result.totalScore !== undefined && result.maxTotal) {
+        await saveWritingResult(yearLevel, writingType, result.totalScore, result.maxTotal, result);
+      }
       setPhase('feedback');
     } catch (e) {
       setError(e.message || 'Failed to analyse the photo. Please try again with a clearer image.');

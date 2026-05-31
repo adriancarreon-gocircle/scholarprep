@@ -284,28 +284,37 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
 
       // Save writing criteria as topic scores
       if (feedback?.criteria) {
-        // Normalise criteria names from both typed writing and photo/handwriting feedback
+        // Normalise criteria names from all writing paths
         const topicKeyMap = {
-          // Typed writing (WritingPage)
+          // Typed writing — assessWriting (WritingPage)
           'Ideas and content': 'ideas',
           'Structure and organisation': 'structure',
           'Language and vocabulary': 'language',
           'Sentence structure': 'sentences',
           'Punctuation and spelling': 'punctuation',
-          // Handwriting photo feedback (HandwritingFeedbackPage) — uses & and slightly different names
+          // Photo/handwriting — assessHandwritingPhoto (HandwritingFeedbackPage)
           'Ideas & Content': 'ideas',
           'Structure & Organisation': 'structure',
           'Language & Vocabulary': 'language',
           'Sentence Structure': 'sentences',
           'Spelling & Punctuation': 'punctuation',
-          // assessWriting sentence-level criteria names
+          // Mixed case variants
           'Ideas & content': 'ideas',
           'Structure & organisation': 'structure',
           'Language & vocabulary': 'language',
+          'Sentence & Structure': 'sentences',
+          'Punctuation & Spelling': 'punctuation',
+        };
+        // Fuzzy fallback: match by first word of criteria name
+        const fuzzyMap = {
+          'ideas': 'ideas', 'structure': 'structure',
+          'language': 'language', 'sentence': 'sentences',
+          'punctuation': 'punctuation', 'spelling': 'punctuation',
         };
         const topicMap = {};
         feedback.criteria.forEach(c => {
-          const key = topicKeyMap[c.name];
+          const key = topicKeyMap[c.name]
+            || fuzzyMap[c.name?.toLowerCase().split(/[\s&]/)[0]];
           if (key) topicMap[key] = { correct: c.score, total: c.maxScore };
         });
         await saveTopicScores(user.id, 'writing', topicMap);
