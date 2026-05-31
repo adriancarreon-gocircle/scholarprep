@@ -346,11 +346,38 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
   const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
 
   if (sorted.length === 1) {
+    const pt = sorted[0];
+    const scoreColor = getGradeColor(pt.score);
+    const dateLabel = new Date(pt.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    // Draw a single dot on a mini chart so it looks consistent with multi-point charts
+    const W2 = containerW || 260;
+    const H2 = 60;
+    const cx = W2 / 2;
+    const cy = H2 - (pt.score / 100) * (H2 - 16) - 4;
     return (
-      <div ref={containerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 0', gap: 2 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: getGradeColor(sorted[0].score) }}>{sorted[0].score}%</div>
-        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-          {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+      <div ref={containerRef} style={{ width: '100%' }}>
+        <svg width={W2} height={H2 + 24} style={{ display: 'block', overflow: 'visible' }}>
+          {/* Y grid lines */}
+          {[0, 50, 100].map(v => (
+            <g key={v}>
+              <line x1={20} x2={W2 - 8} y1={H2 - (v / 100) * (H2 - 16) - 4}
+                y2={H2 - (v / 100) * (H2 - 16) - 4}
+                stroke="#E5E7EB" strokeWidth={1} strokeDasharray={v === 0 ? 'none' : '3,4'} />
+              <text x={17} y={H2 - (v / 100) * (H2 - 16) - 1} textAnchor="end"
+                fontSize={8} fill="#9AA5B0" fontFamily="Inter, sans-serif">{v}</text>
+            </g>
+          ))}
+          {/* Single dot */}
+          <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={2} />
+          {/* Score label above dot */}
+          <text x={cx} y={cy - 9} textAnchor="middle" fontSize={10} fontWeight="700"
+            fill={scoreColor} fontFamily="Inter, sans-serif">{pt.score}%</text>
+          {/* Date label below */}
+          <text x={cx} y={H2 + 14} textAnchor="middle" fontSize={8}
+            fill="#94A3B8" fontFamily="Inter, sans-serif">{dateLabel}</text>
+        </svg>
+        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
+          1 submission — do another to see your trend
         </div>
       </div>
     );
