@@ -620,7 +620,11 @@ function SubjectSummaryCard({ subject, avg, totalQuestions, onClick }) {
           <div style={{ height: 4, background: '#F0E8D8', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${avg}%`, background: subject.color, borderRadius: 2 }} />
           </div>
-          <div style={{ fontSize: 11, color: '#5A6A7A', marginTop: 6 }}>{totalQuestions}q attempted</div>
+          <div style={{ fontSize: 11, color: '#5A6A7A', marginTop: 6 }}>
+            {subject.key === 'writing'
+              ? `${stats?.attempts || 0} submission${(stats?.attempts || 0) !== 1 ? 's' : ''}`
+              : `${totalQuestions}q attempted`}
+          </div>
         </>
       ) : (
         <div style={{ fontSize: 12, color: '#9AA5B0', lineHeight: 1.5 }}>No tests yet.<br /><span style={{ color: subject.color, fontWeight: 600 }}>Start →</span></div>
@@ -916,7 +920,13 @@ export default function ProgressPage() {
     : null;
 
   const getSubjectSessions = (key) => recent.filter(s => s.subject === key);
-  const getTotalQuestions = (key) => recent.filter(s => s.subject === key).reduce((sum, s) => sum + (s.total || 0), 0);
+  const getTotalQuestions = (key) => {
+    if (key === 'writing') {
+      // Writing doesn't have "questions" — count submissions
+      return recent.filter(s => s.subject === key).length;
+    }
+    return recent.filter(s => s.subject === key).reduce((sum, s) => sum + (s.total || 0), 0);
+  };
 
   const getTopicScores = (subjectKey, avg) => {
     const realScores = allTopicScores[subjectKey];
@@ -995,14 +1005,18 @@ export default function ProgressPage() {
             {subjects.map(s => {
               const avg = subjectAverages[s.key];
               const stats = progress.subjectStats[s.key];
-              if (!stats || (stats.attempts || 0) === 0) return null;
+              // For writing: also show if getSubjectAverage returned a value (Supabase data exists)
+              const hasData = (stats && (stats.attempts || 0) > 0) || (avg !== null && avg !== undefined);
+              if (!hasData) return null;
+              // Create a minimal stats object for writing if missing
+              const effectiveStats = stats || { attempts: 1, totalQuestions: 0 };
               const topicScores = getTopicScores(s.key, avg);
               const sessions = getSubjectSessions(s.key);
               const topicTrends = allTopicTrends[s.key] || {};
               const questionTypeScores = allQTypeScores[s.key] || {};
               return (
                 <SubjectCard key={s.key} subject={s} avg={avg}
-                  stats={{ ...stats, totalQuestions: getTotalQuestions(s.key) }}
+                  stats={{ ...effectiveStats, totalQuestions: getTotalQuestions(s.key) }}
                   sessions={sessions} topicScores={topicScores}
                   topicTrends={topicTrends}
                   questionTypeScores={questionTypeScores}

@@ -353,7 +353,8 @@ const getAllSessions = async () => {
         yearLevel: row.year_level,
         correct: row.correct,
         total: row.total,
-        score: row.score,
+        // For writing, use percentage as the display score; for others use score
+        score: row.subject === 'writing' ? (row.percentage || row.score || 0) : (row.score || 0),
         percentage: row.percentage,
         type: row.type,
         feedback: row.feedback ? (typeof row.feedback === 'string' ? JSON.parse(row.feedback) : row.feedback) : null,
@@ -434,11 +435,11 @@ export const getProgress = async () => {
     const subj = s.subject;
     if (subj === 'writing') {
       if (!progress.subjectStats.writing) {
-        progress.subjectStats.writing = { attempts: 0, totalScore: 0, maxScore: 0, submissions: [] };
+        progress.subjectStats.writing = { attempts: 0, totalPercentage: 0 };
       }
       progress.subjectStats.writing.attempts += 1;
-      progress.subjectStats.writing.totalScore += (s.score || 0);
-      progress.subjectStats.writing.maxScore += (s.maxScore || 25);
+      // Use percentage (0-100) — always available from Supabase, not raw score
+      progress.subjectStats.writing.totalPercentage += (s.percentage || s.score || 0);
     } else {
       if (!progress.subjectStats[subj]) {
         progress.subjectStats[subj] = { attempts: 0, totalCorrect: 0, totalQuestions: 0, topics: {} };
@@ -512,8 +513,8 @@ export const getRecentSessions = async (limit = 10) => {
         yearLevel: row.year_level,
         correct: row.correct,
         total: row.total,
-        // For writing sessions, score is stored in percentage column
-        score: row.score || row.percentage || 0,
+        // For writing sessions use percentage (0-100); for others use score
+        score: row.subject === 'writing' ? (row.percentage || row.score || 0) : (row.score || 0),
         percentage: row.percentage,
         type: row.type,
         date: row.date,
