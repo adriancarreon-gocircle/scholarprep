@@ -862,7 +862,18 @@ Return ONLY this JSON (no markdown, no code fences, no other text):
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ base64Image, mediaType, systemPrompt: system, userPrompt: user })
   });
-  const data = await response.json();
+
+  // Check for non-JSON responses (e.g. "Request Entity Too Large" from serverless limit)
+  const rawText = await response.text();
+  if (!response.ok || !rawText.trim().startsWith('{')) {
+    throw new Error(
+      rawText.length < 200
+        ? rawText
+        : `Server error ${response.status}: image may be too large. Please use a smaller or compressed image.`
+    );
+  }
+
+  const data = JSON.parse(rawText);
   if (data.error) throw new Error(data.error);
   const text = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
   return JSON.parse(text);

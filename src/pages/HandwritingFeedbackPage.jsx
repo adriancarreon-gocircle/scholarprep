@@ -124,12 +124,42 @@ function UploadScreen({ onImageReady }) {
   const [showCamera, setShowCamera] = useState(false);
   const fileRef = useRef();
 
+  const MAX_DIM = 1600;   // max px on longest side
+  const QUALITY = 0.82;   // JPEG quality — high enough for handwriting OCR
+
+  const compressAndProcess = (file) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      // Scale down if needed
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          setPreview(dataUrl);
+          setBase64(dataUrl.split(',')[1]);
+          setMediaType('image/jpeg');
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', QUALITY);
+    };
+    img.src = objectUrl;
+  };
+
   const processFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
-    setMediaType(file.type);
-    const reader = new FileReader();
-    reader.onload = (e) => { setPreview(e.target.result); setBase64(e.target.result.split(',')[1]); };
-    reader.readAsDataURL(file);
+    compressAndProcess(file);
   };
 
   const handleDrop = useCallback((e) => {
@@ -138,8 +168,30 @@ function UploadScreen({ onImageReady }) {
   }, []);
 
   const handleCameraCapture = (b64, mType) => {
-    setBase64(b64); setMediaType(mType);
-    setPreview(`data:${mType};base64,${b64}`);
+    // Compress camera image too
+    const dataUrl = `data:${mType};base64,${b64}`;
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setBase64(e.target.result.split(',')[1]);
+          setMediaType('image/jpeg');
+          setPreview(e.target.result);
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', QUALITY);
+    };
+    img.src = dataUrl;
     setShowCamera(false);
   };
 
@@ -167,7 +219,12 @@ function UploadScreen({ onImageReady }) {
       >
         {preview ? (
           <div style={{ width: '100%' }}>
-            <img src={preview} alt="Writing preview" style={{ width: '100%', maxHeight: 400, objectFit: 'contain', borderRadius: 12, marginBottom: 12 }} />
+            <img src={preview} alt="Writing preview" style={{ width: '100%', maxHeight: 400, objectFit: 'contain', borderRadius: 12, marginBottom: 8 }} />
+            {base64 && (
+              <div style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
+                {(base64.length * 0.75 / 1024).toFixed(0)} KB · compressed for upload
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               <button onClick={(e) => { e.stopPropagation(); setPreview(null); setBase64(null); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#FFF1F2', color: '#EF4444', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✕ Remove</button>
               <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Change</button>
@@ -178,7 +235,10 @@ function UploadScreen({ onImageReady }) {
           <>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 6 }}>Drop a photo here</div>
-            <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>or use the buttons below</div>
+            <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', marginBottom: 8 }}>or use the buttons below</div>
+            <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+              Max file size: <strong>10MB</strong> · JPG, PNG supported · images are automatically compressed before upload
+            </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <button onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Choose file</button>
               <button onClick={(e) => { e.stopPropagation(); setShowCamera(true); }} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F0FDF4', color: '#059669', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📷 Use camera</button>
