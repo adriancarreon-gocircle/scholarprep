@@ -296,7 +296,7 @@ EXPLANATION RULES:
 - Show the key calculation step(s) directly
 - Never second-guess or re-check — be direct and confident
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number","visual":null}]}
+Return ONLY this JSON (questionType must be a specific descriptive name for the exact question type e.g. "Word problem", "Number sequence", "Shape identification", "Place value"): {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number","questionType":"Word problem","visual":null}]}
 
 For questions with visuals, replace null with the visual object. For questions without visuals, use null or omit the field.`;
 
@@ -489,7 +489,7 @@ EXPLANATION RULES:
 - Reference the specific part of the passage that supports the answer
 - Be direct and confident
 
-Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks using \\n\\n"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal"}]}`;
+Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks using \\n\\n"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal","questionType":"Identify stated fact"}]}`;
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
 
@@ -605,7 +605,7 @@ EXPLANATION RULES:
 - State the pattern or rule clearly in 1-2 sentences
 - Be direct and confident
 
-Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"sequences","visual":null}]}
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"sequences","questionType":"Number pattern","visual":null}]}
 
 For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
   const raw = await callClaude(system, user);
