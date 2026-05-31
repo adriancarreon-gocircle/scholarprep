@@ -213,7 +213,7 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: ${questionTypeFocus}. Do NOT generate questions about any other topic unless explicitly listed above.`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified. Every question's "topic" field must match the topic it was generated for.`
     : '';
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
@@ -518,7 +518,7 @@ export const generateGeneralAbilityQuestions = async (yearLevel, count, question
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: Generate questions ONLY about this specific topic: "${questionTypeFocus}". Every single one of the ${count} questions must be about this topic. Do NOT generate questions about any other topic.\n`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.\n`
     : '';
 
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
@@ -618,7 +618,7 @@ export const generateEnglishQuestions = async (yearLevel, count, questionTypeFoc
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate grammar, spelling, punctuation and language questions that closely match these exams. Always respond with ONLY valid JSON, no other text.`;
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL FOCUS — YOU MUST FOLLOW THIS: ${questionTypeFocus}. Do NOT generate questions about any other topic unless explicitly listed above.`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.`
     : '';
 
   const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
