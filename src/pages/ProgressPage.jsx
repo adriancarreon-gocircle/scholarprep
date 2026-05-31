@@ -465,7 +465,7 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
 }
 
 // ── Topic Row ─────────────────────────────────────────────────────────────────
-function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
+function TopicRow({ topic, score, color, trendPoints, questionTypeScores, hideQT }) {
   const na = topic.nationalAvg;
   const hasScore = score > 0;
   const status = hasScore ? getStatusLabel(score, na) : { text: 'Not yet tested', color: '#9AA5B0' };
@@ -482,23 +482,30 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
     .sort((a, b) => a.pct - b.pct);
   const hasQTData = qtEntries.length > 0;
   // Show button always when topic has been tested — QT data populates after new tests
-  const showQTButton = hasScore;
+  const showQTButton = hasScore && !hideQT;
 
   // Feedback
   const getFeedback = () => {
-    if (!hasScore) return `Complete a test to see your ${topic.label} performance.`;
+    if (!hasScore) return hideQT
+      ? `Submit a writing piece to see your ${topic.label} score.`
+      : `Complete a test to see your ${topic.label} performance.`;
     const diff = score - na;
-    const weakTypes = qtEntries.filter(e => e.pct < 50).slice(0, 2);
-    const strongTypes = qtEntries.filter(e => e.pct >= 75).slice(0, 2);
     let feedback = '';
     if (diff >= 15) feedback = `Excellent — ${score}% is well above the ${na}% national average.`;
     else if (diff >= 5) feedback = `Good — ${score}% is above the ${na}% national average.`;
     else if (diff >= -5) feedback = `At the ${na}% national average.`;
     else if (diff >= -15) feedback = `Below average — ${score}% vs ${na}% national. Needs focus.`;
-    else feedback = `Significantly below average — ${score}% vs ${na}%. High priority.`;
-    if (weakTypes.length > 0) feedback += ` Weakest: ${weakTypes.map(e => `${e.qtype} (${e.pct}%)`).join(', ')}.`;
-    else if (!hasQTData && diff < 0) feedback += ` Use the question type picker to drill specific weak types.`;
-    if (strongTypes.length > 0 && diff >= 5) feedback += ` Strong: ${strongTypes.map(e => e.qtype).join(', ')}.`;
+    else feedback = `Significantly below — ${score}% vs ${na}%. High priority.`;
+    if (hideQT) {
+      // Writing — give criteria-specific advice
+      if (diff < 0) feedback += ` Focus on this criterion in your next submission and rewrite session.`;
+    } else {
+      const weakTypes = qtEntries.filter(e => e.pct < 50).slice(0, 2);
+      const strongTypes = qtEntries.filter(e => e.pct >= 75).slice(0, 2);
+      if (weakTypes.length > 0) feedback += ` Weakest: ${weakTypes.map(e => `${e.qtype} (${e.pct}%)`).join(', ')}.`;
+      else if (!hasQTData && diff < 0) feedback += ` Use the question type picker to drill specific weak types.`;
+      if (strongTypes.length > 0 && diff >= 5) feedback += ` Strong: ${strongTypes.map(e => e.qtype).join(', ')}.`;
+    }
     return feedback;
   };
 
@@ -629,8 +636,9 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
   const vsNational = avg !== null ? avg - subject.nationalAvg : null;
 
   const getAIAnalysis = () => {
-    if (avg === null) return 'Complete a test to see your analysis.';
+    if (avg === null) return 'Complete a submission to see your analysis.';
     const vsNat = avg - subject.nationalAvg;
+    const isWriting = subject.key === 'writing';
     let text = vsNat >= 10
       ? `Strong overall — ${vsNat}% above the national average. `
       : vsNat >= 0 ? `At or just above the national average. `
@@ -638,30 +646,37 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
 
     const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
     const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
-    if (strong.length > 0) text += `Strong topics: ${strong.join(', ')}. `;
+    if (strong.length > 0) text += `Strong ${isWriting ? 'criteria' : 'topics'}: ${strong.join(', ')}. `;
     if (weak.length > 0) {
-      text += `Weak topics: ${weak.join(', ')}. `;
-      // Find worst question types within weak topics
-      const worstQTypes = [];
-      weak.forEach(topicLabel => {
-        const topicObj = subject.topics.find(t => t.label === topicLabel);
-        if (!topicObj) return;
-        const qtData = questionTypeScores?.[topicObj.key] || {};
-        Object.entries(qtData)
-          .filter(([, v]) => v.total >= 2)
-          .map(([qtype, v]) => ({ topic: topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100) }))
-          .filter(e => e.pct < 50)
-          .sort((a, b) => a.pct - b.pct)
-          .slice(0, 2)
-          .forEach(e => worstQTypes.push(e));
-      });
-      if (worstQTypes.length > 0) {
-        text += `Lowest question types to fix first: ${worstQTypes.map(e => `${e.qtype} in ${e.topic} (${e.pct}%)`).join('; ')}. `;
+      text += `Needs work: ${weak.join(', ')}. `;
+      if (isWriting) {
+        text += `Focus on these criteria in your next writing submission — use the feedback from your last piece to guide your rewrite.`;
       } else {
-        text += `Use the question type picker to isolate the specific types within these topics. `;
+        const worstQTypes = [];
+        weak.forEach(topicLabel => {
+          const topicObj = subject.topics.find(t => t.label === topicLabel);
+          if (!topicObj) return;
+          const qtData = questionTypeScores?.[topicObj.key] || {};
+          Object.entries(qtData)
+            .filter(([, v]) => v.total >= 2)
+            .map(([qtype, v]) => ({ topic: topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100) }))
+            .filter(e => e.pct < 50)
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 2)
+            .forEach(e => worstQTypes.push(e));
+        });
+        if (worstQTypes.length > 0) {
+          text += `Lowest question types to fix first: ${worstQTypes.map(e => `${e.qtype} in ${e.topic} (${e.pct}%)`).join('; ')}. `;
+        } else {
+          text += `Use the question type picker to isolate the specific types within these topics. `;
+        }
       }
     }
-    if (weak.length === 0 && avg >= 70) text += `All topics above 55%. Push further by testing harder question types.`;
+    if (weak.length === 0 && avg >= 70) {
+      text += isWriting
+        ? `All criteria performing well — keep submitting to track your improvement over time.`
+        : `All topics above 55%. Push further by testing harder question types.`;
+    }
     return text;
   };
 
@@ -674,7 +689,9 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           <div style={{ width: 40, height: 40, borderRadius: 12, background: `${subject.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{subject.icon}</div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0D1B2A' }}>{subject.label}</div>
-            <div style={{ fontSize: 12, color: '#5A6A7A' }}>{stats.attempts} session{stats.attempts !== 1 ? 's' : ''} · {stats.totalQuestions || 0} questions attempted</div>
+            <div style={{ fontSize: 12, color: '#5A6A7A' }}>
+              {stats.attempts} {subject.key === 'writing' ? 'submission' : 'session'}{stats.attempts !== 1 ? 's' : ''} · {subject.key === 'writing' ? `${stats.totalQuestions || stats.attempts || 0} pieces submitted` : `${stats.totalQuestions || 0} questions attempted`}
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -729,6 +746,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
               color={subject.color}
               trendPoints={topicTrends?.[topic.key] || []}
               questionTypeScores={questionTypeScores}
+              hideQT={subject.key === 'writing'}
             />
           ))}
 
@@ -791,7 +809,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             {/* Test history */}
             {sessions.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Test history</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{subject.key === 'writing' ? 'Submission history' : 'Test history'}</div>
                 <div style={{ borderRadius: 10, border: '1px solid rgba(13,27,42,0.08)', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 100px 55px 55px', background: '#FAF6EE', padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     <div>Date</div><div>Year</div><div>Result</div><div>Score</div><div>Grade</div>
@@ -801,9 +819,14 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
                       const score = s.score || s.percentage || 0;
                       return (
                         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 100px 55px 55px', padding: '8px 12px', fontSize: 12, borderTop: '1px solid rgba(13,27,42,0.05)', background: i % 2 === 0 ? '#fff' : '#FDFAF6', alignItems: 'center' }}>
-                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>{new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>
+                            {new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {subject.key === 'writing' && s.type && <span style={{ marginLeft: 5, fontSize: 9, background: '#F5F3FF', color: '#7c3aed', borderRadius: 4, padding: '1px 5px', fontWeight: 700, textTransform: 'capitalize' }}>{s.type}</span>}
+                          </div>
                           <div style={{ color: '#0D1B2A', fontWeight: 600 }}>Yr {s.yearLevel || '—'}</div>
-                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>{s.correct !== undefined ? `${s.correct} / ${s.total}` : '—'}</div>
+                          <div style={{ color: '#5A6A7A', fontSize: 11 }}>
+                            {subject.key === 'writing' ? (s.score !== undefined ? `${s.score || 0} / 25` : '—') : (s.correct !== undefined ? `${s.correct} / ${s.total}` : '—')}
+                          </div>
                           <div style={{ fontWeight: 800, color: score >= 70 ? '#2D6A4F' : score >= 50 ? '#A07010' : '#B04030' }}>{score}%</div>
                           <div style={{ fontWeight: 800, color: getGradeColor(score) }}>{getGrade(score)}</div>
                         </div>
@@ -815,7 +838,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             )}
 
             <button onClick={() => navigate(subject.path)} style={{ padding: '8px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#0D1B2A', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              Practise {subject.label} →
+              {subject.key === 'writing' ? 'Submit writing →' : `Practise ${subject.label} →`}
             </button>
           </div>
         </div>

@@ -275,6 +275,8 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
         year_level: yearLevel,
         type,
         score,
+        total: 25, // writing is out of 25
+        correct: score, // store raw score for consistency
         percentage: session.percentage,
         feedback: JSON.stringify(feedback || {}),
         date: session.date,
@@ -282,12 +284,24 @@ export const saveWritingResult = async (yearLevel, type, score, maxScore, feedba
 
       // Save writing criteria as topic scores
       if (feedback?.criteria) {
+        // Normalise criteria names from both typed writing and photo/handwriting feedback
         const topicKeyMap = {
+          // Typed writing (WritingPage)
           'Ideas and content': 'ideas',
           'Structure and organisation': 'structure',
           'Language and vocabulary': 'language',
           'Sentence structure': 'sentences',
           'Punctuation and spelling': 'punctuation',
+          // Handwriting photo feedback (HandwritingFeedbackPage) — uses & and slightly different names
+          'Ideas & Content': 'ideas',
+          'Structure & Organisation': 'structure',
+          'Language & Vocabulary': 'language',
+          'Sentence Structure': 'sentences',
+          'Spelling & Punctuation': 'punctuation',
+          // assessWriting sentence-level criteria names
+          'Ideas & content': 'ideas',
+          'Structure & organisation': 'structure',
+          'Language & vocabulary': 'language',
         };
         const topicMap = {};
         feedback.criteria.forEach(c => {
