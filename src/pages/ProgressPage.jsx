@@ -1044,7 +1044,7 @@ export default function ProgressPage() {
               );
             })}
 
-            {/* Overall recommendation */}
+            {/* Overall recommendation. */}
             <div style={{ background: '#1E1B4B', borderRadius: 16, padding: '20px 24px' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#A5B4FC', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>🎯 Overall recommendation</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, fontFamily: 'Inter, sans-serif' }}>
