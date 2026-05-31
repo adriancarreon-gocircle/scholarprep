@@ -491,8 +491,12 @@ export const getSubjectAverage = async (subject) => {
       const stats = progress.subjectStats[subject];
       if (!stats) return null;
       if (subject === 'writing') {
-        if (!stats.maxScore) return null;
-        return Math.round((stats.totalScore / stats.maxScore) * 100);
+        // Use totalPercentage (sum of % scores) if available, else fall back to totalScore/maxScore
+        if (stats.totalPercentage != null && stats.attempts > 0) {
+          return Math.round(stats.totalPercentage / stats.attempts);
+        }
+        if (stats.maxScore) return Math.round((stats.totalScore / stats.maxScore) * 100);
+        return null;
       }
       if (!stats.totalQuestions) return null;
       return Math.round((stats.totalCorrect / stats.totalQuestions) * 100);
