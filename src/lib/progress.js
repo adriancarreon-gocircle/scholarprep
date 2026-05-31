@@ -59,35 +59,15 @@ const extractTopicScores = (questions, selected) => {
   return topicMap;
 };
 
-// Normalise question type names so minor variations merge into the same row
-// e.g. "Word problem - subtraction" and "Worded subtraction problem" → "Word problem"
+// Normalise question type names — only fix spacing/capitalisation/dash variants
+// Do NOT aggressively remap — preserves distinct types like "Word problem" vs "Fractions"
 const normaliseQType = (qtype, topic) => {
   if (!qtype) return null;
-  let n = qtype.trim()
-    .replace(/\s*[-–—]\s*/g, ' - ')  // normalise dashes
-    .replace(/\s+/g, ' ')             // collapse whitespace
-    .toLowerCase();
-
-  // Merge common variants
-  if (n.includes('word problem') || n.includes('worded') || n.includes('word-problem')) {
-    // Keep topic context but standardise prefix
-    const topicPart = topic ? ' - ' + topic : '';
-    return 'Word problem' + topicPart;
-  }
-  if (n.includes('single-digit') || n.includes('single digit')) return 'Single-digit ' + topic;
-  if (n.includes('two-digit') && n.includes('one-digit')) return 'Two and one-digit ' + topic;
-  if (n.includes('two-digit') || n.includes('two digit')) return 'Two-digit ' + topic;
-  if (n.includes('place value')) return 'Place value';
-  if (n.includes('number sequence') || n.includes('number pattern')) return 'Number sequence';
-  if (n.includes('shape') || n.includes('geometry')) return 'Shape identification';
-  if (n.includes('basic multiplication') || n.includes('multiplication fact')) return 'Basic multiplication';
-  if (n.includes('basic division') || n.includes('division fact')) return 'Basic division';
-  if (n.includes('fraction')) return 'Fractions';
-  if (n.includes('decimal')) return 'Decimals';
-  if (n.includes('percentage') || n.includes('percent')) return 'Percentages';
-
-  // Default: capitalise first letter, trim
-  return qtype.trim().replace(/^\w/, c => c.toUpperCase());
+  return qtype
+    .trim()
+    .replace(/\s*[-–—]\s*/g, ' - ')  // standardise dashes
+    .replace(/\s+/g, ' ')             // collapse multiple spaces
+    .replace(/^\w/, c => c.toUpperCase()); // capitalise first letter
 };
 
 // Extract per-question-type correct/total: { 'topicKey::normalisedQType': {correct,total} }

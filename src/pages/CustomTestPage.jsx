@@ -81,44 +81,8 @@ const QUESTION_BANK = {
 };
 
 const STORAGE_KEY = 'scholarprep_custom_tests';
-
-// ── Load saved tests: Supabase for logged-in users, localStorage for demo ─────
-const loadSavedTests = () => {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
-};
-const saveTests = (t) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { }
-};
-
-// ── Supabase sync helpers ──────────────────────────────────────────────────────
-const syncTestsToSupabase = async (supabase, userId, tests) => {
-  if (!supabase || !userId) return;
-  try {
-    // Upsert all tests for this user as a single JSON blob
-    await supabase.from('custom_tests').upsert({
-      user_id: userId,
-      tests: JSON.stringify(tests),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-  } catch (e) {
-    console.error('Failed to sync custom tests to Supabase:', e);
-  }
-};
-
-const loadTestsFromSupabase = async (supabase, userId) => {
-  if (!supabase || !userId) return null;
-  try {
-    const { data, error } = await supabase
-      .from('custom_tests')
-      .select('tests')
-      .eq('user_id', userId)
-      .single();
-    if (error || !data) return null;
-    return JSON.parse(data.tests || '[]');
-  } catch (e) {
-    return null;
-  }
-};
+const loadSavedTests = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
+const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { } };
 const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
 const btnStyle = { width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
@@ -441,7 +405,24 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
           if (totalEnglish > 0) {
             const focus = focusParts.length > 0 ? focusParts.join(', ') : null;
             const genQs = await generateEnglishQuestions(yearLevel, totalEnglish, focus);
-            allQs.push(...genQs.map(q => ({ ...q, _subj: 'english' })));
+            // Build a flat ordered list of [topic, qtLabel] for tagging questions
+            const qtOrder = [];
+            for (const [tk, qtSel] of Object.entries(topicSel)) {
+              for (const [qtk, count] of Object.entries(qtSel)) {
+                if (!count) continue;
+                const tObj = QUESTION_BANK.english.topics.find(t => t.key === tk);
+                const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
+                for (let i = 0; i < count; i++) {
+                  qtOrder.push({ topic: tk, questionType: qtObj?.label || tObj?.label || tk });
+                }
+              }
+            }
+            allQs.push(...genQs.map((q, i) => ({
+              ...q,
+              _subj: 'english',
+              topic: qtOrder[i]?.topic || q.topic,
+              questionType: q.questionType || qtOrder[i]?.questionType,
+            })));
           }
           continue;
         }
@@ -456,7 +437,8 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
                 ? `${tObj?.label || tk} — any question type from this topic, vary the types`
                 : qtObj ? `${tObj?.label} — ${qtObj.label}: ${qtObj.examples?.[0] || ''}` : null;
               const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr);
-              allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk })));
+              const qtLabelG = qtObj?.label || tObj?.label || tk;
+              allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk, questionType: qtLabelG })));
             }
           }
           continue;
@@ -472,7 +454,8 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
                 ? `${tObj2?.label || tk} — any question type from this topic, vary the types`
                 : qtObj2 ? `${tObj2?.label} - ${qtObj2.label}. Example: ${qtObj2.examples?.[0] || ''}` : null;
               const genQs2 = await generateMathsQuestions(yearLevel, count, focusStr2);
-              allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk })));
+              const qtLabelM = qtObj2?.label || tObj2?.label || tk;
+              allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk, questionType: qtLabelM })));
             }
           }
         }
@@ -676,47 +659,22 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
 }
 
 export default function CustomTestPage() {
-  const { yearLevel, hasAccess, user } = useAuth();
+  const { yearLevel, hasAccess } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState('list');
   const [savedTests, setSavedTests] = useState(loadSavedTests);
   const [editingTest, setEditingTest] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
   const [result, setResult] = useState(null);
-  const [supabaseClient, setSupabaseClient] = useState(null);
-
-  // Load supabase client dynamically to avoid circular imports
-  React.useEffect(() => {
-    import('../lib/supabase').then(m => setSupabaseClient(m.supabase));
-  }, []);
-
-  // On mount / login: load tests from Supabase (overrides localStorage if found)
-  React.useEffect(() => {
-    if (!user?.id || !supabaseClient) return;
-    loadTestsFromSupabase(supabaseClient, user.id).then(remoteTests => {
-      if (remoteTests && remoteTests.length > 0) {
-        setSavedTests(remoteTests);
-        saveTests(remoteTests); // keep localStorage in sync
-      }
-    });
-  }, [user?.id, supabaseClient]);
-
-  const persistTests = (tests) => {
-    setSavedTests(tests);
-    saveTests(tests); // always save to localStorage
-    if (user?.id && supabaseClient) {
-      syncTestsToSupabase(supabaseClient, user.id, tests); // also sync to Supabase
-    }
-  };
 
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
     const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    persistTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
+    setSavedTests(updatedTests); saveTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
   };
   const handleSaveOnly = (cfg) => {
     const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    persistTests(updatedTests2); setEditingTest(null); setView('list');
+    setSavedTests(updatedTests2); saveTests(updatedTests2); setEditingTest(null); setView('list');
   };
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
@@ -744,7 +702,7 @@ export default function CustomTestPage() {
         </div>
       )}
 
-      {hasAccess && view === 'list' && <SavedTestsList tests={savedTests} onStart={handleStart} onEdit={(t) => { setEditingTest(t); setView('builder'); }} onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); persistTests(u); }} onCreateNew={() => { setEditingTest(null); setView('builder'); }} />}
+      {hasAccess && view === 'list' && <SavedTestsList tests={savedTests} onStart={handleStart} onEdit={(t) => { setEditingTest(t); setView('builder'); }} onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); }} onCreateNew={() => { setEditingTest(null); setView('builder'); }} />}
       {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} />}
       {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
       {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
