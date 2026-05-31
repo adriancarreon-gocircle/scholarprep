@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions, getTopicScoresForSubject, getQuestionTypeScoresForSubject } from '../lib/progress';
+import { getProgress, getSubjectAverage, getWeeklyStats, getRecentSessions, getTopicScoresForSubject, getQuestionTypeScoresForSubject, getTopicScoreHistory } from '../lib/progress';
 
 // ── Subject config ─────────────────────────────────────────────────────────────
 const subjects = [
@@ -933,21 +933,23 @@ export default function ProgressPage() {
         const sessionsFull = progressData.sessions || [];
         setFullSessions(sessionsFull);
 
-        // Compute topic trends from full sessions
+        // Load topic score history from Supabase (accurate per-topic scores per session)
         const trendsMap = {};
-        subjects.forEach(subj => {
-          const subjSessions = sessionsFull.filter(s => s.subject === subj.key);
-          trendsMap[subj.key] = buildTopicTrends(subjSessions);
-        });
-        setAllTopicTrends(trendsMap);
-
-        // Load cumulative topic scores AND question type scores from Supabase
         const topicData = {};
         const qtData = {};
         await Promise.all(subjects.map(async s => {
           topicData[s.key] = await getTopicScoresForSubject(s.key);
           qtData[s.key] = await getQuestionTypeScoresForSubject(s.key);
+          if (s.key === 'writing') {
+            // Writing uses session score as criteria proxy (criteria are not topic-tagged questions)
+            const writingSessions = sessionsFull.filter(sess => sess.subject === 'writing');
+            trendsMap[s.key] = buildTopicTrendsForWriting(writingSessions);
+          } else {
+            // All other subjects: use real per-topic history from Supabase
+            trendsMap[s.key] = await getTopicScoreHistory(s.key);
+          }
         }));
+        setAllTopicTrends(trendsMap);
         setAllTopicScores(topicData);
         setAllQTypeScores(qtData);
 

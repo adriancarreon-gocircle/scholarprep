@@ -74,6 +74,25 @@ const extractQuestionTypeScores = (questions, selected) => {
   return qtMap;
 };
 
+// Save per-topic per-session scores to history table (for trend line charts)
+const saveTopicScoreHistory = async (userId, subject, topicMap, sessionDate) => {
+  if (!userId || !topicMap || Object.keys(topicMap).length === 0) return;
+  try {
+    const rows = Object.entries(topicMap).map(([topicKey, scores]) => ({
+      user_id: userId,
+      subject,
+      topic_key: topicKey,
+      correct: scores.correct,
+      total: scores.total,
+      score_pct: scores.total > 0 ? Math.round((scores.correct / scores.total) * 100) : 0,
+      session_date: sessionDate || new Date().toISOString(),
+    }));
+    await supabase.from('topic_score_history').insert(rows);
+  } catch (e) {
+    console.error('saveTopicScoreHistory error:', e);
+  }
+};
+
 // Save question type scores to Supabase (question_type_scores table)
 const saveQuestionTypeScores = async (userId, subject, qtMap) => {
   if (!userId || !qtMap || Object.keys(qtMap).length === 0) return;
@@ -227,6 +246,9 @@ export const saveTestResult = async (subject, yearLevel, correct, total, questio
         const topicMap = extractTopicScores(questions, selected);
         await saveTopicScores(user.id, subject, topicMap);
 
+        // Save per-session topic history for accurate trend charts
+        await saveTopicScoreHistory(user.id, subject, topicMap, session.date);
+
         // Also save per-question-type scores
         const qtMap = extractQuestionTypeScores(questions, selected);
         await saveQuestionTypeScores(user.id, subject, qtMap);
@@ -379,6 +401,35 @@ const getAllSessions = async () => {
 };
 
 // ── Get topic scores for a subject ───────────────────────────────────────────
+
+// Get per-topic score history for trend charts: { topicKey: [{date, score, correct, total}] }
+export const getTopicScoreHistory = async (subject) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return {};
+    const { data, error } = await supabase
+      .from('topic_score_history')
+      .select('topic_key, score_pct, correct, total, session_date')
+      .eq('user_id', user.id)
+      .eq('subject', subject)
+      .order('session_date', { ascending: true });
+    if (error || !data) return {};
+    const result = {};
+    data.forEach(row => {
+      if (!result[row.topic_key]) result[row.topic_key] = [];
+      result[row.topic_key].push({
+        date: row.session_date,
+        score: row.score_pct,
+        correct: row.correct,
+        total: row.total,
+      });
+    });
+    return result;
+  } catch (e) {
+    console.error('getTopicScoreHistory error:', e);
+    return {};
+  }
+};
 
 // Get question type scores for a subject: { topicKey: { questionType: { correct, total, pct } } }
 export const getQuestionTypeScoresForSubject = async (subject) => {
