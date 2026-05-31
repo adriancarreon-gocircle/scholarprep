@@ -7,6 +7,7 @@ const subjects = [
   { key: 'mathematics', label: 'Mathematics', icon: '🔢', color: '#4338CA', bg: '#EEF2FF', path: '/app/maths', desc: 'Number, algebra, measurement & more' },
   { key: 'reading', label: 'Reading Comprehension', icon: '📖', color: '#059669', bg: '#ECFDF5', path: '/app/reading', desc: 'Passages, inference & vocabulary' },
   { key: 'general', label: 'General Ability', icon: '🧩', color: '#F97316', bg: '#FFF7ED', path: '/app/general', desc: 'Verbal & non-verbal reasoning' },
+  { key: 'english', label: 'English', icon: '📝', color: '#7c3aed', bg: '#F5F3FF', path: '/app/english', desc: 'Grammar, spelling, punctuation & language' },
   { key: 'writing', label: 'Writing', icon: '✏️', color: '#F43F5E', bg: '#FFF1F2', path: '/app/writing', desc: 'Narrative & persuasive with detailed feedback' },
 ];
 
@@ -69,7 +70,7 @@ export default function Home() {
         {/* Subject cards */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16, fontFamily: 'Inter, sans-serif' }}>Choose a subject</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {subjects.map(s => {
               const avg = subjectAverages[s.key];
               return (
@@ -111,10 +112,10 @@ export default function Home() {
               {recent.map((s, i) => (
                 <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '14px 20px', border: '1px solid rgba(67,56,202,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ fontSize: 20 }}>{subjects.find(sub => sub.key === s.subject)?.icon || '📝'}</div>
+                    <div style={{ fontSize: 20 }}>{subjects.find(sub => sub.key === s.subject)?.icon || ({ mathematics: '🔢', reading: '📖', general: '🧩', english: '📝', writing: '✏️' }[s.subject] || '📝')}</div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', textTransform: 'capitalize', fontFamily: 'Inter, sans-serif' }}>
-                        {s.subject === 'general' ? 'General Ability' : s.subject} · Year {s.yearLevel}
+                        {s.subject === 'general' ? 'General Ability' : s.subject === 'reading' ? 'Reading' : s.subject.charAt(0).toUpperCase() + s.subject.slice(1)} · Year {s.yearLevel}
                       </div>
                       <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
                         {new Date(s.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}

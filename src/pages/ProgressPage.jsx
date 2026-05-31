@@ -481,8 +481,10 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
     .map(([qtype, v]) => ({ qtype, pct: Math.round((v.correct / v.total) * 100), correct: v.correct, total: v.total }))
     .sort((a, b) => a.pct - b.pct);
   const hasQTData = qtEntries.length > 0;
+  // Show button always when topic has been tested — QT data populates after new tests
+  const showQTButton = hasScore;
 
-  // AI feedback
+  // Feedback
   const getFeedback = () => {
     if (!hasScore) return `Complete a test to see your ${topic.label} performance.`;
     const diff = score - na;
@@ -504,7 +506,7 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
     <div style={{ borderBottom: '1px solid rgba(13,27,42,0.06)', background: '#fff' }}>
 
       {/* Main 4-column row: Topic+bar | Trend | Score | Feedback */}
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 100px 180px', alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 100px 1fr 170px', alignItems: 'stretch' }}>
 
         {/* Column 1: Topic name + band bar + QT breakdown toggle */}
         <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)' }}>
@@ -525,7 +527,7 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
           </div>
 
           {/* QT expand button — directly under the band bar, same width */}
-          {hasQTData && (
+          {showQTButton && (
             <button onClick={() => setShowQTypes(v => !v)} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               fontSize: 10, color: '#4338CA', background: '#EEF2FF',
@@ -539,8 +541,13 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
           )}
 
           {/* QT breakdown — expands inline under the band bar, same column width */}
-          {showQTypes && hasQTData && (
+          {showQTypes && (
             <div style={{ marginTop: 8, borderTop: '1px solid #EEF2FF', paddingTop: 8 }}>
+              {!hasQTData && (
+                <div style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginBottom: 4 }}>
+                  Question type data available after your next test on this topic.
+                </div>
+              )}
               {qtEntries.map((e, i) => (
                 <div key={i} style={{ marginBottom: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
@@ -559,19 +566,19 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores }) {
           )}
         </div>
 
-        {/* Column 2: Trend line chart */}
-        <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
-        </div>
-
-        {/* Column 3: Score */}
+        {/* Column 2: Score */}
         <div style={{ padding: '10px 6px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1.1 }}>{hasScore ? `${score}%` : '—'}</div>
           <div style={{ fontSize: 16, fontWeight: 900, color: gradeColor, lineHeight: 1 }}>{grade}</div>
           <div style={{ fontSize: 8, color: status.color, fontWeight: 700, textAlign: 'center', marginTop: 2, lineHeight: 1.3 }}>{status.text}</div>
         </div>
 
-        {/* Column 4: AI Feedback */}
+        {/* Column 3: Trend line chart */}
+        <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <TopicLineChart topicKey={topic.key} trendPoints={trendPoints} color={color} />
+        </div>
+
+        {/* Column 4: Feedback */}
         <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 11, color: '#5A6A7A', lineHeight: 1.55 }}>{getFeedback()}</div>
         </div>
@@ -622,7 +629,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
   const vsNational = avg !== null ? avg - subject.nationalAvg : null;
 
   const getAIAnalysis = () => {
-    if (avg === null) return 'Complete a test to get your AI analysis.';
+    if (avg === null) return 'Complete a test to see your analysis.';
     const vsNat = avg - subject.nationalAvg;
     let text = vsNat >= 10
       ? `Strong overall — ${vsNat}% above the national average. `
@@ -695,7 +702,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           )}
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 100px 180px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '280px 100px 1fr 170px', background: '#F5F3EE', borderBottom: '1px solid rgba(13,27,42,0.08)', borderTop: '1px solid rgba(13,27,42,0.06)' }}>
             <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
               Topic
               <span style={{ display: 'flex', gap: 6 }}>
@@ -711,7 +718,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             </div>
             <div style={{ padding: '7px 6px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Score</div>
             <div style={{ padding: '7px 16px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', borderRight: '1px solid rgba(13,27,42,0.06)' }}>Trend over time</div>
-            <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>AI Feedback</div>
+            <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Feedback</div>
           </div>
 
           {subject.topics.map((topic, i) => (
@@ -726,9 +733,9 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
           ))}
 
           <div style={{ padding: '18px 24px' }}>
-            {/* AI Analysis */}
+            {/* Analysis */}
             <div style={{ background: '#0D1B2A', borderRadius: 12, padding: '14px 18px', marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#E8B84B', marginBottom: 5 }}>🤖 AI Analysis — {subject.label}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#E8B84B', marginBottom: 5 }}>📊 Analysis — {subject.label}</div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.75 }}>{getAIAnalysis()}</div>
             </div>
 
