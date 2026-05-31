@@ -500,7 +500,7 @@ export const getProgress = async () => {
         progress.subjectStats.writing = { attempts: 0, totalPercentage: 0 };
       }
       progress.subjectStats.writing.attempts += 1;
-      progress.subjectStats.writing.totalPercentage += (session.percentage || session.score || 0);
+      progress.subjectStats.writing.totalPercentage += (s.percentage || s.score || 0);
     } else {
       if (!progress.subjectStats[subj]) {
         progress.subjectStats[subj] = { attempts: 0, totalCorrect: 0, totalQuestions: 0, topics: {} };
