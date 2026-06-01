@@ -67,6 +67,42 @@ const QUESTION_BANK = {
       { key: 'synonymsantonyms', label: 'Synonyms & Antonyms', questionTypes: [{ key: 'choosesynonym', label: 'Choose the synonym', examples: ['What is a synonym for "happy"?', 'Which word means the same as "enormous"?'] }, { key: 'chooseantonym', label: 'Choose the antonym', examples: ['What is an antonym for "cold"?', 'Which word is the opposite of "ancient"?'] }] },
       { key: 'compound', label: 'Compound Words', questionTypes: [{ key: 'compoundwords', label: 'Identify/form compound words', examples: ['Which two words make a compound word: "sun" + ___?', 'What compound word uses "book" and "shelf"?'] }] },
       { key: 'figurative', label: 'Similes & Metaphors', questionTypes: [{ key: 'identfig', label: 'Identify the figure of speech', examples: ['Is "She runs like the wind" a simile or metaphor?', '"Life is a journey" — what figure of speech is this?'] }, { key: 'completesimile', label: 'Complete the simile', examples: ['Complete: "As brave as a ___"', 'Finish the simile: "She was as quiet as ___"'] }] },
+      {
+        key: 'factopinion', label: 'Fact or Opinion', questionTypes: [
+          { key: 'isfact', label: 'Is this a fact or opinion?', examples: ['"The sky is blue." — fact or opinion?', '"Summer is the best season." — fact or opinion?'] },
+          { key: 'identfact', label: 'Identify the fact', examples: ['Which is a fact: "Dogs are better pets" or "Dogs are mammals"?'] },
+          { key: 'identopinion', label: 'Identify the opinion', examples: ['Which is an opinion: "Water boils at 100°C" or "Tea tastes better cold"?'] },
+        ]
+      },
+      {
+        key: 'perspective', label: 'Point of View', questionTypes: [
+          { key: 'identpov', label: 'First, second or third person?', examples: ['"I went to the park." — what person?', '"You should try harder." — what person?', '"She loves reading." — what person?'] },
+          { key: 'rewritepov', label: 'Rewrite in a different person', examples: ['Rewrite in third person: "I love reading."', 'Rewrite in first person: "He ran to school."'] },
+        ]
+      },
+      {
+        key: 'truefalse', label: 'True or False', questionTypes: [
+          { key: 'istrue', label: 'True or False (passage-based)', examples: ['Based on the passage, is this true or false?', 'Which sentence is supported by the text?', 'Which statement is NOT mentioned in the passage?'] },
+        ]
+      },
+      {
+        key: 'articles', label: 'Articles (a, an, the)', questionTypes: [
+          { key: 'choosearticle', label: 'Choose a, an or the', examples: ['"She bought ___ umbrella."', '"___ apple fell from the tree."', '"He is ___ honest man."'] },
+          { key: 'correctarticle', label: 'Correct the article error', examples: ['Fix: "I saw a elephant at the zoo."', 'Fix: "She is an best student."'] },
+        ]
+      },
+      {
+        key: 'timewords', label: 'Time Words', questionTypes: [
+          { key: 'choosetimeword', label: 'Choose the correct time word', examples: ['"___ finishing dinner, she washed up." (After/Before)', '"He left ___ — without waiting." (right away/later)'] },
+          { key: 'sequencetime', label: 'Sequence using time words', examples: ['Order these using: first, then, finally.', '"On the way home, she stopped at the shop." — what does "on the way" mean?'] },
+        ]
+      },
+      {
+        key: 'sentencetype', label: 'Commands & Statements', questionTypes: [
+          { key: 'iscommand', label: 'Command or statement?', examples: ['"Close the door." — command or statement?', '"The door is closed." — command or statement?', '"Please sit down." — command or statement?'] },
+          { key: 'rewritecommand', label: 'Rewrite as a command or statement', examples: ['Rewrite as a command: "You should sit down."', 'Rewrite as a statement: "Eat your vegetables!"'] },
+        ]
+      },
     ]
   },
   general: {

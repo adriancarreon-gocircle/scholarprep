@@ -36,6 +36,12 @@ const ENGLISH_TOPICS = [
   { key: 'synonymsant', label: 'Synonyms & Antonyms', types: ['Choose the synonym', 'Choose the antonym'] },
   { key: 'compound', label: 'Compound Words', types: ['Identify/form compound words'] },
   { key: 'figurative', label: 'Similes & Metaphors', types: ['Identify the figure of speech', 'Complete the simile'] },
+  { key: 'factopinion', label: 'Fact or Opinion', types: ['Is this sentence a fact or an opinion?', 'Identify the fact', 'Identify the opinion'] },
+  { key: 'perspective', label: 'Point of View', types: ['First, second or third person?', 'Identify the perspective', 'Rewrite in a different person'] },
+  { key: 'truefalse', label: 'True or False', types: ['Based on the passage, is this true or false?', 'Which sentence is supported by the text?'] },
+  { key: 'articles', label: 'Articles (a, an, the)', types: ['Choose a, an or the', 'Fill in the missing article', 'Correct the article error'] },
+  { key: 'timewords', label: 'Time Words', types: ['Choose the correct time word', 'Use after, later, right away, on the way', 'Sequence using time words'] },
+  { key: 'sentencetype', label: 'Commands & Statements', types: ['Is this a command or a statement?', 'Rewrite as a command', 'Rewrite as a statement'] },
 ];
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
