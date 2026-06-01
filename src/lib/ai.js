@@ -1,747 +1,929 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions } from '../lib/ai';
-import { saveTestResult } from '../lib/progress';
-import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
+const CLAUDE_API_URL = '/api/claude';
 
-// ── Question Bank ─────────────────────────────────────────────────────────────
-
-const QUESTION_BANK = {
-  mathematics: {
-    label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF',
-    topics: [
-      { key: 'number', label: 'Numbers', questionTypes: [{ key: 'counting', label: 'Counting', examples: ['Is 45 even or odd?', 'Arrange 373, 678 and 145 from smallest to largest', 'What is the largest number you can make with 3, 8, 4, 5?', 'Write 50,434 in words', 'Write 1,500,434 in words'] }, { key: 'placevalue', label: 'Place Value', examples: ['What does the 3 represent in 3,770?', 'What does the 3 represent in 3,129,400?'] }, { key: 'greaterthan', label: 'Greater Than / Less Than', examples: ['Which number is greater, 114 or 259?', 'Complete: 36 _ 56 with > or <', 'Which is the smallest number? 328, 400, 342', 'Which is the largest number? 5349, 6412, 2362'] }, { key: 'rounding', label: 'Rounding', examples: ['Round 89 to the nearest tens', 'Round 789 to the nearest hundred', 'Round 17,895 to the nearest thousand'] }, { key: 'wordednumber', label: 'Worded Number Problems', examples: ['Sam has 4 cards: 3, 7, 6, 2. What is the biggest odd number he can form?', 'What is 63 more than 8 tens and 42 ones?'] }] },
-      { key: 'addition', label: 'Addition', questionTypes: [{ key: 'adddigits', label: 'Adding Digits', examples: ['3 + 2 = ?', '14 + 42 = ?', '104 + 402 = ?', '3,362 + 4,203 = ?', 'What is the sum of 2,362 and 3,621?'] }, { key: 'addworded1', label: 'Worded Addition (Basic)', examples: ['Rachel has 10 oranges and Thomas has 12. How many together?', '120 kids went Monday. 145 more went Tuesday. How many more on Tuesday?'] }, { key: 'addworded2', label: 'Worded Addition (Multi-step)', examples: ['Group A made 364 sandcastles. Group B made 25 more. How many did Group B make?', 'Tom earned $600. He spent $485 on Monday and $30 on Tuesday. How much left?'] }] },
-      { key: 'subtraction', label: 'Subtraction', questionTypes: [{ key: 'subdigits', label: 'Subtracting Digits', examples: ['5 - 2 = ?', '50 - 2 = ?', '378 - 204 = ?', '5,362 - 4,203 = ?', '100 - 5 = ?'] }, { key: 'subworded1', label: 'Worded Subtraction (Basic)', examples: ['Max bought 20 balls. If 4 were blue, how many were red?', 'Matthew had 30 lollies. He gave 5 to William. How many left?'] }, { key: 'subworded2', label: 'Worded Subtraction (Multi-step)', examples: ['I had 300 books. I took out 45 then 30. How many left?', 'I had 400 pizzas. I sell 30 per hour. How many left after 4 hours?'] }] },
-      { key: 'multiplication', label: 'Multiplication', questionTypes: [{ key: 'multdigits', label: 'Multiplying Digits', examples: ['2 x 2 = ?', '32 x 4 = ?', '42 x 68 = ?', '350 x 20 = ?'] }, { key: 'multgroups', label: 'Counting Groups', examples: ['What is 3 groups of 2?', 'What is 10 groups of 4?'] }, { key: 'multest', label: 'Estimate Multiplication', examples: ['Estimate 259 x 50', 'Estimate 312 x 19'] }, { key: 'multworded', label: 'Worded Multiplication', examples: ['4 rows with 3 books each. How many books?', 'David earns $20 per week. How much after 5 weeks?'] }] },
-      { key: 'division', label: 'Division', questionTypes: [{ key: 'divgroups', label: 'Counting Groups', examples: ['Put 10 balls into 5 bags. How many in each bag?', 'John had 20 toys and gave them equally to 5 friends. How many each?'] }, { key: 'divdigits', label: 'Dividing Digits', examples: ['18 / 2 = ?', 'Divide 15 by 4 — what is the remainder?', '2555 / 5 = ?'] }] },
-      { key: 'fractions', label: 'Fractions', questionTypes: [{ key: 'fraccount', label: 'Count Fractions', examples: ['A table has 4 columns, 2 are coloured. What fraction?'] }, { key: 'fraccompare', label: 'Compare Fractions', examples: ['Which fraction is larger: 2/4 or 3/4?'] }, { key: 'fracaddub', label: 'Add / Subtract Fractions', examples: ['2/5 + 1/5 = ?', '3/6 + 1/6 = ?'] }, { key: 'fracmult', label: 'Multiply Fractions', examples: ['2/4 x 3/5 = ?'] }, { key: 'fracdiv', label: 'Divide Fractions', examples: ['5 / (1/2) = ?'] }, { key: 'fracworded', label: 'Worded Fraction Problems', examples: ['David had a pizza 8/8. He ate 3/8 slices. How many left?'] }] },
-      { key: 'decimal', label: 'Decimals', questionTypes: [{ key: 'deccount', label: 'Count / Write Decimals', examples: ['Write in number form: twenty five point three', 'Write 1/2 as a decimal'] }, { key: 'decaddub', label: 'Add / Subtract Decimals', examples: ['5 - 0.75 = ?', '12.50 - 6.5 = ?'] }, { key: 'deccompare', label: 'Compare Decimals', examples: ['Which is larger: 45.421 or 45.4215?'] }, { key: 'decmult', label: 'Multiply Decimals', examples: ['0.25 x 4 = ?'] }] },
-      { key: 'percentage', label: 'Percentages', questionTypes: [{ key: 'pctcount', label: 'Count Percentages', examples: ['Write 25/100 as a percentage', 'Write 0.25 as a percentage'] }, { key: 'pctcalc', label: 'Calculate Percentages', examples: ['What is 50% of $40?'] }, { key: 'pctworded', label: 'Worded Percentage Problems', examples: ['A computer costs $500 on 25% sale. What is the new price?'] }] },
-      { key: 'conversion', label: 'Conversion', questionTypes: [{ key: 'convlength', label: 'Length Conversion', examples: ['What is 300cm in metres?'] }, { key: 'convtime', label: 'Time Conversion', examples: ['How many minutes in 3 hours?'] }, { key: 'convmoney', label: 'Money Conversion', examples: ['How many cents in $3.00?'] }, { key: 'convweight', label: 'Weight / Mass Conversion', examples: ['How many grams in 3kg?'] }] },
-      { key: 'money', label: 'Money', questionTypes: [{ key: 'moneycount', label: 'Count Money', examples: ['Look at the coins — how much in total?'] }, { key: 'moneyworded', label: 'Worded Money Problems', examples: ['Adam had $50 and bought chips for $10. How much left?'] }] },
-      { key: 'time', label: 'Time', questionTypes: [{ key: 'timeclock', label: 'Read a Clock', examples: ['What time is shown on the clock?'] }, { key: 'timecalc', label: 'Time Calculations', examples: ['A TV show started at 8:00pm and finished at 9:00pm. How long?'] }, { key: 'timecalendar', label: 'Calendar Problems', examples: ['What day is it 5 days after 3rd May?'] }] },
-      { key: 'length', label: 'Length', questionTypes: [{ key: 'lengthmeasure', label: 'Measure Length', examples: ['What is the length of the object?'] }, { key: 'lengthworded', label: 'Worded Length Problems', examples: ['Peter is taller than Thai by 20cm. Thai is 100cm. How tall is Peter?'] }] },
-      { key: 'volume', label: 'Volume & Weight', questionTypes: [{ key: 'volumecount', label: 'Count Volume / Weight', examples: ['Look at the objects — how many kg total?'] }, { key: 'volumeworded', label: 'Worded Volume Problems', examples: ['Lia had 5kg of rice and gave 2.5kg away. How much left?'] }] },
-      { key: 'perimeter', label: 'Perimeter', questionTypes: [{ key: 'perimmeasure', label: 'Measure Perimeter', examples: ['What is the perimeter of this shape?'] }, { key: 'perimworded', label: 'Worded Perimeter Problems', examples: ['A shape has 20cm length and 5cm width. What is the perimeter?'] }] },
-      { key: 'area', label: 'Area', questionTypes: [{ key: 'areameasure', label: 'Measure Area', examples: ['What is the area of a 12cm x 4cm rectangle?'] }, { key: 'areacubes', label: 'Cube Volume', examples: ['How many cubes are in this object?'] }, { key: 'areacomplex', label: 'Complex Area', examples: ['What is the area after removing the small square from the rectangle?'] }] },
-      { key: 'angles', label: 'Angles', questionTypes: [{ key: 'anglesbasic', label: 'Read / Calculate Angles', examples: ['What angle is shown?', 'What is angle x in the triangle with angles 65 and 70 degrees?'] }, { key: 'anglesshapes', label: 'Angles in Shapes', examples: ['What is the angle in an isosceles triangle?'] }] },
-      { key: 'factors', label: 'Factors & Multiples', questionTypes: [{ key: 'factorscount', label: 'Count Factors & Multiples', examples: ['Is 3 a factor of 27?', 'What is a factor of 20?', 'What is a common multiple of 21 and 3?'] }] },
-      { key: 'rate', label: 'Rates', questionTypes: [{ key: 'ratecount', label: 'Rate Problems', examples: ['A car drove for 3 hrs at 2km/h. How far?', 'A person earns $25/hour and works 8 hours. How much?'] }] },
-      { key: 'average', label: 'Averages', questionTypes: [{ key: 'avgcount', label: 'Count Averages', examples: ['What is the average of 20, 42, 3, 14?'] }, { key: 'avgworded', label: 'Worded Average Problems', examples: ['A class got 40, 30, 20, 55 out of 100. What is the average?'] }] },
-      { key: 'circle', label: 'Circles', questionTypes: [{ key: 'circlecirc', label: 'Circumference', examples: ['A circle has diameter 10cm. What is its circumference? (Use pi = 3.14)'] }, { key: 'circledia', label: 'Diameter & Radius', examples: ['Calculate the diameter of this circle'] }] },
-      { key: 'charts', label: 'Charts & Data', questionTypes: [{ key: 'barchart', label: 'Bar Charts', examples: ['How many are in column A and B?', 'What is the greatest number in the chart?'] }, { key: 'piechart', label: 'Pie Charts / Percentages', examples: ['Look at the pie chart — how much % was category 2?'] }, { key: 'thermometer', label: 'Thermometer', examples: ['Look at the thermometer — what is the temperature in Celsius?'] }] },
-      { key: 'algebra', label: 'Algebra', questionTypes: [{ key: 'algcalc', label: 'Calculate Algebra', examples: ['5k = 5 x ?', 'Simplify b + b + b'] }, { key: 'algsolve', label: 'Solve for x', examples: ['5x = 35, find x', '3x + 7 = 22, find x'] }] },
-      { key: 'geometry', label: 'Shapes', questionTypes: [{ key: 'geo2d', label: '2D Shapes', examples: ['What is the name of this shape?', 'How many sides does this shape have?'] }, { key: 'geo3d', label: '3D Shapes', examples: ['How many edges does this shape have?'] }, { key: 'geoflip', label: 'Flip / Rotate Shapes', examples: ['Look at this shape and flip it sideways'] }] },
-    ]
-  },
-  reading: {
-    label: 'Reading Comprehension', icon: '📖', color: '#059669', lightBg: '#ECFDF5',
-    topics: [{ key: 'comprehension', label: 'Reading Comprehension', questionTypes: [{ key: 'literal', label: 'Literal Comprehension', examples: ['According to the passage, what did the author do first?'] }, { key: 'inference', label: 'Inference & Implied Meaning', examples: ["What can you infer about the character's feelings?"] }, { key: 'vocabulary', label: 'Vocabulary in Context', examples: ['The word "enormous" most closely means...'] }, { key: 'mainidea', label: 'Main Idea & Summary', examples: ['What is the main idea of the passage?'] }, { key: 'purpose', label: "Author's Purpose & Tone", examples: ["What is the author's main purpose?"] }] }]
-  },
-  english: {
-    label: 'English', icon: '📝', color: '#7c3aed', lightBg: '#F5F3FF',
-    topics: [
-      { key: 'spelling', label: 'Spelling', questionTypes: [{ key: 'correctspell', label: 'Correct the spelling', examples: ['Which word is spelled incorrectly: "recieve", "believe", "achieve"?', 'Correct the spelling: "seperate"'] }, { key: 'choosespell', label: 'Choose the correct spelling', examples: ['Which is correct: "necessary" or "neccessary"?', 'Choose the correct spelling: "arguement" or "argument"?'] }, { key: 'fillinletters', label: 'Fill in the missing letters', examples: ['Fill in the blanks: b_l_ _ve', 'Complete the word: _ _ ceive (to get something)'] }] },
-      { key: 'punctuation', label: 'Punctuation', questionTypes: [{ key: 'addpunct', label: 'Add the missing punctuation', examples: ['Where does a comma go: "I like cats dogs and birds"', 'Add punctuation: "Wow what a great day"'] }, { key: 'identerror', label: 'Identify the error', examples: ['Find the punctuation error in: "Its a beautiful day."', 'Which sentence has a punctuation error?'] }, { key: 'choosepunct', label: 'Choose the correctly punctuated sentence', examples: ['Which sentence is correct: A) "She said, hello." B) She said, "hello."'] }] },
-      { key: 'capitals', label: 'Capital Letters', questionTypes: [{ key: 'wherecaps', label: 'Identify where capitals are needed', examples: ['Which word needs a capital: "monday", "apple", "run"?', 'Which sentence uses capitals correctly?'] }, { key: 'correctcaps', label: 'Correct the sentence', examples: ['Rewrite correctly: "i went to sydney on friday."'] }] },
-      { key: 'plural', label: 'Plural', questionTypes: [{ key: 'writeplural', label: 'Write the plural', examples: ['What is the plural of "child"?', 'What is the plural of "mouse"?'] }, { key: 'chooseplural', label: 'Choose the correct plural', examples: ['Which is correct: "boxes" or "boxs"?'] }, { key: 'irregplural', label: 'Irregular plurals', examples: ['What is the plural of "goose"?', 'What is the plural of "tooth"?'] }] },
-      { key: 'nouns', label: 'Nouns', questionTypes: [{ key: 'identnoun', label: 'Identify the noun', examples: ['Which word is the noun: "quickly", "dog", "ran"?'] }, { key: 'commonnoun', label: 'Common nouns', examples: ['Which is a common noun: "London", "city", "Mary"?'] }, { key: 'propernoun', label: 'Proper nouns', examples: ['Which word is a proper noun: "river", "Amazon", "large"?'] }, { key: 'collectivenoun', label: 'Collective nouns', examples: ['What is a group of lions called?', 'What is a group of fish called?'] }] },
-      { key: 'adjectives', label: 'Adjectives', questionTypes: [{ key: 'identadj', label: 'Identify the adjective', examples: ['Which word is an adjective: "run", "beautiful", "slowly"?'] }, { key: 'adjphrase', label: 'Adjectival phrases', examples: ['Which phrase describes the noun: "the dog with the fluffy tail"?'] }, { key: 'compadj', label: 'Comparative adjectives', examples: ['What is the comparative form of "big"?', 'Which is correct: "more tall" or "taller"?'] }] },
-      { key: 'verbs', label: 'Verbs', questionTypes: [{ key: 'identverb', label: 'Identify the verb', examples: ['Which word is a verb: "happy", "run", "blue"?'] }, { key: 'actionverb', label: 'Action verbs', examples: ['Which is an action verb: "seem", "jump", "become"?'] }, { key: 'helpverb', label: 'Helping/auxiliary verbs', examples: ['Which is the helping verb: "She is running."', 'Identify the auxiliary verb: "They have finished."'] }] },
-      { key: 'adverbs', label: 'Adverbs', questionTypes: [{ key: 'identadv', label: 'Identify the adverb', examples: ['Which word is an adverb: "quickly", "cat", "green"?'] }, { key: 'advphrase', label: 'Adverbial phrases', examples: ['Which phrase tells us how: "in a hurry", "the red ball", "by the river"?'] }, { key: 'chooseadv', label: 'Choose the correct adverb', examples: ['Fill in: "She ran ___ to catch the bus." (quick/quickly)'] }] },
-      { key: 'inged', label: 'Adding -ing and -ed', questionTypes: [{ key: 'addsuffix', label: 'Add the correct suffix', examples: ['Add -ing to "run": ___', 'Add -ed to "hop": ___'] }, { key: 'identingerr', label: 'Identify the error', examples: ['Find the error: "She was runing to the park."'] }, { key: 'doublerule', label: 'Doubling rule', examples: ['Why do we double the "p" in "stopped"?', 'Which is correct: "stoped" or "stopped"?'] }] },
-      { key: 'ieei', label: 'ie and ei', questionTypes: [{ key: 'ieei_spell', label: 'Choose the correct spelling', examples: ['Which is correct: "recieve" or "receive"?', '"beleive" or "believe"?'] }, { key: 'ieei_fill', label: 'Fill in the blank', examples: ['Complete: bel_ _ve', 'Fill in: ach_ _ve'] }] },
-      { key: 'tense', label: 'Tense', questionTypes: [{ key: 'present', label: 'Present tense', examples: ['Change to present tense: "She walked to school."', 'Which sentence is in present tense?'] }, { key: 'past', label: 'Past tense', examples: ['Change to past tense: "She walks to school."', 'What is the past tense of "go"?'] }, { key: 'future', label: 'Future tense', examples: ['Change to future tense: "She walks to school."'] }, { key: 'identtense', label: 'Identify the tense', examples: ['What tense is: "They will arrive tomorrow"?', 'Identify the tense: "We had eaten dinner."'] }] },
-      { key: 'agreement', label: 'Subject-Verb Agreement', questionTypes: [{ key: 'chooseverb', label: 'Choose the correct verb form', examples: ['Fill in: "The dogs ___ (bark/barks) loudly."', '"She ___ (go/goes) to school."'] }, { key: 'correctagreement', label: 'Correct the sentence', examples: ['Fix: "The children was playing."', 'Correct: "He don\'t like carrots."'] }] },
-      { key: 'endingy', label: 'Words ending in -y', questionTypes: [{ key: 'pluraly', label: 'Plural of words ending in -y', examples: ['What is the plural of "baby"?', 'What is the plural of "berry"?'] }, { key: 'suffixesy', label: 'Adding suffixes to -y words', examples: ['Add -ing to "fly": ___', 'Add -ed to "carry": ___'] }] },
-      { key: 'homophones', label: 'Homophones', questionTypes: [{ key: 'choosehomophone', label: 'Choose the correct homophone', examples: ['Fill in: "I can ___ the bells." (hear/here)', '"She ___ (new/knew) the answer."'] }, { key: 'fillhomophone', label: 'Fill in the blank', examples: ['Use the correct word: "The cat wagged its ___." (tail/tale)'] }] },
-      { key: 'days', label: 'Days, Months & Seasons', questionTypes: [{ key: 'spellingdays', label: 'Spelling of days/months', examples: ['Which is spelled correctly: "Febuary" or "February"?', '"Wenesday" or "Wednesday"?'] }, { key: 'capdays', label: 'Capitalisation rules', examples: ['Which needs a capital: "summer", "monday", "beach"?'] }] },
-      { key: 'prepositions', label: 'Prepositions', questionTypes: [{ key: 'identprep', label: 'Identify the preposition', examples: ['Which word is a preposition: "run", "under", "happy"?'] }, { key: 'chooseprep', label: 'Choose the correct preposition', examples: ['Fill in: "The cat sat ___ the mat." (on/in/at)'] }, { key: 'prepphrase', label: 'Prepositional phrases', examples: ['Which is a prepositional phrase: "in the morning", "runs fast", "blue sky"?'] }] },
-      { key: 'pronouns', label: 'Pronouns', questionTypes: [{ key: 'identpron', label: 'Identify the pronoun', examples: ['Which word is a pronoun: "she", "run", "big"?'] }, { key: 'subjobj', label: 'Subject vs object pronouns', examples: ['Which is correct: "Him and I went." or "He and I went."?'] }, { key: 'posspron', label: 'Possessive pronouns', examples: ['Which is correct: "Thats mine." or "That\'s mine."?', '"Is this yours or her\'s?"'] }] },
-      { key: 'apostrophes', label: 'Apostrophes', questionTypes: [{ key: 'apostposs', label: 'Apostrophe for possession', examples: ['Add an apostrophe: "The dogs bone"', '"The childrens playground" — is this correct?'] }, { key: 'apostcontr', label: 'Apostrophe for contraction', examples: ['What is the contraction for "do not"?', 'Write the contraction for "they are"'] }, { key: 'correctapost', label: 'Correct the error', examples: ['Fix: "The cat licked it\'s paw." (possession vs contraction)'] }] },
-      { key: 'sentenceorder', label: 'Sentence Order', questionTypes: [{ key: 'arrangewords', label: 'Arrange words into a correct sentence', examples: ['Arrange: "park / the / to / went / she" into a sentence', 'Put in order: "dog / big / the / ran / quickly"'] }, { key: 'arrangesentences', label: 'Arrange sentences into a correct paragraph', examples: ['Put these sentences in the correct order to make a paragraph about morning routines.'] }, { key: 'sequencesteps', label: 'Sequence the steps', examples: ['Steps for making toast are listed out of order. Which answer shows the correct sequence? (e.g. 2 – 4 – 3 – 1)', 'The steps for planting a seed are shuffled. Pick the correct order from the options.'] }] },
-      { key: 'conjunctions', label: 'Conjunctions', questionTypes: [{ key: 'chooseconj', label: 'Choose the correct conjunction', examples: ['Fill in: "I like cats ___ I don\'t like dogs." (but/and/or)', '"She was tired, ___ she kept going." (but/so/because)'] }, { key: 'joinsentences', label: 'Join two sentences', examples: ['Join: "It was raining. She brought an umbrella." using a conjunction'] }] },
-      { key: 'prefixsuffix', label: 'Prefixes & Suffixes', questionTypes: [{ key: 'identprefsuf', label: 'Identify the prefix/suffix', examples: ['What is the prefix in "unhappy"?', 'What is the suffix in "careful"?'] }, { key: 'chooseprefsuf', label: 'Choose the correct word with prefix/suffix', examples: ['Which prefix makes "possible" mean "not possible"? (un-/dis-/im-)'] }] },
-      { key: 'synonymsantonyms', label: 'Synonyms & Antonyms', questionTypes: [{ key: 'choosesynonym', label: 'Choose the synonym', examples: ['What is a synonym for "happy"?', 'Which word means the same as "enormous"?'] }, { key: 'chooseantonym', label: 'Choose the antonym', examples: ['What is an antonym for "cold"?', 'Which word is the opposite of "ancient"?'] }] },
-      { key: 'compound', label: 'Compound Words', questionTypes: [{ key: 'compoundwords', label: 'Identify/form compound words', examples: ['Which two words make a compound word: "sun" + ___?', 'What compound word uses "book" and "shelf"?'] }] },
-      { key: 'figurative', label: 'Similes & Metaphors', questionTypes: [{ key: 'identfig', label: 'Identify the figure of speech', examples: ['Is "She runs like the wind" a simile or metaphor?', '"Life is a journey" — what figure of speech is this?'] }, { key: 'completesimile', label: 'Complete the simile', examples: ['Complete: "As brave as a ___"', 'Finish the simile: "She was as quiet as ___"'] }] },
-      {
-        key: 'factopinion', label: 'Fact or Opinion', questionTypes: [
-          { key: 'isfact', label: 'Is this a fact or opinion?', examples: ['"The sky is blue." — fact or opinion?', '"Summer is the best season." — fact or opinion?'] },
-          { key: 'identfact', label: 'Identify the fact', examples: ['Which is a fact: "Dogs are better pets" or "Dogs are mammals"?'] },
-          { key: 'identopinion', label: 'Identify the opinion', examples: ['Which is an opinion: "Water boils at 100°C" or "Tea tastes better cold"?'] },
-        ]
-      },
-      {
-        key: 'perspective', label: 'Point of View', questionTypes: [
-          { key: 'identpov', label: 'First, second or third person?', examples: ['"I went to the park." — what person?', '"You should try harder." — what person?', '"She loves reading." — what person?'] },
-          { key: 'rewritepov', label: 'Rewrite in a different person', examples: ['Rewrite in third person: "I love reading."', 'Rewrite in first person: "He ran to school."'] },
-        ]
-      },
-      {
-        key: 'truefalse', label: 'True or False', questionTypes: [
-          { key: 'istrue', label: 'True or False (passage-based)', examples: ['Based on the passage, is this true or false?', 'Which sentence is supported by the text?', 'Which statement is NOT mentioned in the passage?'] },
-        ]
-      },
-      {
-        key: 'articles', label: 'Articles (a, an, the)', questionTypes: [
-          { key: 'choosearticle', label: 'Choose a, an or the', examples: ['"She bought ___ umbrella."', '"___ apple fell from the tree."', '"He is ___ honest man."'] },
-          { key: 'correctarticle', label: 'Correct the article error', examples: ['Fix: "I saw a elephant at the zoo."', 'Fix: "She is an best student."'] },
-        ]
-      },
-      {
-        key: 'timewords', label: 'Time Words', questionTypes: [
-          { key: 'choosetimeword', label: 'Choose the correct time word', examples: ['"___ finishing dinner, she washed up." (After/Before)', '"He left ___ — without waiting." (right away/later)'] },
-          { key: 'sequencetime', label: 'Sequence using time words', examples: ['Order these using: first, then, finally.', '"On the way home, she stopped at the shop." — what does "on the way" mean?'] },
-        ]
-      },
-      {
-        key: 'sentencetype', label: 'Commands & Statements', questionTypes: [
-          { key: 'iscommand', label: 'Command or statement?', examples: ['"Close the door." — command or statement?', '"The door is closed." — command or statement?', '"Please sit down." — command or statement?'] },
-          { key: 'rewritecommand', label: 'Rewrite as a command or statement', examples: ['Rewrite as a command: "You should sit down."', 'Rewrite as a statement: "Eat your vegetables!"'] },
-        ]
-      },
-    ]
-  },
-  general: {
-    label: 'General Ability', icon: '🧩', color: '#F97316', lightBg: '#FFF7ED',
-    topics: [
-      { key: 'patterns', label: 'Number Patterns', questionTypes: [{ key: 'countby', label: 'Count On / Back Sequences', examples: ['Count on by ones: 525, 526, 527, ___?', 'Count on by tens: 717, 727, 737, ___?'] }, { key: 'missingnum', label: 'Fill in Missing Numbers (Equal steps)', examples: ['436, 438, ___, 442, ___, 446'] }, { key: 'doubtriple', label: 'Doubling / Tripling Patterns', examples: ['Fill in: 1, 2, 4, 8, 16, ___', '3, 6, 12, 24, ___?'] }, { key: 'mixedpattern', label: 'Mixed Addition & Subtraction Patterns', examples: ['Fill in: 2, 4, 3, 5, 4, 6, ___'] }] },
-      { key: 'picturepatterns', label: 'Picture Patterns', questionTypes: [{ key: 'shaperotate', label: 'Rotation / Direction Patterns', examples: ['Arrow pointing right, down, right, down — what comes next?'] }, { key: 'shapefill', label: 'Fill / Shading Patterns', examples: ['Hollow triangle, half-filled, solid — what comes next?'] }, { key: 'shapecount', label: 'Count Patterns', examples: ['1 circle, 2 circles, 3 circles — what comes next?'] }, { key: 'shapealt', label: 'Alternating Shape Patterns', examples: ['Triangle, circle, triangle, circle — what comes next?'] }, { key: 'shapematrix', label: 'Shape Matrix (Odd One Out)', examples: ['Which box does not fit the pattern?'] }] },
-      { key: 'verbal', label: 'Verbal Reasoning', questionTypes: [{ key: 'analogies', label: 'Word Analogies', examples: ['Hot is to cold as day is to ___?'] }, { key: 'oddoneout', label: 'Odd One Out', examples: ['Find the odd word: apple, orange, banana, hammer, grape'] }, { key: 'synonyms', label: 'Synonyms', examples: ['What is a synonym for "happy"?'] }, { key: 'antonyms', label: 'Antonyms', examples: ['What is an antonym for "cold"?'] }, { key: 'letters', label: 'Letter Patterns', examples: ['A, C, E, G, ___?'] }] },
-      { key: 'logic', label: 'Logic & Reasoning', questionTypes: [{ key: 'deduction', label: 'Draw Conclusions', examples: ['All boys in the park play soccer. Half also play ping pong. What can we conclude?'] }, { key: 'findinfo', label: 'Find Information in Text', examples: ['Car A is 4m long. Car B is 2.5m. Car C is 1m longer than A. Which is longest?'] }, { key: 'ordering', label: 'Order Steps / Instructions', examples: ['Order the steps to make tea: Boil water, Pour into cup, Stir, Add milk, Drink'] }, { key: 'coding', label: 'Coding & Decoding', examples: ['If A=1, B=2, C=3 etc, what is the code for 10, 14, 13, 5, 6?'] }] },
-    ]
-  },
+const callClaude = async (systemPrompt, userPrompt) => {
+  const response = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ systemPrompt, userPrompt })
+  });
+  const data = await response.json();
+  return data.text;
 };
 
-const STORAGE_KEY = 'scholarprep_custom_tests';
-const loadSavedTests = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
-const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { } };
-const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondary school';
 
-const btnStyle = { width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const smallBtnStyle = { width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+// ── Maths question blueprint by year level ────────────────────────────────────
 
-function ExitDialog({ onConfirm, onCancel }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>🚪</div>
-        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Exit test?</div>
-        <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>Your progress will not be saved.</p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Keep going</button>
-          <button onClick={onConfirm} style={{ flex: 1, padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#EF4444', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Exit test</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+const getMathsBlueprint = (yearLevel) => {
+  if (yearLevel <= 2) return `
+QUESTION TYPES FOR YEAR ${yearLevel} (Level 1-2):
+Draw questions from these types — vary the mix each session:
 
-function PauseOverlay({ onResume }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 40, maxWidth: 380, width: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>⏸</div>
-        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 28 }}>Test paused</div>
-        <button onClick={onResume} style={{ width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Resume →</button>
-      </div>
-    </div>
-  );
-}
+Numbers & Counting:
+- Even or odd numbers (e.g. "Is 45 even or odd?")
+- Write numbers in word form up to 3 digits (e.g. "Write 565 in words")
+- Write word form as numbers (e.g. "Three hundred and forty eight in number form is?")
+- Arrange numbers smallest to largest (e.g. "Arrange 373, 678, 145 from smallest to largest")
+- Largest/smallest number from given digits (e.g. "What is the largest number you can make with 3,8,4,5?")
+- Greater than / less than (e.g. "Which number is greater, 114 or 259?", "Complete: 36 _ 56 with > or <")
+- Which is the smallest/largest from a list of 3 numbers
 
-function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest }) {
-  const [selection, setSelection] = useState(editingTest?.selection || {});
-  const [expandedSubjects, setExpandedSubjects] = useState({});
-  const [expandedTopics, setExpandedTopics] = useState({});
-  const [expandedQTypes, setExpandedQTypes] = useState({});
-  const [timerSecs, setTimerSecs] = useState(editingTest?.timerSecs || 0);
-  const [reviewMode, setReviewMode] = useState(editingTest?.reviewMode || 'each');
-  const [testName, setTestName] = useState(editingTest?.name || '');
-  const [focused, setFocused] = useState('');
-  const [passages, setPassages] = useState(editingTest?.passages || 2);
-  const [questionsPerPassage, setQuestionsPerPassage] = useState(editingTest?.questionsPerPassage || 5);
+Addition:
+- Add 1-digit numbers (e.g. "3 + 2 = ?")
+- Add 2-digit numbers (e.g. "14 + 42 = ?")
+- Worded addition: "Rachel has 10 oranges and Thomas has 12 oranges. How many do they have together?"
+- Worded addition: "120 kids went to the shop on Monday. 145 more kids went on Tuesday. How many more went on Tuesday?"
 
-  const getTotalForSubject = (sk) => {
-    if (sk === 'reading') return Object.keys(selection.reading || {}).length > 0 ? passages * questionsPerPassage : 0;
-    const s = selection[sk] || {};
-    return Object.values(s).reduce((sum, t) => sum + Object.values(t).reduce((a, n) => a + n, 0), 0);
+Subtraction:
+- Subtract 1-digit from 1-digit (e.g. "5 - 2 = ?")
+- Subtract 1-digit from 2-digit (e.g. "50 - 2 = ?")
+- Worded subtraction: "Max bought 20 balls. If 4 were blue, how many were red?"
+- Worded subtraction: "Matthew had 30 lollies. He gave 5 to William. How many left?"
+
+Shapes:
+- Name 2D shapes (square, circle, rectangle, triangle, oval, octagon, pentagon, hexagon, diamond)
+- How many sides does a [shape] have?
+- How many corners does a [shape] have?
+
+IMPORTANT: All questions must be in text form only (no images needed). For shape questions, name the shape in the question text itself.`;
+
+  if (yearLevel <= 4) return `
+QUESTION TYPES FOR YEAR ${yearLevel} (Level 3-4):
+Draw questions from these types — vary the mix each session:
+
+Numbers & Counting:
+- Write numbers in word form up to 5 digits (e.g. "Write 50,434 in words")
+- Place value (e.g. "What does the 3 represent in 3,770?" — answer: 3 thousands)
+- Rounding to nearest 10, 100, 1000 (e.g. "Round 789 to the nearest hundred")
+- Order/compare 4-digit and 5-digit numbers
+- Greater than/less than with 4-5 digit numbers
+
+Addition & Subtraction:
+- Add 3-digit numbers (e.g. "104 + 402 = ?")
+- Add mixed digit sizes (e.g. "10 + 203 = ?", "3 + 403 = ?")
+- Add 4-digit numbers (e.g. "3362 + 4203 = ?")
+- Subtract 3-digit numbers (e.g. "378 - 204 = ?")
+- Subtract with zeros (e.g. "100 - 5", "200 - 25")
+- Subtract 4-digit numbers (e.g. "5362 - 4203 = ?")
+- Worded problems: "Group A made 364 sandcastles. Group B made 25 more than Group A. How many did Group B make?"
+- Worded problems using "difference" and "sum"
+
+Multiplication:
+- Times tables 2x, 3x, 5x, 10x (e.g. "3 x 5 = ?")
+- Multiply 2-digit by 1-digit (e.g. "23 x 4 = ?")
+- Worded: "There are 5 bags with 12 apples each. How many apples in total?"
+
+Division:
+- Simple division facts (e.g. "15 ÷ 3 = ?")
+- Division with remainders (e.g. "17 ÷ 3 = ?")
+- Worded: "24 students split into groups of 4. How many groups?"
+
+Fractions:
+- What fraction is shaded? (described in text: e.g. "A pizza cut into 4 equal slices, 1 is eaten. What fraction remains?")
+- Simple equivalent fractions (e.g. "1/2 = ?/4")
+- Compare fractions (e.g. "Which is larger: 1/3 or 1/4?")
+
+Shapes:
+- 3D shape properties (e.g. "How many edges does a cube have?", "How many faces does a cylinder have?")
+- 3D shape names: cylinder, cone, cube, sphere, square pyramid, triangular pyramid, rectangular prism
+- Symmetry (e.g. "A shape has 2 lines of symmetry. What shape could it be?")
+
+Measurement & Time:
+- Reading time (e.g. "What time is it if the hour hand is on 3 and minute hand on 12?")
+- Time calculations (e.g. "A lesson starts at 9:15am and goes for 45 minutes. When does it end?")
+- Length comparisons (e.g. "Convert 3km to metres")
+- Money: making change (e.g. "You buy a book for $3.50 and pay $5. What change do you get?")
+
+Factors:
+- Is X a factor of Y? (e.g. "Is 3 a factor of 27?")
+- Find factors of a number (e.g. "What is a factor of 20?")
+- Common factors (e.g. "What is a common factor of 30 and 20?")`;
+
+  if (yearLevel <= 6) return `
+QUESTION TYPES FOR YEAR ${yearLevel} (Level 5-6):
+Draw questions from these types — vary the mix each session:
+
+Numbers:
+- Write numbers in word form up to 10 million
+- Place value for 6-7 digit numbers (e.g. "What does the 3 represent in 3,129,400?")
+- Rounding large numbers (e.g. "Round 17,895 to the nearest thousand")
+- Worded number problems: "Sam has 4 cards: 3, 7, 6, 2. What is the biggest odd number he can form?"
+- Complex ordering: "What is 63 more than 8 tens and 42 ones?"
+
+Multiplication & Division:
+- Times tables up to 12x12
+- Multiply 3-digit by 2-digit (e.g. "234 x 12 = ?")
+- Long division (e.g. "756 ÷ 12 = ?")
+- Worded multi-step: "A car travels at 70 km/h for 3 hours. How far does it travel?"
+
+Fractions, Decimals & Percentages:
+- Write fractions as decimals (e.g. "Write 1 3/4 as a decimal")
+- Write decimals as fractions (e.g. "Write 3.75 as a mixed fraction")
+- Compare decimals (e.g. "Which is larger: 45.421 or 45.4215?")
+- Add/subtract decimals (e.g. "12.50 - 6.5 = ?")
+- Multiply decimals (e.g. "0.25 x 4 = ?")
+- Percentage of a number (e.g. "What is 50% of $40?")
+- Write fraction as percentage (e.g. "Write 25/100 as a percentage")
+- Worded percentage: "A computer costs $500. It is on 25% sale. What is the new price?"
+
+Rates:
+- Speed/distance/time (e.g. "A car drove for 3 hours at 60 km/h. How far did it travel?")
+- Pay rate (e.g. "A person earns $25 per hour and works 8 hours. How much do they earn?")
+
+Area & Perimeter:
+- Rectangle perimeter (e.g. "A rectangle has length 12cm and width 4cm. What is the perimeter?")
+- Find missing side from perimeter (e.g. "A rectangle has perimeter 40 and length 15. What is the width?")
+- Rectangle area (e.g. "A rectangle is 12cm long and 4cm wide. What is the area?")
+
+Averages:
+- Mean average (e.g. "What is the average of 20, 42, 3, 14?")
+- Worded average: "A class scored 40, 30, 20 and 55 out of 100. What is the average score?"
+
+Factors & Multiples:
+- Common multiples (e.g. "What is a common multiple of 21 and 3?")
+- List factors of a number
+
+Circles:
+- Circumference using formula (e.g. "A circle has diameter 10cm. What is its circumference? Use π = 3.14")
+- Diameter from circumference
+
+Angles:
+- Angles on a straight line (e.g. "One angle is 110°. What is the other angle on the straight line?")
+- Angles in a right angle (e.g. "One angle is 35°. What is the other angle in the right angle?")
+- Angles in a triangle (e.g. "A triangle has angles of 65° and 70°. What is the third angle?")`;
+
+  // Years 7-11
+  return `
+QUESTION TYPES FOR YEAR ${yearLevel} (Level 7-11 — Secondary):
+Draw questions from these types — vary the mix each session:
+
+Algebra:
+- Simplify expressions (e.g. "Simplify b + b + b", "Simplify 3x + 2x - x")
+- Solve for x (e.g. "5x = 35, find x", "3x + 7 = 22, find x")
+- Expand brackets (e.g. "Expand 3(y + 2)", "Expand 5x(y + 2)")
+- Substitute values (e.g. "Find the value of 3y + 2 when y = 4")
+- Write algebraic formulas (e.g. "Write 'a number plus 10' as an algebraic expression")
+- Factorise expressions (e.g. "Factorise 6x + 9", Year 9+: "Factorise x² + 5x + 6")
+${yearLevel >= 9 ? `- Quadratic equations (e.g. "Solve x² - 5x + 6 = 0")
+- Simultaneous equations (e.g. "Solve: 2x + y = 10 and x - y = 2")` : ''}
+
+Geometry & Angles:
+- Angles in parallel lines (co-interior, alternate, corresponding)
+- Angles in polygons (e.g. "What is the sum of interior angles of a pentagon?")
+- Angles in isosceles triangles
+- Angles in parallelograms and rhombuses
+- Pythagoras theorem (e.g. "A right triangle has sides 3cm and 4cm. What is the hypotenuse?")
+${yearLevel >= 9 ? `- Trigonometry: sin, cos, tan (e.g. "Find angle x in a right triangle with opposite 5 and hypotenuse 10")` : ''}
+
+Area & Volume:
+- Area of triangles (e.g. "A triangle has base 8cm and height 5cm. What is the area?")
+- Area of compound shapes (e.g. combined rectangles and triangles)
+- Volume of rectangular prisms (e.g. "A box is 5cm × 4cm × 3cm. What is its volume?")
+- Circumference and area of circles
+${yearLevel >= 9 ? `- Surface area of 3D shapes
+- Volume of cylinders, cones and spheres` : ''}
+
+Fractions, Decimals & Percentages:
+- Complex percentage problems (e.g. "Archie invests $1000 at 10% per year. What is the total after 2 years?")
+- Percentage increase/decrease
+- Ratio and proportion (e.g. "Share $60 in the ratio 2:3")
+- GST calculations (e.g. "A item costs $80 + 10% GST. What is the total price?")
+
+Statistics & Data:
+- Mean, median, mode, range from a data set
+- Worded average problems
+- Reading graphs (described in text: e.g. "A survey shows 40% prefer football, 35% prefer cricket, 25% prefer basketball. How many more prefer football than basketball if 200 students were surveyed?")
+
+Rates & Proportion:
+- Speed, distance, time calculations
+- Unit rate problems
+- Direct and inverse proportion
+
+${yearLevel >= 9 ? `Advanced (Year 9-11):
+- Standard form / scientific notation (e.g. "Write 0.000045 in scientific notation")
+- Surds (e.g. "Simplify √48")
+- Linear graphs (e.g. "What is the gradient of the line y = 3x + 2?")
+- Probability (e.g. "A bag has 3 red and 5 blue balls. What is the probability of picking red?")` : ''}`;
+};
+
+// ── Generate Maths Questions ──────────────────────────────────────────────────
+
+export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus) => {
+  const blueprint = getMathsBlueprint(yearLevel);
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified. Every question's "topic" field must match the topic it was generated for.`
+    : '';
+
+  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+${focusInstruction}
+${blueprint}
+
+VISUAL QUESTIONS — for certain question types, include a "visual" field with structured data to render a diagram. Use visuals for these types:
+
+For STATISTICS questions (bar charts, line graphs, pie charts):
+{"visual":{"type":"barchart","title":"Books Read Per Month","data":[{"label":"Jan","value":4},{"label":"Feb","value":7},{"label":"Mar","value":10},{"label":"Apr","value":6}],"yLabel":"Books","color":"#4338CA"}}
+
+{"visual":{"type":"linegraph","title":"Temperature Over a Week","data":[{"label":"Mon","value":18},{"label":"Tue","value":22},{"label":"Wed","value":25},{"label":"Thu","value":20},{"label":"Fri","value":16}],"yLabel":"°C","color":"#059669"}}
+
+{"visual":{"type":"piechart","title":"Favourite Sports","data":[{"label":"Soccer","value":40},{"label":"Cricket","value":25},{"label":"Tennis","value":20},{"label":"Other","value":15}]}}
+
+For GEOMETRY/PERIMETER questions — vary shapes by year level:
+- Year 1-2: rectangles and squares ONLY
+- Year 3-4: triangles or irregular quadrilaterals
+- Year 5+: compound shapes — choose a template randomly from: lshape, rlshape, ushape, staircase
+- NEVER generate only rectangles — always vary the shape type
+
+{"visual":{"type":"shape","shape":"rectangle","title":"Find the perimeter","dimensions":{"width":8,"height":5},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"triangle","title":"Find the perimeter","dimensions":{"base":9,"height":6},"color":"#4338CA"}}
+{"visual":{"type":"shape","shape":"quadrilateral","title":"Find the perimeter","dimensions":{"sides":[8,5,6,4]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"lshape","sides":["7cm","4cm","3cm","2.5cm","3cm","9cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"rlshape","sides":["6cm","5cm","4cm","3cm","2cm","2cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"ushape","sides":["4cm","6cm","4cm","8cm","12cm","8cm"]},"color":"#4338CA"}}
+{"visual":{"type":"lshape","title":"Find the perimeter","dimensions":{"template":"staircase","sides":["6cm","10cm","10cm","4cm","2cm","2cm","2cm","2cm"]},"color":"#4338CA"}}
+
+For Year 5+ perimeter questions, optionally hide 1-2 sides (hiddenSides array of indices) so students must calculate the unknown side. Show hidden sides as "?" in the sides array:
+{"visual":{"type":"lshape","title":"Find the missing side","dimensions":{"template":"rlshape","sides":["9cm","6cm","?","3cm","?","4cm"],"hiddenSides":[2,4]},"color":"#4338CA"}}
+
+IMPORTANT: sides array length must match template (lshape=6, rlshape=6, ushape=6, tshape=8, staircase=8). For perimeter questions, correct answer = sum of all sides.
+
+For COUNTING CUBES questions — always include a visual:
+{"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
+
+For THERMOMETER questions — always include a visual:
+{"visual":{"type":"thermometer","title":"What temperature is shown?","value":35,"unit":"C","min":0,"max":50,"color":"#EF4444"}}
+{"visual":{"type":"thermometer","title":"What temperature is shown?","value":98,"unit":"F","min":32,"max":120,"color":"#EF4444"}}
+
+CRITICAL — Chart question text: ALWAYS write "the bar chart ABOVE" or "the chart ABOVE" — NEVER "below", because the visual renders ABOVE the question text.
+
+For MONEY questions (Year 1-6):
+{"visual":{"type":"money","title":"How much money is shown?","coins":[{"denom":"$1","count":2},{"denom":"50c","count":1},{"denom":"20c","count":2}],"notes":[]}}
+{"visual":{"type":"money","title":"Count the money","notes":[{"denom":"$10","count":1},{"denom":"$5","count":1}],"coins":[{"denom":"$2","count":1},{"denom":"50c","count":2}]}}
+
+For COUNTING questions (Year 1-4):
+{"visual":{"type":"counting","title":"How many apples are there?","object":"apple","groups":[{"count":5,"showCount":false},{"count":3,"showCount":false}]}}
+{"visual":{"type":"counting","title":"Count the objects in each group","groups":[{"label":"Group A","count":4,"emoji":"⭐","showCount":false},{"label":"Group B","count":7,"emoji":"⭐","showCount":false}]}}
+
+RULES FOR VISUALS:
+- Only add a visual when it genuinely helps the question (statistics, geometry shapes, money, counting)
+- Do NOT add visuals to algebra, number operations, fractions without shapes, or worded time problems
+- Make sure the question text references the visual (e.g. "Using the bar chart above..." or "Look at the shape below...")
+- The correct answer must be determinable from the visual data provided
+
+
+- Difficulty must be appropriate for Year ${yearLevel}
+- All questions must be answerable from text only (no images needed)
+- Each question has exactly 4 options (A, B, C, D), one correct answer, a concise explanation, and a topic tag
+
+TOPIC TAGS — assign exactly one to each question:
+- "number" — counting, place value, ordering, rounding, even/odd
+- "addition" — addition, worded addition
+- "subtraction" — subtraction, worded subtraction
+- "multiplication" — multiplication, times tables
+- "division" — division, remainders
+- "fractions" — fractions, equivalent fractions
+- "decimals" — decimals, converting decimals
+- "percentages" — percentages, percentage problems
+- "geometry" — shapes, 2D, 3D, symmetry, angles
+- "measurement" — length, area, perimeter, volume, time, money
+- "algebra" — algebra, expressions, equations
+- "statistics" — averages, mean, median, mode, data
+- "wordproblems" — multi-step worded problems
+
+EXPLANATION RULES:
+- State the answer in 1-2 sentences maximum
+- Show the key calculation step(s) directly
+- Never second-guess or re-check — be direct and confident
+
+Return ONLY this JSON (questionType must be a specific descriptive name for the exact question type e.g. "Word problem", "Number sequence", "Shape identification", "Place value"): {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"number","questionType":"Word problem","visual":null}]}
+
+For questions with visuals, replace null with the visual object. For questions without visuals, use null or omit the field.`;
+
+  const raw = await callClaude(system, user);
+  const parsed = JSON.parse(raw);
+  return parsed.questions;
+};
+
+// ── Generate Reading Questions ────────────────────────────────────────────────
+
+const READING_THEMES = [
+  'Environment (e.g. climate change, wildlife conservation, ecosystems, pollution)',
+  'Science (e.g. space exploration, the human body, inventions, experiments)',
+  'Technology (e.g. robots, the internet, artificial intelligence, gadgets)',
+  'Social Studies (e.g. communities, cultures, traditions, how society works)',
+  'Poetry (a short poem with questions about meaning, imagery and language)',
+  'History (e.g. ancient civilisations, historical events, famous people from the past)',
+  'Fiction / Narrative (a short story with characters, setting, conflict and resolution)',
+  'Geography (e.g. landforms, countries, weather patterns, natural wonders)',
+  'Sports (e.g. an athlete biography, a sports event, sporting rules or history)',
+  'Arts (e.g. music, painting, dance, theatre, a famous artist or performer)',
+];
+
+export const generateReadingQuestions = async (yearLevel, count, themeOverride) => {
+  const theme = themeOverride
+    ? READING_THEMES.find(t => t.startsWith(themeOverride)) || themeOverride
+    : READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
+
+  const SEEDS_BY_THEME = {
+    'Environment': [
+      'a teenager who discovers a secret forest that filters city pollution',
+      'a fishing village that transforms its plastic waste into art and building materials',
+      'a scientist who finds a species of fungus that breaks down ocean plastic in days',
+      'a drought-stricken farm that is saved by an ancient water-harvesting technique',
+      'a school that converts its rooftop into a thriving urban wetland',
+      'a migratory bird whose route reveals hidden environmental damage across three continents',
+      'a community that plants a million trees to reverse local flooding caused by deforestation',
+      'a young researcher who discovers that coral reefs communicate through chemical signals',
+      'a river brought back to life after 50 years of industrial pollution by citizen scientists',
+      'a desert country that engineers a fog-harvesting system to provide fresh water',
+    ],
+    'Science': [
+      'a teenager who accidentally discovers a new state of matter in her kitchen',
+      'a scientist racing to complete an experiment before a solar storm destroys her data',
+      'a biologist who finds that certain trees share nutrients underground during drought',
+      'an astronaut who discovers unexpected life during a routine maintenance spacewalk',
+      'a chemist who creates a paint that can generate electricity from sunlight',
+      'a neuroscientist who maps the brain patterns of people who never forget a face',
+      'a physicist who finds evidence of a parallel universe in particle collision data',
+      'a microbiologist who discovers bacteria in volcanic vents that could power cities',
+      'a team of engineers who design a robot that performs surgery using only sound waves',
+      'a geologist who finds 500-million-year-old DNA preserved in amber from Antarctica',
+    ],
+    'Technology': [
+      'a programmer who builds a tool that translates animal communication into human language',
+      'a 12-year-old who designs an app that helps elderly people reconnect with lost family',
+      'a small town that becomes the first fully 3D-printed community in the world',
+      'an engineer who discovers a flaw in a global navigation system before it causes disaster',
+      'a teenager who hacks a broken satellite to restore emergency communications after a cyclone',
+      'a company that creates glasses allowing colourblind people to experience full colour for the first time',
+      'a robot designed to fight wildfires that develops unexpected problem-solving behaviour',
+      'a village with no electricity that leaps directly to solar-powered internet and transforms overnight',
+      'a student who builds a water purification device from recycled electronics',
+      'an inventor who creates paper-thin solar panels that can be woven into everyday clothing',
+    ],
+    'Social Studies': [
+      'a remote island community that votes to abolish money and return to a barter economy',
+      'a city that solves its housing crisis by converting shipping containers into vibrant homes',
+      'a refugee child who builds a library from donated books in a temporary camp',
+      'two rival neighbourhoods that are forced to collaborate after a bridge collapse',
+      'a village elder whose storytelling tradition becomes the key to resolving a land dispute',
+      'a cultural festival that accidentally unites communities separated by a 200-year-old feud',
+      'a young diplomat who negotiates peace between two feuding farming families over water rights',
+      'a community that preserves its indigenous language by recording it in video games',
+      'a neighbourhood that transforms an abandoned lot into a food forest for the whole community',
+      'a town that bans cars for one week and discovers how much their community changes',
+    ],
+    'Poetry': [
+      'a poem written by a lighthouse keeper recording every storm for 40 years',
+      'a collection of poems found hidden inside the walls of an old school during renovation',
+      'a poem that describes the journey of a single raindrop from cloud to ocean',
+      'a poem written in the voice of a tree watching a city grow around it over a century',
+      'a poem about a child learning to swim in the same river where her grandmother swam',
+      'a poem describing the colours, sounds and smells of a busy market at dawn',
+      'a poem written by someone returning to their hometown after 20 years away',
+      'a poem that uses the language of mathematics to describe the beauty of nature',
+      'a poem comparing the lifecycle of a butterfly to a human lifetime',
+      'a poem written as a conversation between the moon and a sleeping city',
+    ],
+    'History': [
+      'a young messenger who carries secret letters during a siege that changed a nation',
+      'a kitchen worker in an ancient Roman city whose daily life reveals how ordinary people lived',
+      'the discovery of a map that rewrites what historians thought about early Pacific navigation',
+      'a female engineer who secretly designed part of a famous 19th-century bridge',
+      'a market trader in medieval Baghdad who connects the world\'s great trade routes',
+      'an archaeologist who uncovers a 1000-year-old hospital beneath a modern city',
+      'a sailor on the first ship to successfully map a treacherous coastline in the 1700s',
+      'a child growing up during the industrial revolution whose observations predict modern labour laws',
+      'a scribe in ancient Egypt who records a flood that nearly destroys the entire harvest',
+      'a forgotten inventor whose 1890s design for a flying machine was 20 years ahead of its time',
+    ],
+    'Fiction / Narrative': [
+      'a girl who discovers she can rewind time by exactly 60 seconds, but only once a day',
+      'two brothers who find a locked door in their grandmother\'s house that leads to a memory',
+      'a lighthouse keeper who receives messages in bottles from someone stranded on an unmapped island',
+      'a child who wakes up one morning able to hear the thoughts of every plant in the garden',
+      'a city where it is illegal to be sad, and a boy who refuses to pretend to be happy',
+      'a girl who discovers her shadow is actually alive and has been living its own secret life',
+      'a town where everyone is born with a talent they must discover before their 12th birthday',
+      'a boy who finds a door in the back of a wardrobe that leads to the year 1920',
+      'a flying island that appears above a different ocean city every hundred years',
+      'a young chef who must recreate a legendary dish using only ingredients from her grandmother\'s garden',
+    ],
+    'Geography': [
+      'a cartographer who discovers that an entire small island has disappeared underwater in ten years',
+      'a geographer studying how climate change is reshaping coastlines around the Pacific',
+      'a nomadic family in Mongolia adapting their ancient migration routes due to shifting seasons',
+      'a river that flows uphill for a short stretch due to a unique geological formation',
+      'a city built entirely on a floating platform on a vast lake in the mountains',
+      'a community living in an active volcanic region that has thrived there for a thousand years',
+      'two countries that share a glacier and must negotiate as it rapidly retreats',
+      'a geographer who maps the underground rivers of a vast cave system beneath the Sahara',
+      'a remote archipelago whose unique position in ocean currents makes it a weather-watching hub',
+      'a mountain valley so protected by peaks that it has its own unique micro-climate and ecosystem',
+    ],
+    'Sports': [
+      'a deaf swimmer who develops a new underwater technique that breaks a world record',
+      'a 40-year-old marathon runner competing in her first Olympics against athletes half her age',
+      'a remote village cricket team that qualifies for a national tournament for the first time',
+      'a tennis coach who revolutionises training by studying the movement patterns of birds in flight',
+      'a surfer who campaigns to have ocean plastic removed from competition beaches worldwide',
+      'a para-athlete who designs her own racing wheelchair from salvaged bicycle parts',
+      'a football team from a country with no grass who train on a rooftop court and reach the world stage',
+      'a young gymnast who overcomes a broken wrist by developing an entirely new routine',
+      'an indigenous Australian athlete who brings traditional running techniques into modern athletics',
+      'a basketball team of 8-year-olds who organise their own competition while the adults are on strike',
+    ],
+    'Arts': [
+      'a street artist who paints murals that tell the hidden history of forgotten neighbourhoods',
+      'a composer who creates a symphony using only sounds recorded in a rainforest',
+      'a weaver from a remote village whose traditional patterns are discovered to contain a mathematical code',
+      'a sculptor who creates life-sized bronze statues of ordinary people and places them in public spaces',
+      'a young dancer who blends classical ballet with traditional Aboriginal movement and performs at a global festival',
+      'a photographer who spends 20 years capturing the same view of a city to show how it changes',
+      'a glassblower who creates artwork that can only be seen in full during a solar eclipse',
+      'a theatre company that performs Shakespeare entirely in sign language',
+      'a musician who records an album using only instruments made from ocean waste',
+      'a printmaker who creates portraits of refugees using ink made from the soil of their home countries',
+    ],
   };
-  const totalQuestions = Object.keys(QUESTION_BANK).reduce((sum, sk) => sum + getTotalForSubject(sk), 0);
 
-  const setQtCount = (sk, tk, qtk, count) => setSelection(prev => ({
-    ...prev, [sk]: { ...prev[sk], [tk]: { ...(prev[sk]?.[tk] || {}), [qtk]: Math.max(0, count) } }
-  }));
-  const getQtCount = (sk, tk, qtk) => selection[sk]?.[tk]?.[qtk] || 0;
-  const getTopicTotal = (sk, tk) => Object.values(selection[sk]?.[tk] || {}).reduce((s, n) => s + n, 0);
-  const toggleReading = () => setSelection(prev => prev.reading ? (({ reading, ...r }) => r)(prev) : { ...prev, reading: { comprehension: { mixed: 1 } } });
-  const isReadingSelected = !!selection.reading;
+  const themeKey = Object.keys(SEEDS_BY_THEME).find(k => theme.startsWith(k)) || 'Fiction / Narrative';
+  const seedPool = SEEDS_BY_THEME[themeKey];
+  const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
 
-  const buildConfig = () => ({
-    id: editingTest?.id || Date.now().toString(),
-    name: testName.trim(),
-    selection, passages, questionsPerPassage, timerSecs, reviewMode, totalQuestions,
-    createdAt: editingTest?.createdAt || new Date().toISOString(),
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
+  const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+
+THEME FOR THIS PASSAGE: ${theme}
+SPECIFIC STORY SEED (your passage MUST be built around this): ${seed}
+
+You MUST write the passage on this specific theme AND use the story seed above as the central focus. Do NOT default to common topics like the Great Barrier Reef, kangaroos or typical Australian wildlife unless the theme specifically calls for it. The passage must be original and distinct — not a generic overview of the theme.
+
+Create an original, engaging passage (${yearLevel <= 6 ? '150-300' : '250-450'} words) on the theme above, written at a difficulty appropriate for Year ${yearLevel}. Then write ${count} multiple-choice questions testing a mix of question types.
+
+TOPIC TAGS — assign exactly one of these to each question:
+- "literal" — directly stated facts from the passage
+- "inference" — reading between the lines, implied meaning
+- "vocabulary" — word meaning, synonyms, context clues
+- "mainidea" — main idea, theme, summary
+- "purpose" — author's purpose, writer's intent, tone, perspective, call to action (e.g. "Why did the author write this?", "What is the author trying to persuade the reader to do?", "What is the call to action in this text?")
+- "texttype" — text structure, features, genre
+
+QUESTION TYPE VARIETY — include a mix across the passage. For "purpose" questions, vary between:
+- Author's purpose (inform / persuade / entertain / describe)
+- Call to action (what the text is asking the reader to do)
+- Tone and perspective (how the author feels about the topic)
+
+ANSWER OPTION LENGTH RULES — MANDATORY:
+Real scholarship exams (ACER, Edutest, NAPLAN) use consistent, concise answer options. Follow these rules strictly:
+
+1. WORD BUDGET: Every answer option (A, B, C, D) must be between 5 and 12 words. No option may be more than 3 words longer than the shortest option in the same question.
+
+2. NO PADDING: Do not add explanatory clauses to the correct answer. A correct answer does not need more words to be correct — a precise short phrase is better than a padded long phrase.
+
+3. CORRECT ANSWER POSITION IN LENGTH: Across a set of 5 questions, the correct answer must be:
+   - The shortest option in at least 2 questions
+   - The middle length in at least 1 question  
+   - The longest option in at most 1 question
+
+4. DISTRACTOR QUALITY: Wrong options must be plausible and similar in structure to the correct answer. They should NOT be obviously wrong — a student who hasn't read carefully should find them believable.
+
+EXPLANATION RULES:
+- State why the correct answer is right in 1-2 sentences maximum
+- Reference the specific part of the passage that supports the answer
+- Be direct and confident
+
+Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with paragraph breaks using \\n\\n"},"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"literal","questionType":"Identify stated fact"}]}`;
+  const raw = await callClaude(system, user);
+  const parsed = JSON.parse(raw);
+
+  if (parsed.questions) {
+    parsed.questions = parsed.questions.map(q => {
+      const opts = { ...q.options };
+      const entries = Object.entries(opts);
+      const lengths = entries.map(([k, v]) => ({ k, words: v.trim().split(/\s+/).length }));
+      const correctLen = lengths.find(l => l.k === q.correct)?.words || 0;
+      const otherLens = lengths.filter(l => l.k !== q.correct).map(l => l.words);
+      const maxOther = Math.max(...otherLens);
+      if (correctLen > maxOther + 4) {
+        const words = opts[q.correct].trim().split(/\s+/);
+        opts[q.correct] = words.slice(0, maxOther + 2).join(' ');
+      }
+      return { ...q, options: opts };
+    });
+  }
+
+  return parsed;
+};
+
+// ── Generate General Ability Questions ────────────────────────────────────────
+
+export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.\n`
+    : '';
+
+  const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+${focusInstruction}
+QUESTION TYPES — use the following from the question bank. CRITICALLY IMPORTANT: vary the mix — do NOT generate all the same type:
+
+Number Patterns — MUST USE A VARIETY of these pattern types, not just +100:
+- Single digit steps: go up by 2,3,4,5,6,7,8,9 (e.g. "25, 32, 39, 46, ___?" goes up by 7; "13, 17, 21, 25, ___?" goes up by 4)
+- Doubling: multiply by 2 each time (e.g. "4, 8, 16, 32, ___?")
+- Tripling: multiply by 3 each time (e.g. "4, 12, 36, 108, ___?")
+- Up and down: alternating add and subtract (e.g. "3, 6, 5, 8, 7, 10, ___?" goes +3,-1,+3,-1; "2, 5, 4, 7, 6, 9, ___?")
+- Fibonacci-style: add previous two numbers (e.g. "1, 1, 2, 3, 5, 8, ___?")
+- Subtract steps: go down by 3,4,5,6,7 (e.g. "50, 44, 38, 32, ___?" goes down by 6)
+- Fill in missing: "436, 438, ___, 442, ___, 446" (goes up by 2)
+- Hundreds/thousands only when mixing with other types
+
+STRICT RULE: If generating ${count} pattern questions, use AT LEAST 3 different pattern types above. Never generate more than 2 questions with the same pattern type (e.g. never 3 +100 questions in a row).
+
+Verbal Reasoning (vary these):
+- Word analogies (e.g. "Hot is to cold as day is to ___?")
+- Odd one out from a list of words
+- Word relationships (e.g. "Doctor is to hospital as teacher is to ___?")
+- Synonyms (e.g. "What word means the same as 'large'?")
+- Antonyms (e.g. "What is the opposite of 'brave'?")
+- Letter patterns (e.g. "A, C, E, G, ___?")
+
+Logic Problems:
+- Draw conclusions (e.g. "All boys play soccer. Sam is a boy. What can we conclude?")
+- Coding (e.g. "If A=1, B=2, C=3, what word is 8-5-12-12-15?")
+- Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
+- Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
+
+PICTURE PATTERN QUESTIONS — CRITICAL RULES:
+For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes.
+
+You MUST provide an "answerFrames" field in the visual containing the 4 answer option frames. The correct answer frame must logically continue the pattern. The other 3 frames must be plausible distractors (wrong direction, wrong fill, wrong count, etc).
+
+Available shape types: triangle, triangle_down, square, circle, diamond, star, arrow_right, arrow_down, smiley, sad, cross_x, square_small, circle_thick
+Fill: "none" (hollow), "#374151" (solid dark), "#4338CA" (solid blue), "#F97316" (solid orange)
+
+COMPLETE example — alternating hollow/solid arrows rotating right→down→right→down:
+{"visual":{"type":"picturepattern","title":"What comes next?",
+  "frames":[
+    {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    {"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    {"isBlank":true}
+  ],
+  "answerFrames":{
+    "A":{"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]},
+    "B":{"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    "C":{"shapes":[{"type":"arrow_down","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
+    "D":{"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]}
+  }
+}}
+
+In this example, correct="A" because the pattern needs a solid arrow pointing down next.
+
+The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames are what students see.
+
+PATTERN TYPES to use (vary these):
+1. Direction rotation: arrow_right → arrow_down → arrow_right → arrow_down → ?
+2. Fill progression: hollow → half → solid → hollow → ?  
+3. Count increase: 1 shape → 2 shapes → 3 shapes → ?
+4. Shape alternating: triangle → circle → triangle → circle → ?
+5. Size change: small → medium → large → ?
+6. Combination: rotating AND filling at same time
+
+IMPORTANT: The correct answer frame in answerFrames MUST exactly match what logically continues the sequence shown in frames. Double-check your pattern before writing the correct letter.
+
+
+- "sequences" — number sequences and patterns
+- "picturepatterns" — visual/shape pattern sequences (requires visual field)
+- "analogies" — word analogies and relationships
+- "letters" — letter patterns and sequences
+- "oddoneout" — odd one out
+- "logic" — logic problems, deduction, ordering, find info
+- "coding" — coding and decoding
+- "synonyms" — synonyms
+- "antonyms" — antonyms
+
+EXPLANATION RULES:
+- State the pattern or rule clearly in 1-2 sentences
+- Be direct and confident
+
+Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"sequences","questionType":"Number pattern","visual":null}]}
+
+For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
+  const raw = await callClaude(system, user);
+  return JSON.parse(raw).questions;
+};
+
+// ── Generate English Questions ────────────────────────────────────────────────
+
+export const generateEnglishQuestions = async (yearLevel, count, questionTypeFocus) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate grammar, spelling, punctuation and language questions that closely match these exams. Always respond with ONLY valid JSON, no other text.`;
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.`
+    : '';
+
+  const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+${focusInstruction}
+
+QUESTION TYPES AVAILABLE (choose appropriate ones based on year level and focus):
+- Spelling: "Correct the spelling", "Choose the correct spelling", "Fill in the missing letters"
+- Punctuation: "Add the missing punctuation", "Identify the error", "Choose the correctly punctuated sentence"
+- Capital Letters: "Identify where capitals are needed", "Correct the sentence"
+- Plural: "Write the plural", "Choose the correct plural", "Irregular plurals"
+- Nouns: "Identify the noun", "Common nouns", "Proper nouns", "Collective nouns"
+- Adjectives: "Identify the adjective", "Adjectival phrases", "Comparative adjectives"
+- Verbs: "Identify the verb", "Action verbs", "Helping/auxiliary verbs"
+- Adverbs: "Identify the adverb", "Adverbial phrases", "Choose the correct adverb"
+- Adding -ing and -ed: "Add the correct suffix", "Identify the error", "Doubling rule"
+- ie and ei: "Choose the correct spelling", "Fill in the blank"
+- Tense: "Present tense", "Past tense", "Future tense", "Identify the tense"
+- Subject-Verb Agreement: "Choose the correct verb form", "Correct the sentence"
+- Words ending in -y: "Plural of words ending in -y", "Adding suffixes to -y words"
+- Homophones: "Choose the correct homophone", "Fill in the blank"
+- Days, Months & Seasons: "Spelling of days/months", "Capitalisation rules"
+- Prepositions: "Identify the preposition", "Choose the correct preposition", "Prepositional phrases"
+- Pronouns: "Identify the pronoun", "Subject vs object pronouns", "Possessive pronouns"
+- Apostrophes: "Apostrophe for possession", "Apostrophe for contraction", "Correct the error"
+- Sentence Order: "Arrange words into a correct sentence", "Arrange sentences into a correct paragraph", "Sequence the steps"
+- Conjunctions: "Choose the correct conjunction", "Join two sentences"
+- Prefixes & Suffixes: "Identify the prefix/suffix", "Choose the correct word with prefix/suffix"
+- Synonyms & Antonyms: "Choose the synonym", "Choose the antonym"
+- Compound Words: "Identify/form compound words"
+- Similes & Metaphors: "Identify the figure of speech", "Complete the simile"
+- Fact or Opinion: "Is this sentence a fact or an opinion?" (e.g. "The sky is blue" = fact; "Summer is the best season" = opinion)
+- Point of View: "Is this sentence written in first person (I/we), second person (you), or third person (he/she/they)?"
+- True or False: based on a short 2–3 sentence passage, "Is this statement true or false?" or "Which sentence is supported by the text?"
+- Articles (a, an, the): "Choose the correct article: ___ apple / ___ banana / ___ umbrella", "Correct the article error in the sentence"
+- Time Words: fill in the correct time word (after, later, right away, on the way, first, then, finally, meanwhile, eventually, soon) in context
+- Commands and Statements: "Is this sentence a command or a statement?", "Rewrite this command as a statement" or vice versa
+
+SPECIAL FORMAT FOR "Sequence the steps" questions:
+- Present 4 steps from a real-world process in SHUFFLED / OUT-OF-ORDER numbering
+- The question text lists all 4 steps as numbered items (1. 2. 3. 4.)
+- The 4 answer options (A/B/C/D) show different orderings using dash notation e.g. "2 – 4 – 3 – 1"
+- Only ONE ordering is correct — the others must be plausible but wrong
+- The "correct" field is the letter (A/B/C/D) of the correct ordering
+- The "explanation" states the correct sequence and briefly explains why
+- Use age-appropriate real-world processes: making toast, planting a seed, posting a letter, brushing teeth, making a sandwich, sending an email, baking a cake, etc.
+- Example: Steps listed as: 1. Spread the butter  2. Put bread in the toaster  3. Take the bread out  4. Get the bread from the bag
+  Answer options: A) 4 – 2 – 3 – 1  B) 2 – 4 – 1 – 3  C) 1 – 3 – 2 – 4  D) 3 – 1 – 4 – 2
+  Correct: A (get bread → toast it → take it out → spread butter)
+
+YEAR LEVEL GUIDANCE:
+- Year 1–2: Simple CVC words, basic punctuation (. ! ?), simple plurals, basic nouns/verbs
+- Year 3–4: Compound words, apostrophes, tense, adjectives, adverbs, homophones
+- Year 5–6: Prefixes/suffixes, subject-verb agreement, adverbial phrases, similes
+- Year 7–9: Metaphors, complex sentence structure, advanced vocabulary, figurative language
+- Year 10–11: Nuanced grammar, advanced literary devices, complex syntax
+
+RULES:
+- All content must use Australian English spelling (colour, favourite, realise, recognise, organise)
+- Keep questions age-appropriate and relevant to Australian school context
+- Vary question types — do not repeat the same type more than 3 times in a batch unless focused
+- Answer options must be A, B, C, D — exactly 4 options per question
+- The correct answer must NOT always be the longest option — vary position and length
+- Never use the same example word or sentence twice in a batch
+
+TOPIC TAGS — assign exactly one to each question:
+- "spelling" — spelling, ie/ei, adding -ing/-ed
+- "punctuation" — punctuation, capital letters, apostrophes
+- "grammar" — nouns, verbs, adjectives, adverbs, pronouns, prepositions, conjunctions, subject-verb agreement, tense
+- "vocabulary" — synonyms, antonyms, homophones, compound words, prefixes/suffixes
+- "sentence" — sentence order, sequence the steps, arranging words/sentences
+- "figurative" — similes, metaphors, figures of speech
+
+EXPLANATION RULES:
+- State the answer in 1-2 sentences maximum
+- Mention the grammar rule or reason
+- Be direct and confident
+
+Return ONLY this JSON: {"questions":[{"id":1,"question":"Question text here. For Sequence the steps, list all 4 numbered steps in the question.","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"A","explanation":"explanation","topic":"spelling","questionType":"Choose the correct spelling","visual":null}]}`;
+
+  const raw = await callClaude(system, user);
+  const parsed = JSON.parse(raw);
+  return parsed.questions;
+};
+
+// ── Writing ───────────────────────────────────────────────────────────────────
+
+const WRITING_THEMES = [
+  { theme: 'Environment', narrative: 'a story involving nature, wildlife, or an environmental challenge', persuasive: 'argue for or against an environmental issue such as recycling, protecting forests, or reducing plastic' },
+  { theme: 'Science', narrative: 'a story involving a scientific discovery, experiment, or invention', persuasive: 'argue for or against a scientific topic such as space exploration, genetic engineering, or renewable energy' },
+  { theme: 'Technology', narrative: 'a story involving technology — robots, computers, the future, or a new invention', persuasive: 'argue for or against a technology topic such as screen time limits, social media, or self-driving cars' },
+  { theme: 'Community & Social', narrative: 'a story about helping others, community spirit, or making a difference', persuasive: 'argue for or against a social issue such as volunteering, school uniforms, or community projects' },
+  { theme: 'History & Adventure', narrative: 'a historical fiction story or an adventure set in the past', persuasive: 'argue why learning history is important or whether a historical event was right or wrong' },
+  { theme: 'Sport & Competition', narrative: 'a story about a sports event, a competition, or overcoming a challenge', persuasive: 'argue for or against a topic related to sport such as competitive sport for children, e-sports, or physical education' },
+  { theme: 'Friendship & Belonging', narrative: 'a story about friendship, fitting in, or overcoming loneliness', persuasive: 'argue for or against a social topic such as the importance of friendship, teamwork, or inclusion' },
+  { theme: 'Animals & Nature', narrative: 'a story told from an animal\'s perspective or about a child and an animal', persuasive: 'argue for or against keeping animals in zoos, animal rights, or protecting endangered species' },
+  { theme: 'Mystery & Imagination', narrative: 'a mystery story or an imaginative tale involving fantasy, magic, or the unknown', persuasive: 'argue for or against the value of imagination, reading fiction, or creative thinking in schools' },
+  { theme: 'Travel & Discovery', narrative: 'a story about an exciting journey, exploring a new place, or making an unexpected discovery', persuasive: 'argue for or against travel, cultural exchange, or studying overseas' },
+];
+
+export const generateWritingPrompt = async (type, yearLevel, themeOverride) => {
+  const themeObj = themeOverride
+    ? WRITING_THEMES.find(t => t.theme === themeOverride) || WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)]
+    : WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
+  const themeInstruction = type === 'narrative'
+    ? `The prompt must be about: ${themeObj.narrative}`
+    : `The prompt must be about: ${themeObj.persuasive}`;
+
+  const system = `You are an Australian ${schoolLevel(yearLevel)} writing exam designer for scholarship and selective entry tests. Always respond with ONLY valid JSON, no other text.`;
+  const user = `Generate a ${type} writing prompt for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+
+THEME: ${themeObj.theme}
+${themeInstruction}
+
+The prompt must be original, engaging and appropriate for Year ${yearLevel}. Do NOT use vegetable gardens, lemonade stands, or other overused generic prompts.
+
+Return ONLY this JSON: {"prompt":"the full writing prompt","type":"${type}","time":25,"criteria":["Ideas and content","Structure and organisation","Language and vocabulary","Sentence structure","Punctuation and spelling"]}`;
+  const raw = await callClaude(system, user);
+  return JSON.parse(raw);
+};
+
+export const assessWriting = async (studentText, prompt, type, yearLevel) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing assessor for scholarship and selective entry exams. Assess Year ${yearLevel} student writing with detailed constructive feedback. Always respond with ONLY valid JSON, no other text.`;
+
+  const user = `Assess this Year ${yearLevel} student ${type} writing for a scholarship and selective entry exam.
+
+Prompt: "${prompt}"
+
+Student response:
+"${studentText}"
+
+You must return two things:
+1. Overall scores across 5 criteria (each out of 5)
+2. Sentence-by-sentence feedback — split the student's response into individual sentences and for each one provide all relevant feedback
+
+SENTENCE FEEDBACK RULES:
+- Split the student text into individual sentences (split on . ! ? — keep the punctuation with the sentence)
+- For EVERY sentence provide the "sentence" field with the EXACT original text
+- Only populate feedback arrays that actually apply to that sentence — leave empty arrays [] if there is nothing to fix
+- spellingErrors: words misspelled IN THAT SENTENCE only
+- grammarErrors: grammar mistakes IN THAT SENTENCE only  
+- vocabUpgrades: weak adjectives, verbs or adverbs IN THAT SENTENCE to replace with stronger options
+- structureUpgrades: 1-2 literary technique rewrites for that sentence (Simile, Metaphor, Alliteration, Rhetorical Question, Complex Sentence, Imagery, Personification — vary across sentences, don't repeat the same technique)
+- Keep it focused — not every sentence needs every type of feedback. A sentence with no issues should have all empty arrays.
+
+Return ONLY this JSON (no other text, no markdown):
+{
+  "criteria": [
+    {"name": "Ideas and content", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Structure and organisation", "score": 3, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Language and vocabulary", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Sentence structure", "score": 3, "maxScore": 5, "feedback": "2-3 sentence feedback"},
+    {"name": "Punctuation and spelling", "score": 4, "maxScore": 5, "feedback": "2-3 sentence feedback"}
+  ],
+  "totalScore": 18,
+  "maxTotal": 25,
+  "overallFeedback": "2-3 sentence overall comment",
+  "improvements": ["specific improvement 1", "specific improvement 2", "specific improvement 3"],
+  "sentences": [
+    {
+      "sentence": "exact original sentence text including punctuation",
+      "spellingErrors": [
+        {"original": "misspeled", "correction": "misspelled", "rule": "double the l before -ed"}
+      ],
+      "grammarErrors": [
+        {"original": "they was running", "corrected": "they were running", "explanation": "subject-verb agreement: plural subject needs 'were'"}
+      ],
+      "vocabUpgrades": [
+        {"original": "good", "type": "adjective", "options": ["vivid", "striking", "remarkable"], "why": "more precise and evocative than 'good'"},
+        {"original": "walked", "type": "verb", "options": ["strode", "ambled", "trudged"], "why": "stronger verbs paint a clearer picture"}
+      ],
+      "structureUpgrades": [
+        {"technique": "Simile", "rewritten": ["The sky was like a bruised plum.", "She moved like a shadow through the fog."], "explanation": "A simile adds vivid comparison and imagery."}
+      ]
+    }
+  ]
+}`;
+
+  const raw = await callClaude(system, user);
+  const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(clean);
+};
+
+// ── Handwriting Photo Assessment ──────────────────────────────────────────────
+
+export const assessHandwritingPhoto = async (base64Image, mediaType, yearLevel, writingType) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and assessor. You transcribe student handwriting from photos and provide rich, detailed line-by-line feedback. Always respond with ONLY valid JSON, no other text.`;
+
+  const user = `A Year ${yearLevel} student has submitted a handwritten ${writingType || 'writing'} piece.
+
+Please:
+1. Transcribe the handwritten text accurately (if illegible in parts, do your best)
+2. Assess it across the 5 criteria (each out of 5)
+3. Provide sentence-by-sentence feedback — every sentence gets its own feedback object
+
+SENTENCE FEEDBACK RULES:
+- Split the transcribed text into individual sentences
+- For EVERY sentence provide the "sentence" field with the EXACT transcribed text of that sentence
+- Only populate feedback arrays that actually apply to that sentence — use empty arrays [] if nothing to fix
+- spellingErrors: words misspelled IN THAT SENTENCE only
+- grammarErrors: grammar mistakes IN THAT SENTENCE only
+- vocabUpgrades: weak adjectives, verbs or adverbs IN THAT SENTENCE to replace
+- structureUpgrades: 1-2 literary technique rewrite options for that sentence
+  (vary techniques across sentences: Simile, Metaphor, Alliteration, Rhetorical Question, Complex Sentence, Imagery, Personification, Contrast — do NOT repeat the same technique on consecutive sentences)
+- Not every sentence needs every type. A well-written sentence with no issues should have all empty arrays.
+
+Return ONLY this JSON (no markdown, no code fences, no other text):
+{
+  "transcribedText": "the full transcribed text preserving paragraphs with \n\n",
+  "wordCount": 150,
+  "criteria": [
+    {"name": "Ideas & Content", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Structure & Organisation", "score": 3, "maxScore": 5, "percent": 60, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Language & Vocabulary", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Sentence Structure", "score": 3, "maxScore": 5, "percent": 60, "feedback": "2-3 sentences of specific feedback"},
+    {"name": "Spelling & Punctuation", "score": 4, "maxScore": 5, "percent": 80, "feedback": "2-3 sentences of specific feedback"}
+  ],
+  "totalScore": 18,
+  "maxTotal": 25,
+  "totalPercent": 72,
+  "overallFeedback": "2-3 sentence overall comment",
+  "sentences": [
+    {
+      "sentence": "The exact transcribed sentence text including its punctuation.",
+      "spellingErrors": [
+        {"original": "recieve", "correction": "receive", "rule": "i before e except after c"}
+      ],
+      "grammarErrors": [
+        {"original": "he runned to the shops", "corrected": "he ran to the shops", "explanation": "'ran' is the irregular past tense of 'run'"}
+      ],
+      "vocabUpgrades": [
+        {"original": "nice", "type": "adjective", "options": ["enchanting", "breathtaking", "radiant"], "why": "more vivid and precise than 'nice'"},
+        {"original": "said", "type": "verb", "options": ["whispered", "exclaimed", "announced"], "why": "stronger speech verbs show emotion and tone"}
+      ],
+      "structureUpgrades": [
+        {
+          "technique": "Simile",
+          "rewritten": ["The sun blazed like a furnace in the sky.", "Her smile was as warm as a summer's day."],
+          "explanation": "A simile creates a vivid comparison that helps the reader picture the scene."
+        }
+      ]
+    }
+  ]
+}`;
+
+  const response = await fetch('/api/claude-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64Image, mediaType, systemPrompt: system, userPrompt: user })
   });
 
-  return (
-    <div style={{ maxWidth: 740, margin: '0 auto', padding: 32 }}>
-      <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>Build a custom test</h2>
-      <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
-        Expand a subject, then a topic, then a question type to see examples and add questions. Mix subjects freely.
-      </p>
+  // Check for non-JSON responses (e.g. "Request Entity Too Large" from serverless limit)
+  const rawText = await response.text();
+  if (!response.ok || !rawText.trim().startsWith('{')) {
+    throw new Error(
+      rawText.length < 200
+        ? rawText
+        : `Server error ${response.status}: image may be too large. Please use a smaller or compressed image.`
+    );
+  }
 
-      {Object.entries(QUESTION_BANK).map(([sk, subj]) => {
-        const subjTotal = getTotalForSubject(sk);
-        const isExp = expandedSubjects[sk];
-        const isReading = sk === 'reading';
-        return (
-          <div key={sk} style={{ background: '#fff', borderRadius: 16, marginBottom: 10, border: `1.5px solid ${subjTotal > 0 ? subj.color : 'rgba(67,56,202,0.08)'}`, overflow: 'hidden' }}>
-            <div onClick={() => setExpandedSubjects(p => ({ ...p, [sk]: !p[sk] }))} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', cursor: 'pointer', background: subjTotal > 0 ? subj.lightBg : '#fff' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: subj.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{subj.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{subj.label}</div>
-                {subjTotal > 0 && <div style={{ fontSize: 12, color: subj.color, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>{subjTotal} question{subjTotal !== 1 ? 's' : ''} selected</div>}
-              </div>
-              <span style={{ fontSize: 11, color: '#94A3B8' }}>{isExp ? '▼' : '▶'}</span>
-            </div>
+  const data = JSON.parse(rawText);
+  if (data.error) throw new Error(data.error);
+  const text = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(text);
+};
 
-            {isExp && (
-              <div style={{ borderTop: '1px solid rgba(67,56,202,0.06)', padding: '8px 0' }}>
-                {isReading ? (
-                  <div style={{ padding: '12px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                      <input type="checkbox" checked={isReadingSelected} onChange={toggleReading} style={{ width: 18, height: 18, accentColor: subj.color, cursor: 'pointer' }} />
-                      <span style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>Include reading passages in this test</span>
-                    </div>
-                    {isReadingSelected && (
-                      <div style={{ background: '#F0FDF4', borderRadius: 12, padding: '14px 18px', border: '1px solid rgba(5,150,105,0.15)' }}>
-                        {[['Number of passages', passages, setPassages, 1, 5], ['Questions per passage', questionsPerPassage, setQuestionsPerPassage, 1, 10]].map(([label, val, setter, min, max], i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i === 0 ? '1px solid rgba(5,150,105,0.1)' : 'none' }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{label}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <button onClick={() => setter(v => Math.max(min, v - 1))} style={btnStyle}>-</button>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: subj.color, minWidth: 24, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{val}</span>
-                              <button onClick={() => setter(v => Math.min(max, v + 1))} style={btnStyle}>+</button>
-                            </div>
-                          </div>
-                        ))}
-                        <div style={{ marginTop: 10, fontSize: 12, color: subj.color, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>{passages} x {questionsPerPassage} = {passages * questionsPerPassage} questions total</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  subj.topics.map(topic => {
-                    const tTotal = getTopicTotal(sk, topic.key);
-                    const tKey = `${sk}.${topic.key}`;
-                    const isTExp = expandedTopics[tKey];
-                    const topicDirectCount = getQtCount(sk, topic.key, '_topic');
-                    return (
-                      <div key={topic.key} style={{ borderBottom: '1px solid #F8FAFC' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 10px 24px' }}>
-                          <button onClick={() => setExpandedTopics(p => ({ ...p, [tKey]: !p[tKey] }))} style={{ fontSize: 10, color: isTExp ? subj.color : '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}>{isTExp ? '▼' : '▶'}</button>
-                          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif', cursor: 'pointer' }} onClick={() => setExpandedTopics(p => ({ ...p, [tKey]: !p[tKey] }))}>{topic.label}</span>
-                          {tTotal > 0 && <span style={{ fontSize: 12, color: subj.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginRight: 4 }}>({tTotal}q)</span>}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <button onClick={() => setQtCount(sk, topic.key, '_topic', topicDirectCount - 1)} style={smallBtnStyle}>-</button>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: topicDirectCount > 0 ? subj.color : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{topicDirectCount}</span>
-                            <button onClick={() => setQtCount(sk, topic.key, '_topic', topicDirectCount + 1)} style={smallBtnStyle}>+</button>
-                          </div>
-                        </div>
-                        {!isTExp && topicDirectCount > 0 && (
-                          <div style={{ fontSize: 11, color: '#94A3B8', paddingLeft: 48, paddingBottom: 6, fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>
-                            Mixed question types · expand to pick specific types
-                          </div>
-                        )}
-                        {isTExp && (
-                          <div style={{ background: '#F8FAFF', borderTop: '1px solid #EEF2FF', paddingBottom: 6 }}>
-                            <div style={{ fontSize: 11, color: '#94A3B8', padding: '6px 20px 4px 48px', fontFamily: 'Inter, sans-serif' }}>
-                              ↑ Use the counter above for any mix, or pick specific types below:
-                            </div>
-                            {topic.questionTypes.map(qt => {
-                              const count = getQtCount(sk, topic.key, qt.key);
-                              const exKey = `${sk}.${topic.key}.${qt.key}`;
-                              const isExExp = expandedQTypes[exKey];
-                              return (
-                                <div key={qt.key} style={{ padding: '8px 20px 8px 48px', borderBottom: '1px solid #EEF2FF' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <button onClick={() => setExpandedQTypes(p => ({ ...p, [exKey]: !p[exKey] }))} style={{ fontSize: 10, color: isExExp ? subj.color : '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: 14, flexShrink: 0 }}>{isExExp ? '▼' : '▶'}</button>
-                                    <span style={{ flex: 1, fontSize: 13, fontWeight: count > 0 ? 700 : 500, color: count > 0 ? subj.color : '#374151', fontFamily: 'Inter, sans-serif' }}>{qt.label}</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                      <button onClick={() => setQtCount(sk, topic.key, qt.key, count - 1)} style={smallBtnStyle}>-</button>
-                                      <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? subj.color : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
-                                      <button onClick={() => setQtCount(sk, topic.key, qt.key, count + 1)} style={smallBtnStyle}>+</button>
-                                    </div>
-                                  </div>
-                                  {isExExp && qt.examples && (
-                                    <div style={{ marginTop: 8, marginLeft: 22, background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #EEF2FF' }}>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Example questions:</div>
-                                      {qt.examples.map((ex, i) => (
-                                        <div key={i} style={{ fontSize: 12, color: '#374151', fontFamily: 'Inter, sans-serif', padding: '4px 0', borderBottom: i < qt.examples.length - 1 ? '1px solid #F3F4F6' : 'none', lineHeight: 1.5 }}>
-                                          <span style={{ color: subj.color, fontWeight: 700, marginRight: 6 }}>Q.</span>{ex}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+const wordCountForMins = (mins) => {
+  if (mins <= 15) return 200;
+  if (mins <= 20) return 280;
+  if (mins <= 30) return 400;
+  return 550;
+};
 
-      {totalQuestions > 0 && (
-        <>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: 4, marginBottom: 10, border: '1px solid rgba(67,56,202,0.08)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Time limit</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[{ l: 'No timer', v: 0 }, { l: '10 min', v: 600 }, { l: '20 min', v: 1200 }, { l: '30 min', v: 1800 }, { l: '45 min', v: 2700 }, { l: '60 min', v: 3600 }].map(t => (
-                <button key={t.v} onClick={() => setTimerSecs(t.v)} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: timerSecs === t.v ? '#0F172A' : '#F8F9FF', color: timerSecs === t.v ? '#fff' : '#64748B', border: timerSecs === t.v ? 'none' : '1.5px solid rgba(67,56,202,0.1)', fontFamily: 'Inter, sans-serif' }}>{t.l}</button>
-              ))}
-            </div>
-          </div>
+export const generateIdealAnswer = async (prompt, type, yearLevel, timeMins) => {
+  const wordCount = wordCountForMins(timeMins);
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} writing teacher and examiner for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You write model answers demonstrating what a top-scoring Year ${yearLevel} student response looks like. Always respond with ONLY valid JSON, no other text.`;
+  const user = `Write an ideal ${type} response for a Year ${yearLevel} Australian scholarship exam writing task.
 
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginBottom: 10, border: '1px solid rgba(67,56,202,0.08)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Answer review</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[{ key: 'each', icon: '💡', title: 'Review as I go', desc: 'See answer after each question.' }, { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers at end only.' }].map(m => (
-                <button key={m.key} onClick={() => setReviewMode(m.key)} style={{ padding: '14px 16px', borderRadius: 12, border: `2px solid ${reviewMode === m.key ? '#4338CA' : '#E5E7EB'}`, background: reviewMode === m.key ? '#EEF2FF' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>{m.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: reviewMode === m.key ? '#4338CA' : '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 2 }}>{m.title}</div>
-                  <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{m.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+Writing prompt: "${prompt}"
 
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid rgba(67,56,202,0.08)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontFamily: 'Inter, sans-serif' }}>
-              Ready — {totalQuestions} question{totalQuestions !== 1 ? 's' : ''} selected
-            </div>
-            <input value={testName} onChange={e => setTestName(e.target.value)} placeholder="Name this test (optional — to save and reuse later)" style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: `1.5px solid ${focused === 'name' ? '#4338CA' : '#E5E7EB'}`, fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#0F172A', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} onFocus={() => setFocused('name')} onBlur={() => setFocused('')} />
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => onStart(buildConfig())} style={{ flex: '2 1 160px', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.25)' }}>
-                Generate test now →
-              </button>
-              {testName.trim() && (
-                <>
-                  <button onClick={() => onSaveAndStart(buildConfig())} style={{ flex: '1 1 120px', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#059669', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Save & start</button>
-                  <button onClick={() => onSaveOnly(buildConfig())} style={{ flex: '1 1 100px', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#374151', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Save only</button>
-                </>
-              )}
-            </div>
-            {!testName.trim() && <div style={{ marginTop: 8, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>Add a name above to also save this test for reuse</div>}
-          </div>
-        </>
-      )}
-      {totalQuestions === 0 && <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 14, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Expand a subject above to start adding questions</div>}
-    </div>
-  );
-}
+This is a model answer for a ${timeMins}-minute writing task (approximately ${wordCount} words).
 
-function SavedTestsList({ tests, onStart, onEdit, onDelete, onCreateNew }) {
-  if (tests.length === 0) return (
-    <div style={{ maxWidth: 560, margin: '60px auto', padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
-      <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>No saved tests yet</div>
-      <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>Build a test now — or name it to save for later.</p>
-      <button onClick={onCreateNew} style={{ padding: '14px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)' }}>Build a test →</button>
-    </div>
-  );
-  return (
-    <div style={{ maxWidth: 740, margin: '0 auto', padding: 32 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A' }}>My saved tests</h2>
-        <button onClick={onCreateNew} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Build a test</button>
-      </div>
-      {tests.map(test => {
-        const subjectKeys = Object.keys(test.selection || {});
-        return (
-          <div key={test.id} style={{ background: '#fff', borderRadius: 16, padding: '16px 22px', marginBottom: 10, border: '1px solid rgba(67,56,202,0.08)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {subjectKeys.map(sk => <div key={sk} style={{ width: 36, height: 36, borderRadius: 10, background: QUESTION_BANK[sk]?.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{QUESTION_BANK[sk]?.icon}</div>)}
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>{test.name}</div>
-              <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-                {subjectKeys.map(sk => QUESTION_BANK[sk]?.label).join(' + ')} · {test.totalQuestions}q · {test.timerSecs > 0 ? `${Math.round(test.timerSecs / 60)} min` : 'No timer'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => onEdit(test)} style={{ padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Edit</button>
-              <button onClick={() => onDelete(test.id)} style={{ padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#FFF1F2', color: '#EF4444', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Delete</button>
-              <button onClick={() => onStart(test)} style={{ padding: '7px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Start →</button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+Requirements:
+- Write at the level of an excellent Year ${yearLevel} student
+- Aim for approximately ${wordCount} words
+- For narrative: strong opening hook, vivid description, clear structure, satisfying resolution
+- For persuasive: clear thesis, 2-3 well-reasoned arguments with evidence/examples, strong conclusion
+- Use varied sentence structure and rich vocabulary appropriate for Year ${yearLevel}
 
-function QuizScreen({ test, yearLevel, onFinish, onExit }) {
-  const [questions, setQuestions] = useState([]);
-  const [passageGroups, setPassageGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMsg, setLoadingMsg] = useState('Generating your test');
-  const [error, setError] = useState('');
-  const [current, setCurrent] = useState(0);
-  const [selected, setSelected] = useState({});
-  const [revealed, setRevealed] = useState({});
-  const [timeLeft, setTimeLeft] = useState(test.timerSecs || 0);
-  const [paused, setPaused] = useState(false);
-  const [showExit, setShowExit] = useState(false);
-  const [dots, setDots] = useState('');
-  const finishedRef = useRef(false);
+Return ONLY this JSON: {"title":"a title for the response","text":"the full ideal response as a single string with paragraph breaks using \\n\\n","wordCount":${wordCount},"highlights":["key strength 1","key strength 2","key strength 3","key strength 4"]}`;
+  const raw = await callClaude(system, user);
+  return JSON.parse(raw);
+};
 
-  useEffect(() => { const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500); return () => clearInterval(t); }, []);
-  useEffect(() => { generateAllQuestions(); }, []);
+// ── PDF Questions ─────────────────────────────────────────────────────────────
 
-  const generateAllQuestions = async () => {
-    setLoading(true); setError(''); finishedRef.current = false;
-    try {
-      const allQs = [];
-      const groups = [];
-      const { selection, passages, questionsPerPassage } = test;
-      for (const [sk, topicSel] of Object.entries(selection)) {
-        if (sk === 'reading') {
-          setLoadingMsg('Generating reading passages');
-          for (let i = 0; i < passages; i++) {
-            const data = await generateReadingQuestions(yearLevel, questionsPerPassage);
-            groups.push(data);
-          }
-          allQs.push(...groups.flatMap(g => g.questions.map(q => ({ ...q, _subj: 'reading' }))));
-          continue;
-        }
-        if (sk === 'english') {
-          setLoadingMsg('Generating English questions');
-          const focusParts = [];
-          for (const [tk, qtSel] of Object.entries(topicSel)) {
-            for (const [qtk, count] of Object.entries(qtSel)) {
-              if (!count) continue;
-              const tObj = QUESTION_BANK.english.topics.find(t => t.key === tk);
-              const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
-              const focusStr = qtk === '_topic'
-                ? `${count} question${count > 1 ? 's' : ''} on ${tObj?.label || tk} — any question type from this topic`
-                : qtObj ? `${count} question${count > 1 ? 's' : ''} on ${tObj?.label} — ${qtObj.label}` : null;
-              if (focusStr) focusParts.push(focusStr);
-            }
-          }
-          const totalEnglish = Object.values(topicSel).reduce((sum, t) => sum + Object.values(t).reduce((a, n) => a + n, 0), 0);
-          if (totalEnglish > 0) {
-            const focus = focusParts.length > 0 ? focusParts.join(', ') : null;
-            const genQs = await generateEnglishQuestions(yearLevel, totalEnglish, focus);
-            // Build a flat ordered list of [topic, qtLabel] for tagging questions
-            const qtOrder = [];
-            for (const [tk, qtSel] of Object.entries(topicSel)) {
-              for (const [qtk, count] of Object.entries(qtSel)) {
-                if (!count) continue;
-                const tObj = QUESTION_BANK.english.topics.find(t => t.key === tk);
-                const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
-                for (let i = 0; i < count; i++) {
-                  qtOrder.push({ topic: tk, questionType: qtObj?.label || tObj?.label || tk });
-                }
-              }
-            }
-            allQs.push(...genQs.map((q, i) => ({
-              ...q,
-              _subj: 'english',
-              topic: qtOrder[i]?.topic || q.topic,
-              questionType: q.questionType || qtOrder[i]?.questionType,
-            })));
-          }
-          continue;
-        }
-        if (sk === 'general') {
-          setLoadingMsg('Generating general ability questions');
-          for (const [tk, qtSel] of Object.entries(topicSel)) {
-            for (const [qtk, count] of Object.entries(qtSel)) {
-              if (!count) continue;
-              const tObj = QUESTION_BANK.general.topics.find(t => t.key === tk);
-              const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
-              const focusStr = qtk === '_topic'
-                ? `${tObj?.label || tk} — any question type from this topic, vary the types`
-                : qtObj ? `${tObj?.label} — ${qtObj.label}: ${qtObj.examples?.[0] || ''}` : null;
-              const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr);
-              const qtLabelG = qtObj?.label || tObj?.label || tk;
-              allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk, questionType: qtLabelG })));
-            }
-          }
-          continue;
-        }
-        if (sk === 'mathematics') {
-          setLoadingMsg('Generating maths questions');
-          for (const [tk, qtSel] of Object.entries(topicSel)) {
-            for (const [qtk, count] of Object.entries(qtSel)) {
-              if (!count) continue;
-              const tObj2 = QUESTION_BANK.mathematics.topics.find(t => t.key === tk);
-              const qtObj2 = tObj2?.questionTypes.find(q => q.key === qtk);
-              const focusStr2 = qtk === '_topic'
-                ? `${tObj2?.label || tk} — any question type from this topic, vary the types`
-                : qtObj2 ? `${tObj2?.label} - ${qtObj2.label}. Example: ${qtObj2.examples?.[0] || ''}` : null;
-              const genQs2 = await generateMathsQuestions(yearLevel, count, focusStr2);
-              const qtLabelM = qtObj2?.label || tObj2?.label || tk;
-              allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk, questionType: qtLabelM })));
-            }
-          }
-        }
-      }
-      setPassageGroups(groups);
-      setQuestions(allQs);
-      setLoading(false);
-    } catch (e) {
-      setError('Failed to generate questions. Please try again.');
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (loading || !test.timerSecs || paused) return;
-    const t = setInterval(() => setTimeLeft(prev => { if (prev <= 1) { clearInterval(t); if (!finishedRef.current) handleFinish(); return 0; } return prev - 1; }), 1000);
-    return () => clearInterval(t);
-  }, [loading, paused]);
-
-  const handleFinish = useCallback(async () => {
-    if (finishedRef.current) return;
-    finishedRef.current = true;
-    const correct = questions.filter((q, i) => selected[i] === q.correct).length;
-    const total = questions.length;
-    await saveTestResult('custom', yearLevel, correct, total, questions, selected);
-    onFinish({ correct, total, score: Math.round((correct / total) * 100), questions, selected, passageGroups });
-  }, [questions, selected, yearLevel, onFinish, passageGroups]);
-
-  const handleSelect = (letter) => {
-    if (revealed[current]) return;
-    setSelected(s => ({ ...s, [current]: letter }));
-    if (test.reviewMode === 'each') setRevealed(r => ({ ...r, [current]: true }));
-  };
-
-  const q = questions[current];
-  const qSubj = q?._subj || 'mathematics';
-  const qColor = QUESTION_BANK[qSubj]?.color || '#4338CA';
-  const passage = (() => {
-    if (!passageGroups.length || qSubj !== 'reading') return null;
-    return passageGroups[Math.floor(current / (test.questionsPerPassage || 5))]?.passage || null;
-  })();
-  const isFirstInPassage = qSubj === 'reading' && current % (test.questionsPerPassage || 5) === 0;
-
-  if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 20, padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 28, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: '#0F172A' }}>{loadingMsg}{dots}</div>
-      <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>Creating fresh questions — 20-30 seconds</div>
-      <div style={{ width: 36, height: 36, border: '3px solid #EEF2FF', borderTop: '3px solid #4338CA', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-
-  if (error) return (
-    <div style={{ maxWidth: 480, margin: '60px auto', padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-      <div style={{ fontSize: 16, color: '#0F172A', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>{error}</div>
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-        <button onClick={generateAllQuestions} style={{ padding: '12px 28px', borderRadius: 100, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>Try again</button>
-        <button onClick={onExit} style={{ padding: '12px 28px', borderRadius: 100, background: '#FFF1F2', color: '#EF4444', border: '1px solid #FCA5A5', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>Exit</button>
-      </div>
-    </div>
-  );
-
-  const progress = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0;
-
-  return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
-      {showExit && <ExitDialog onConfirm={onExit} onCancel={() => setShowExit(false)} />}
-      {paused && <PauseOverlay onResume={() => setPaused(false)} />}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{test.name || 'Custom Test'} · Q{current + 1}/{questions.length}</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {test.timerSecs > 0 && <>
-            <div style={{ background: timeLeft < 60 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 60 ? '#BE123C' : '#4338CA', padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>⏱ {formatTime(timeLeft)}</div>
-            <button onClick={() => setPaused(true)} style={{ padding: '6px 12px', borderRadius: 100, fontSize: 13, background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>⏸</button>
-          </>}
-          <button onClick={() => setShowExit(true)} style={{ padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#FFF1F2', color: '#EF4444', border: '1px solid #FCA5A5', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Exit</button>
-        </div>
-      </div>
-      <div style={{ height: 4, background: '#E5E7EB', borderRadius: 2, marginBottom: 20, overflow: 'hidden' }}>
-        <div style={{ width: `${progress}%`, height: '100%', background: qColor, borderRadius: 2, transition: 'width 0.3s' }} />
-      </div>
-
-      {passage && isFirstInPassage && (
-        <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 14, border: '1px solid rgba(5,150,105,0.15)' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 8, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{passage.title}</div>
-          <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{passage.text}</div>
-        </div>
-      )}
-      {passage && !isFirstInPassage && (
-        <details style={{ marginBottom: 12 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#059669', fontFamily: 'Inter, sans-serif' }}>📖 Show passage: {passage.title}</summary>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 14, marginTop: 8, border: '1px solid #E5E7EB', fontSize: 13, color: '#334155', lineHeight: 1.85, whiteSpace: 'pre-line', fontFamily: 'Inter, sans-serif' }}>{passage.text}</div>
-        </details>
-      )}
-
-      {q && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 14 }}>{QUESTION_BANK[qSubj]?.icon}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: qColor, textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'Inter, sans-serif' }}>{QUESTION_BANK[qSubj]?.label}</span>
-            {q.questionType && <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>· {q.questionType}</span>}
-          </div>
-          <div style={{ background: '#fff', borderRadius: 20, padding: 22, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-            {q.visual && <QuestionVisual visual={q.visual} />}
-            <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 16, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}>{q.question}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(q.options).map(([letter, text]) => {
-                const isSel = selected[current] === letter;
-                const isRev = revealed[current];
-                const isCorr = q.correct === letter;
-                const answerFrame = q.visual?.answerFrames?.[letter];
-                let bg = '#F8F9FF', bdr = '1.5px solid rgba(67,56,202,0.1)', clr = '#334155';
-                if (isRev) { if (isCorr) { bg = '#ECFDF5'; bdr = '1.5px solid #6EE7B7'; clr = '#059669'; } else if (isSel) { bg = '#FFF1F2'; bdr = '1.5px solid #FDA4AF'; clr = '#BE123C'; } }
-                else if (isSel) { bg = '#EEF2FF'; bdr = `1.5px solid ${qColor}`; clr = qColor; }
-                return (
-                  <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: answerFrame ? '8px 14px' : '11px 14px', borderRadius: 10, cursor: isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
-                    <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (isRev && isCorr) ? '#059669' : (isRev && isSel) ? '#BE123C' : isSel ? qColor : 'rgba(67,56,202,0.08)', color: (isRev && isCorr) || (isRev && isSel) || isSel ? '#fff' : '#64748B' }}>{letter}</div>
-                    {answerFrame
-                      ? <PatternFrame frame={answerFrame} size={52} selected={isSel} correct={isCorr} revealed={isRev} color={qColor} />
-                      : <span style={{ fontSize: 14 }}>{text}</span>
-                    }
-                    {isRev && isCorr && <span style={{ marginLeft: 'auto' }}>✓</span>}
-                    {isRev && isSel && !isCorr && <span style={{ marginLeft: 'auto' }}>✗</span>}
-                  </button>
-                );
-              })}
-            </div>
-            {revealed[current] && <div style={{ marginTop: 12, padding: '12px 14px', background: '#EEF2FF', borderRadius: 10, fontSize: 13, color: '#4338CA', lineHeight: 1.65, fontFamily: 'Inter, sans-serif', border: '1px solid #C7D2FE' }}>💡 {q.explanation}</div>}
-          </div>
-        </>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Prev</button>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {questions.slice(0, Math.min(questions.length, 20)).map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === questions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
-          ))}
-          {questions.length > 20 && <span style={{ fontSize: 11, color: '#94A3B8' }}>+{questions.length - 20}</span>}
-        </div>
-        {current < questions.length - 1
-          ? <button onClick={() => setCurrent(c => c + 1)} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: qColor, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Next →</button>
-          : <button onClick={handleFinish} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Finish ✓</button>
-        }
-      </div>
-    </div>
-  );
-}
-
-function ResultsScreen({ test, result, onRetry, onBack }) {
-  const { correct, total, score, questions, selected } = result;
-  return (
-    <div style={{ maxWidth: 680, margin: '0 auto', padding: 32 }}>
-      <div style={{ background: '#fff', borderRadius: 24, padding: 36, textAlign: 'center', marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)' }}>
-        {test.name && <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>{test.name}</div>}
-        <div style={{ fontSize: 64, fontWeight: 900, color: score >= 70 ? '#059669' : score >= 50 ? '#4338CA' : '#F97316', lineHeight: 1, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{score}%</div>
-        <div style={{ fontSize: 14, color: '#64748B', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>{correct} correct out of {total}</div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12 }}>
-          <span style={{ fontSize: 14, color: '#059669', fontWeight: 700 }}>✓ {correct}</span>
-          <span style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700 }}>✗ {total - correct}</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Question review</div>
-      {questions.map((q, i) => {
-        const ua = selected[i];
-        const isCorrectQ = ua === q.correct;
-        const qSubjR = q._subj || 'mathematics';
-        return (
-          <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '12px 16px', marginBottom: 8, border: '1px solid rgba(67,56,202,0.06)', display: 'flex', gap: 12 }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: isCorrectQ ? '#ECFDF5' : '#FFF1F2', color: isCorrectQ ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{isCorrectQ ? '✓' : '✗'}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                <span style={{ fontSize: 11, color: QUESTION_BANK[qSubjR]?.color, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{QUESTION_BANK[qSubjR]?.icon} {QUESTION_BANK[qSubjR]?.label}</span>
-                {q.topic && (
-                  <span style={{ fontSize: 11, fontWeight: 600, background: isCorrectQ ? '#ECFDF5' : '#FFF1F2', color: isCorrectQ ? '#059669' : '#BE123C', borderRadius: 100, padding: '1px 8px', fontFamily: 'Inter, sans-serif' }}>
-                    {q.topic}
-                  </span>
-                )}
-                {q.questionType && (
-                  <span style={{ fontSize: 11, color: '#64748B', background: '#F1F5F9', borderRadius: 100, padding: '1px 8px', fontFamily: 'Inter, sans-serif' }}>
-                    {q.questionType}
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: 13, color: '#0F172A', marginBottom: 3, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
-              {!isCorrectQ && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You: <strong>{ua ? `${ua}. ${q.options[ua]}` : 'Not answered'}</strong></div>}
-              <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
-              {!isCorrectQ && q.explanation && <div style={{ marginTop: 6, fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '7px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
-            </div>
-          </div>
-        );
-      })}
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button onClick={onBack} style={{ flex: 1, padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#374151', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Back</button>
-        <button onClick={onRetry} style={{ flex: 2, padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Redo this test →</button>
-      </div>
-      <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Results saved to Progress Dashboard</div>
-    </div>
-  );
-}
-
-export default function CustomTestPage() {
-  const { yearLevel, hasAccess } = useAuth();
-  const navigate = useNavigate();
-  const [view, setView] = useState('list');
-  const [savedTests, setSavedTests] = useState(loadSavedTests);
-  const [editingTest, setEditingTest] = useState(null);
-  const [activeTest, setActiveTest] = useState(null);
-  const [result, setResult] = useState(null);
-
-  const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
-  const handleSaveAndStart = (cfg) => {
-    const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests); saveTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
-  };
-  const handleSaveOnly = (cfg) => {
-    const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests2); saveTests(updatedTests2); setEditingTest(null); setView('list');
-  };
-
-  const isSaved = (test) => savedTests.some(t => t.id === test?.id);
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
-      <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎯</div>
-        <div>
-          <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 20, fontWeight: 800, color: '#0F172A', letterSpacing: -0.3 }}>Custom Tests</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Build your own tests · Year {yearLevel}</div>
-        </div>
-        {view === 'builder' && <button onClick={() => { setEditingTest(null); setView('list'); }} style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Back</button>}
-        {view === 'list' && <button onClick={() => { setEditingTest(null); setView('builder'); }} style={{ marginLeft: 'auto', padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Build a test</button>}
-      </div>
-
-      {!hasAccess && (
-        <div style={{ maxWidth: 560, margin: '60px auto', padding: 32, textAlign: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 24, padding: 40, border: '1px solid rgba(67,56,202,0.1)', boxShadow: '0 4px 24px rgba(67,56,202,0.08)' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-            <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 10 }}>Your free trial has ended</div>
-            <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.7, marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>Subscribe to build custom tests — just $9.99/month.</p>
-            <button onClick={() => navigate('/subscribe')} style={{ width: '100%', padding: '15px', borderRadius: 100, fontSize: 16, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Subscribe for $9.99/month →</button>
-          </div>
-        </div>
-      )}
-
-      {hasAccess && view === 'list' && <SavedTestsList tests={savedTests} onStart={handleStart} onEdit={(t) => { setEditingTest(t); setView('builder'); }} onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); }} onCreateNew={() => { setEditingTest(null); setView('builder'); }} />}
-      {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} />}
-      {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
-      {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
-    </div>
-  );
-}
+export const generatePDFQuestions = async (subject, count, yearLevel) => {
+  if (subject === 'mathematics') return await generateMathsQuestions(yearLevel, count);
+  if (subject === 'reading') return await generateReadingQuestions(yearLevel, count);
+  if (subject === 'general') return await generateGeneralAbilityQuestions(yearLevel, count);
+  if (subject === 'english') return await generateEnglishQuestions(yearLevel, count);
+  return [];
+};
