@@ -739,17 +739,23 @@ const CREATOR_SUBJECTS = [
   { key: 'general', label: 'General Ability', icon: '🧩', color: '#F97316' },
 ];
 
-async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel) {
+// ── Generate questions from a text example ───────────────────────────────────
+async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel, imageBase64, imageMediaType) {
+  const hasImage = !!imageBase64;
+
   const system = `You are an expert Australian exam question writer for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
-The user will give you an example question. Your job is to:
-1. Extract the underlying TEMPLATE from the example — identify what variables (numbers, names, items, places) can be swapped out while keeping the same structure and reasoning required.
-2. Generate ${count} NEW questions that follow the exact same template but with completely different numbers, names, and items.
-3. Each question must require the same type of reasoning/skill as the example.
-4. Questions must be appropriate for Year ${yearLevel} Australian students.
-5. Vary the context (different people's names, different items, different places) but keep identical mathematical/logical structure.
+${hasImage
+      ? `The user has uploaded a photo of a question. Your job is to:
+1. READ and UNDERSTAND the question in the image exactly.
+2. If the question involves a visual pattern, shape, diagram or table — RECREATE it as closely as possible in text or describe it clearly in the question field.
+3. Generate ${count} NEW questions that follow the same template, changing only the numbers/names/items. If the question type is too visual to create variations (e.g. complex shape patterns), recreate the same question ${count} times with minor variations.`
+      : `The user will give you an example question. Your job is to:
+1. Extract the underlying TEMPLATE — identify what variables (numbers, names, items) can be swapped out while keeping the same structure.
+2. Generate ${count} NEW questions following the same template with completely different numbers, names, and items.
+3. Each question must require the same reasoning/skill as the example.`}
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {
   "template": "Brief description of the question template (1-2 sentences)",
   "questions": [
@@ -758,67 +764,112 @@ Return ONLY valid JSON in this exact format:
       "question": "Full question text",
       "options": {"A": "option", "B": "option", "C": "option", "D": "option"},
       "correct": "A",
-      "explanation": "Step-by-step working shown concisely",
+      "explanation": "Step-by-step working",
       "topic": "${subject}",
       "questionType": "${questionType || 'Custom'}"
     }
   ]
 }`;
 
-  const user = `Example question:
-"${exampleQuestion}"
+  const userText = hasImage
+    ? `Subject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions based on the question shown in the image.`
+    : `Example question:\n"${exampleQuestion}"\n\nSubject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions following the same template.`;
 
-Subject: ${subject}
-Question type: ${questionType || 'Custom'}
-Number of questions to generate: ${count}
-
-Generate ${count} questions following the same template as the example above. Change all names, numbers, and items — keep the same structure and reasoning.`;
-
-  const response = await fetch('/api/claude-vision', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      base64Image: null,
-      mediaType: null,
-      systemPrompt: system,
-      userPrompt: user,
-      textOnly: true,
-    }),
-  });
-
-  const rawText = await response.text();
-  if (!response.ok || !rawText.trim().startsWith('{')) {
-    throw new Error('Failed to generate questions. Please try again.');
+  // Use vision endpoint if image provided, text endpoint otherwise
+  let rawText;
+  if (hasImage) {
+    const response = await fetch('/api/claude-vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64Image: imageBase64, mediaType: imageMediaType, systemPrompt: system, userPrompt: userText }),
+    });
+    rawText = await response.text();
+    if (!response.ok || !rawText.trim().startsWith('{')) throw new Error('Failed to analyse image. Please try again.');
+    const data = JSON.parse(rawText);
+    rawText = data.text || '';
+  } else {
+    const response = await fetch('/api/claude-vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64Image: null, mediaType: null, systemPrompt: system, userPrompt: userText }),
+    });
+    rawText = await response.text();
+    if (!response.ok || !rawText.trim().startsWith('{')) throw new Error('Failed to generate. Please try again.');
+    const data = JSON.parse(rawText);
+    rawText = data.text || '';
   }
-  const data = JSON.parse(rawText);
-  const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(text);
-  return parsed;
+
+  const clean = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(clean);
 }
 
+// ── Image compression for uploads ────────────────────────────────────────────
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const r = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * r); height = Math.round(height * r);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ base64: e.target.result.split(',')[1], mediaType: 'image/jpeg', preview: e.target.result });
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', quality);
+    };
+    img.src = url;
+  });
+}
+
+// ── Custom Question Creator component ────────────────────────────────────────
 function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) {
+  const [inputMode, setInputMode] = useState('text');   // 'text' | 'image'
   const [example, setExample] = useState('');
+  const [imageBase64, setImageBase64] = useState(null);
+  const [imageMediaType, setImageMediaType] = useState('image/jpeg');
+  const [imagePreview, setImagePreview] = useState(null);
   const [subject, setSubject] = useState('mathematics');
   const [qType, setQType] = useState('');
   const [tmplName, setTmplName] = useState('');
   const [count, setCount] = useState(5);
-  const [phase, setPhase] = useState('input'); // input | preview | generating
+  const [phase, setPhase] = useState('input');
   const [template, setTemplate] = useState('');
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedName, setSavedName] = useState('');
   const [currentTmplId, setCurrentTmplId] = useState(null);
-
+  const fileRef = useRef(null);
   const subjectColor = CREATOR_SUBJECTS.find(s => s.key === subject)?.color || '#4338CA';
 
-  const handleGenerate = async () => {
-    if (!example.trim()) { setError('Please enter an example question.'); return; }
-    setError('');
-    setLoading(true);
-    setPhase('generating');
+  const handleImageFile = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
     try {
-      const result = await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel);
+      const compressed = await compressImage(file);
+      setImageBase64(compressed.base64);
+      setImageMediaType(compressed.mediaType);
+      setImagePreview(compressed.preview);
+    } catch (e) { setError('Could not load image. Please try again.'); }
+  };
+
+  const handleGenerate = async () => {
+    if (inputMode === 'text' && !example.trim()) { setError('Please enter an example question.'); return; }
+    if (inputMode === 'image' && !imageBase64) { setError('Please upload a photo of the question.'); return; }
+    setError(''); setLoading(true); setPhase('generating');
+    try {
+      const result = await generateFromTemplate(
+        example.trim(), subject, qType.trim(), count, yearLevel,
+        inputMode === 'image' ? imageBase64 : null,
+        inputMode === 'image' ? imageMediaType : null,
+      );
       setTemplate(result.template || '');
       setQuestions(result.questions || []);
       setPhase('preview');
@@ -829,24 +880,30 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
     setLoading(false);
   };
 
-  const handleRegenerate = async () => {
-    setError('');
-    setLoading(true);
-    setPhase('generating');
+  const handleSave = async () => {
+    if (!tmplName.trim()) { setError('Please give this template a name before saving.'); return; }
+    setSaving(true); setError('');
     try {
-      const result = await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel);
-      setTemplate(result.template || '');
-      setQuestions(result.questions || []);
-      setPhase('preview');
-    } catch (e) {
-      setError(e.message);
-      setPhase('preview');
-    }
-    setLoading(false);
+      const tmpl = {
+        id: currentTmplId,
+        name: tmplName.trim(),
+        subject,
+        questionType: qType.trim() || null,
+        exampleQuestion: example.trim() || '(from image)',
+        templateDescription: template,
+        questions,
+      };
+      const saved = await onSaveTemplate(tmpl);
+      if (saved?.id) setCurrentTmplId(saved.id);
+      setSavedName(tmplName.trim());
+    } catch (e) { setError('Failed to save. Please try again.'); }
+    setSaving(false);
   };
 
+  const readyToGenerate = inputMode === 'text' ? example.trim().length > 0 : !!imageBase64;
+
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#5A6A7A', padding: 4 }}>←</button>
@@ -860,110 +917,104 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
       {(phase === 'input' || phase === 'generating') && (
         <div style={{ background: '#fff', borderRadius: 20, padding: 28, border: '1px solid rgba(67,56,202,0.1)', boxShadow: '0 2px 12px rgba(67,56,202,0.06)' }}>
 
-          {/* Example question input */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
-              Your example question *
-            </label>
-            <textarea
-              value={example}
-              onChange={e => setExample(e.target.value)}
-              placeholder={"e.g. Emma picked 200 strawberries. Noah took 120. In exchange, Noah gave her 95 blueberries. How many fruits does Emma have in the end?"}
-              rows={4}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                border: '2px solid #E5E7EB', borderRadius: 12, padding: '12px 14px',
-                fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#0F172A',
-                resize: 'vertical', outline: 'none', lineHeight: 1.6,
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={e => e.target.style.borderColor = subjectColor}
-              onBlur={e => e.target.style.borderColor = '#E5E7EB'}
-            />
-            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>
-              The more specific and complete your example, the better the generated questions will be.
-            </div>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, background: '#F8FAFC', borderRadius: 12, padding: 4 }}>
+            {[{ key: 'text', label: '✏️ Type a question' }, { key: 'image', label: '📷 Upload photo' }].map(m => (
+              <button key={m.key} onClick={() => setInputMode(m.key)} style={{
+                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                background: inputMode === m.key ? '#fff' : 'transparent',
+                fontWeight: inputMode === m.key ? 700 : 500, fontSize: 13,
+                color: inputMode === m.key ? subjectColor : '#64748B',
+                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                boxShadow: inputMode === m.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s',
+              }}>{m.label}</button>
+            ))}
           </div>
 
-          {/* Subject + Question Type row */}
+          {/* Text input */}
+          {inputMode === 'text' && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Your example question *</label>
+              <textarea
+                value={example}
+                onChange={e => setExample(e.target.value)}
+                placeholder={"e.g. Emma picked 200 strawberries. Noah took 120. In exchange, Noah gave her 95 blueberries. How many fruits does Emma have in the end?"}
+                rows={4}
+                style={{ width: '100%', boxSizing: 'border-box', border: '2px solid #E5E7EB', borderRadius: 12, padding: '12px 14px', fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#0F172A', resize: 'vertical', outline: 'none', lineHeight: 1.6, transition: 'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor = subjectColor}
+                onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+              />
+              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>The more specific and complete your example, the better the generated questions will be.</div>
+            </div>
+          )}
+
+          {/* Image upload */}
+          {inputMode === 'image' && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Upload a photo of the question *</label>
+              {!imagePreview ? (
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); handleImageFile(e.dataTransfer.files[0]); }}
+                  style={{ border: '2px dashed #CBD5E1', borderRadius: 12, padding: '32px 24px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = subjectColor; e.currentTarget.style.background = `${subjectColor}08`; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.background = '#F8FAFC'; }}
+                >
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', fontFamily: 'Inter, sans-serif' }}>Drop a photo here or click to browse</div>
+                  <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>JPG, PNG · Max 10MB · Auto-compressed</div>
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageFile(e.target.files[0])} />
+                </div>
+              ) : (
+                <div>
+                  <img src={imagePreview} alt="Question" style={{ width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 10, border: '1px solid #E5E7EB', marginBottom: 8 }} />
+                  <button onClick={() => { setImageBase64(null); setImagePreview(null); setImageMediaType('image/jpeg'); }} style={{ fontSize: 12, color: '#F43F5E', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>✕ Remove image</button>
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, fontFamily: 'Inter, sans-serif' }}>
+                AI will read the question from the photo and generate {count} similar ones. For complex visual patterns, it will recreate the original with variations.
+              </div>
+            </div>
+          )}
+
+          {/* Subject + type + count + name row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Subject</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {CREATOR_SUBJECTS.map(s => (
-                  <button key={s.key} onClick={() => setSubject(s.key)} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 12px', borderRadius: 10, border: '2px solid',
-                    borderColor: subject === s.key ? s.color : '#E5E7EB',
-                    background: subject === s.key ? `${s.color}12` : '#fff',
-                    cursor: 'pointer', fontSize: 13, fontWeight: subject === s.key ? 700 : 500,
-                    color: subject === s.key ? s.color : '#374151',
-                    fontFamily: 'Inter, sans-serif', textAlign: 'left',
-                    transition: 'all 0.15s',
-                  }}>
+                  <button key={s.key} onClick={() => setSubject(s.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: '2px solid', borderColor: subject === s.key ? s.color : '#E5E7EB', background: subject === s.key ? `${s.color}12` : '#fff', cursor: 'pointer', fontSize: 13, fontWeight: subject === s.key ? 700 : 500, color: subject === s.key ? s.color : '#374151', fontFamily: 'Inter, sans-serif', textAlign: 'left', transition: 'all 0.15s' }}>
                     {s.icon} {s.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
-                  Question type <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional)</span>
-                </label>
-                <input
-                  value={qType}
-                  onChange={e => setQType(e.target.value)}
-                  placeholder="e.g. Multi-step word problem"
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    border: '2px solid #E5E7EB', borderRadius: 10, padding: '10px 12px',
-                    fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#0F172A', outline: 'none',
-                  }}
-                  onFocus={e => e.target.style.borderColor = subjectColor}
-                  onBlur={e => e.target.style.borderColor = '#E5E7EB'}
-                />
-                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>
-                  Name your question type or leave blank
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Question type <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional)</span></label>
+                <input value={qType} onChange={e => setQType(e.target.value)} placeholder="e.g. Multi-step word problem" style={{ width: '100%', boxSizing: 'border-box', border: '2px solid #E5E7EB', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', transition: 'border-color 0.15s' }} onFocus={e => e.target.style.borderColor = subjectColor} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
-                  How many questions?
-                </label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Template name <span style={{ color: '#94A3B8', fontWeight: 400 }}>(to save it)</span></label>
+                <input value={tmplName} onChange={e => setTmplName(e.target.value)} placeholder="e.g. Fruit exchange problem" style={{ width: '100%', boxSizing: 'border-box', border: '2px solid #E5E7EB', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', transition: 'border-color 0.15s' }} onFocus={e => e.target.style.borderColor = subjectColor} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>Give it a name so you can find it again later</div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>How many questions?</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {[3, 5, 10, 15, 20].map(n => (
-                    <button key={n} onClick={() => setCount(n)} style={{
-                      width: 44, height: 44, borderRadius: 10, border: '2px solid',
-                      borderColor: count === n ? subjectColor : '#E5E7EB',
-                      background: count === n ? `${subjectColor}12` : '#fff',
-                      fontWeight: count === n ? 800 : 500, fontSize: 14,
-                      color: count === n ? subjectColor : '#374151',
-                      cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                    }}>{n}</button>
+                    <button key={n} onClick={() => setCount(n)} style={{ width: 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n}</button>
                   ))}
                 </div>
               </div>
             </div>
           </div>
 
-          {error && (
-            <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>
-              ⚠️ {error}
-            </div>
-          )}
+          {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>⚠️ {error}</div>}
 
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !example.trim()}
-            style={{
-              width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-              background: loading || !example.trim() ? '#E5E7EB' : subjectColor,
-              color: loading || !example.trim() ? '#9CA3AF' : '#fff',
-              fontSize: 15, fontWeight: 700, cursor: loading || !example.trim() ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
-            }}
-          >
+          <button onClick={handleGenerate} disabled={loading || !readyToGenerate} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: loading || !readyToGenerate ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate ? '#9CA3AF' : '#fff', fontSize: 15, fontWeight: 700, cursor: loading || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
             {loading ? '⏳ Generating questions…' : `✨ Generate ${count} questions`}
           </button>
         </div>
@@ -972,54 +1023,53 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
       {/* Generating spinner */}
       {phase === 'generating' && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-          <div style={{ fontSize: 40, marginBottom: 12, animation: 'spin 1.2s linear infinite', display: 'inline-block' }}>⚙️</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>Analysing your question template…</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 4 }}>Creating {count} similar questions with different values</div>
-          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>{inputMode === 'image' ? 'Reading your question photo…' : 'Analysing your question template…'}</div>
+          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 4 }}>Creating {count} {inputMode === 'image' ? 'similar questions from the image' : 'similar questions with different values'}</div>
         </div>
       )}
 
-      {/* Preview Phase */}
+      {/* Preview phase */}
       {phase === 'preview' && (
         <div>
-          {/* Template summary + name input */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          {/* Template + Save row */}
+          <div style={{ display: 'grid', gridTemplateColumns: template ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 16 }}>
             {template && (
               <div style={{ background: `${subjectColor}0D`, border: `1.5px solid ${subjectColor}30`, borderRadius: 14, padding: '14px 18px' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: subjectColor, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>Template extracted</div>
                 <div style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{template}</div>
               </div>
             )}
+            {/* Save box */}
             <div style={{ background: '#F8FAFC', border: '1.5px solid #E5E7EB', borderRadius: 14, padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Name this template</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>💾 Save to your library</div>
               <input
                 value={tmplName}
                 onChange={e => setTmplName(e.target.value)}
-                placeholder={qType.trim() || 'e.g. Multi-step fruit problem'}
-                style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E5E7EB', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none' }}
+                placeholder="Name this template…"
+                style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${savedName ? '#86EFAC' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', marginBottom: 8, background: savedName ? '#F0FDF4' : '#fff' }}
               />
-              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, fontFamily: 'Inter, sans-serif' }}>Saved automatically when you start the test</div>
-              {saved && <div style={{ fontSize: 11, color: '#059669', marginTop: 4, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ Saved to your library</div>}
+              {savedName ? (
+                <div style={{ fontSize: 12, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ Saved as "{savedName}"</div>
+              ) : (
+                <button onClick={handleSave} disabled={saving || !tmplName.trim()} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: 'none', background: tmplName.trim() ? '#0F172A' : '#E5E7EB', color: tmplName.trim() ? '#fff' : '#9CA3AF', fontSize: 13, fontWeight: 700, cursor: tmplName.trim() ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
+                  {saving ? 'Saving…' : '💾 Save template'}
+                </button>
+              )}
             </div>
           </div>
 
           {/* Question previews */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
             {questions.map((q, i) => (
-              <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
+              <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span style={{ background: subjectColor, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i + 1}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 10 }}>{q.question}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+                    <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
                       {Object.entries(q.options || {}).map(([key, val]) => (
-                        <div key={key} style={{
-                          fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6,
-                          background: key === q.correct ? '#DCFCE7' : '#F8FAFC',
-                          color: key === q.correct ? '#166534' : '#374151',
-                          fontWeight: key === q.correct ? 700 : 400,
-                          border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}`,
-                        }}>
+                        <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
                           {key}. {val}
                         </div>
                       ))}
@@ -1030,57 +1080,30 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
             ))}
           </div>
 
-          {error && (
-            <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>
-              ⚠️ {error}
-            </div>
-          )}
+          {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 12 }}>⚠️ {error}</div>}
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setPhase('input')} style={{
-              flex: 1, padding: '13px', borderRadius: 12, border: '2px solid #E5E7EB',
-              background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}>← Edit example</button>
-            <button onClick={handleRegenerate} disabled={loading} style={{
-              flex: 1, padding: '13px', borderRadius: 12, border: `2px solid ${subjectColor}`,
-              background: '#fff', color: subjectColor, fontSize: 14, fontWeight: 700,
-              cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
-            }}>🔄 {loading ? 'Regenerating…' : 'Regenerate'}</button>
-            <button
-              onClick={async () => {
-                const label = tmplName.trim() || qType.trim() || 'Custom Questions';
-                // Auto-save template before launching
-                const tmpl = {
-                  id: currentTmplId,
-                  name: label,
-                  subject,
-                  questionType: qType.trim() || null,
-                  exampleQuestion: example.trim(),
-                  templateDescription: template,
-                  questions,
-                };
-                if (onSaveTemplate) {
-                  const saved = await onSaveTemplate(tmpl);
-                  if (saved?.id) setCurrentTmplId(saved.id);
-                  setSaved(true);
-                }
-                onLaunch(questions, label);
-              }}
-              style={{
-                flex: 2, padding: '13px', borderRadius: 12, border: 'none',
-                background: subjectColor, color: '#fff', fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                boxShadow: `0 4px 14px ${subjectColor}40`,
-              }}
-            >▶ Save & Start ({questions.length} questions)</button>
+            <button onClick={() => { setPhase('input'); setSavedName(''); }} style={{ flex: 1, padding: 13, borderRadius: 12, border: '2px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Edit</button>
+            <button onClick={async () => {
+              setError(''); setLoading(true); setPhase('generating');
+              try {
+                const result = await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null);
+                setTemplate(result.template || ''); setQuestions(result.questions || []); setSavedName('');
+                setPhase('preview');
+              } catch (e) { setError(e.message); setPhase('preview'); }
+              setLoading(false);
+            }} disabled={loading} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: subjectColor, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>🔄 {loading ? 'Regenerating…' : 'Regenerate'}</button>
+            <button onClick={() => onLaunch(questions, tmplName.trim() || qType.trim() || 'Custom Questions')} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: subjectColor, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: `0 4px 14px ${subjectColor}40` }}>
+              ▶ Start test ({questions.length} questions)
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 }
+
 
 export default function CustomTestPage() {
   const { yearLevel, hasAccess } = useAuth();
@@ -1162,6 +1185,15 @@ export default function CustomTestPage() {
         <CustomQuestionCreator
           yearLevel={yearLevel}
           onBack={() => setView('list')}
+          onSaveTemplate={async (tmpl) => {
+            const saved = await saveCustomTemplate(tmpl);
+            setCustomTemplates(prev => {
+              const idx = prev.findIndex(t => t.id === saved.id);
+              if (idx >= 0) { const n = [...prev]; n[idx] = saved; return n; }
+              return [saved, ...prev];
+            });
+            return saved;
+          }}
           onLaunch={(qs, label) => {
             setActiveTest({ name: label, questions: qs, subject: 'custom', color: '#F97316' });
             setView('quiz');
