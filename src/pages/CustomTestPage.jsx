@@ -788,32 +788,24 @@ Return ONLY valid JSON:
     ? `Subject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions based on the question shown in the image.`
     : `Example question:\n"${exampleQuestion}"\n\nSubject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions following the same template.`;
 
-  // Use vision endpoint if image provided, text endpoint otherwise
-  let rawText;
-  if (hasImage) {
-    const response = await fetch('/api/claude-vision', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64Image: imageBase64, mediaType: imageMediaType, systemPrompt: system, userPrompt: userText }),
-    });
-    rawText = await response.text();
-    if (!response.ok || !rawText.trim().startsWith('{')) throw new Error('Failed to analyse image. Please try again.');
-    const data = JSON.parse(rawText);
-    rawText = data.text || '';
-  } else {
-    const response = await fetch('/api/claude-vision', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64Image: null, mediaType: null, systemPrompt: system, userPrompt: userText }),
-    });
-    rawText = await response.text();
-    if (!response.ok || !rawText.trim().startsWith('{')) throw new Error('Failed to generate. Please try again.');
-    const data = JSON.parse(rawText);
-    rawText = data.text || '';
+  // Single endpoint handles both text-only and image requests
+  const response = await fetch('/api/claude-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      base64Image: imageBase64 || null,
+      mediaType: imageMediaType || null,
+      systemPrompt: system,
+      userPrompt: userText,
+    }),
+  });
+  const rawText = await response.text();
+  if (!response.ok || !rawText.trim().startsWith('{')) {
+    throw new Error(rawText.length < 300 ? rawText : 'Failed to generate questions. Please try again.');
   }
-
-  const clean = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-  return JSON.parse(clean);
+  const data = JSON.parse(rawText);
+  const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(text);
 }
 
 // ── Image compression for uploads ────────────────────────────────────────────
@@ -894,8 +886,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
   };
 
   const handleSaveOnly = async () => {
-    if (!tmplName.trim()) { setError('Please give this template a name to save it.'); return; }
-    if (!readyToGenerate) { setError(inputMode === 'image' ? 'Please upload a photo first.' : 'Please enter an example question.'); return; }
+    if (!tmplName.trim()) { setError('Please give this template a name before saving.'); return; }
     setSaving(true); setError('');
     try {
       const tmpl = {
@@ -1070,10 +1061,15 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
 
           {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>⚠️ {error}</div>}
 
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={handlePreview} disabled={previewing || !readyToGenerate} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: previewing || !readyToGenerate ? '#9CA3AF' : subjectColor, fontSize: 14, fontWeight: 700, cursor: previewing || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', borderColor: previewing || !readyToGenerate ? '#E5E7EB' : subjectColor }}>
-              {previewing ? '⏳ Previewing…' : '👁 Preview 1 question'}
+          {/* Three independent actions */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* Save — needs only a name */}
+            <button onClick={handleSaveOnly} disabled={saving || !tmplName.trim()} style={{ flex: 1, padding: 13, borderRadius: 12, border: '2px solid', borderColor: tmplName.trim() && !saving ? '#0F172A' : '#E5E7EB', background: '#fff', color: tmplName.trim() && !saving ? '#0F172A' : '#9CA3AF', fontSize: 13, fontWeight: 700, cursor: tmplName.trim() && !saving ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
+              {saving ? 'Saving…' : savedName ? '✓ Saved' : '💾 Save'}
+            </button>
+            {/* Preview — needs a question or image */}
+            <button onClick={handlePreview} disabled={previewing || !readyToGenerate} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: previewing || !readyToGenerate ? '#9CA3AF' : subjectColor, borderColor: previewing || !readyToGenerate ? '#E5E7EB' : subjectColor, fontSize: 13, fontWeight: 700, cursor: previewing || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {previewing ? '⏳ Previewing…' : '👁 Preview 1'}
             </button>
             <button onClick={() => { if (!readyToGenerate) { setError('Please add a question first.'); return; } setError(''); setLoading(true); setPhase('generating'); generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null).then(r => { setTemplate(r.template || ''); setQuestions(r.questions || []); setPhase('preview'); setLoading(false); }).catch(e => { setError(e.message); setPhase('input'); setLoading(false); }); }} disabled={loading || !readyToGenerate || count === 0} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: loading || !readyToGenerate || count === 0 ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate || count === 0 ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate || count === 0 ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {loading ? '⏳ Generating…' : count === 0 ? 'Select a count to generate' : `✨ Generate ${count} questions`}

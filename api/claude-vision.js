@@ -12,6 +12,16 @@ export default async function handler(req, res) {
   try {
     const { base64Image, mediaType, systemPrompt, userPrompt } = req.body;
 
+    // Build content array — only include image block if image data is provided
+    const content = [];
+    if (base64Image) {
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64Image }
+      });
+    }
+    content.push({ type: 'text', text: userPrompt });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -23,16 +33,7 @@ export default async function handler(req, res) {
         model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64Image }
-            },
-            { type: 'text', text: userPrompt }
-          ]
-        }]
+        messages: [{ role: 'user', content }]
       })
     });
 
