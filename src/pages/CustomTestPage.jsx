@@ -843,7 +843,7 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
 
 // ── Custom Question Creator component ────────────────────────────────────────
 function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) {
-  const [inputMode, setInputMode] = useState('text');   // 'text' | 'image'
+  const [inputMode, setInputMode] = useState('text');
   const [example, setExample] = useState('');
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMediaType, setImageMediaType] = useState('image/jpeg');
@@ -852,8 +852,12 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
   const [qType, setQType] = useState('');
   const [tmplName, setTmplName] = useState('');
   const [count, setCount] = useState(5);
-  const [phase, setPhase] = useState('input');
+  // Preview state — shown inline below the form
+  const [previewQ, setPreviewQ] = useState(null);   // single preview question
   const [template, setTemplate] = useState('');
+  const [previewing, setPreviewing] = useState(false);  // loading preview
+  // Full generation state
+  const [phase, setPhase] = useState('input'); // 'input' | 'generating' | 'preview'
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -873,6 +877,22 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
     } catch (e) { setError('Could not load image. Please try again.'); }
   };
 
+  // Preview just 1 question inline — stays on same screen
+  const handlePreview = async () => {
+    if (!readyToGenerate) { setError(inputMode === 'image' ? 'Please upload a photo first.' : 'Please enter an example question.'); return; }
+    setError(''); setPreviewing(true); setPreviewQ(null);
+    try {
+      const result = await generateFromTemplate(
+        example.trim(), subject, qType.trim(), 1, yearLevel,
+        inputMode === 'image' ? imageBase64 : null,
+        inputMode === 'image' ? imageMediaType : null,
+      );
+      setTemplate(result.template || '');
+      setPreviewQ(result.questions?.[0] || null);
+    } catch (e) { setError(e.message || 'Preview failed. Please try again.'); }
+    setPreviewing(false);
+  };
+
   const handleSaveOnly = async () => {
     if (!tmplName.trim()) { setError('Please give this template a name to save it.'); return; }
     if (!readyToGenerate) { setError(inputMode === 'image' ? 'Please upload a photo first.' : 'Please enter an example question.'); return; }
@@ -884,8 +904,8 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
         subject,
         questionType: qType.trim() || null,
         exampleQuestion: example.trim() || '(from image)',
-        templateDescription: '',
-        questions: [],  // saved without generated questions
+        templateDescription: template,
+        questions: previewQ ? [previewQ] : [],
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);
@@ -1037,11 +1057,11 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
-                  How many questions? <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional — leave at 0 to just save)</span>
+                  How many questions to generate?
                 </label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[0, 3, 5, 10, 15, 20].map(n => (
-                    <button key={n} onClick={() => setCount(n)} style={{ width: n === 0 ? 52 : 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: n === 0 ? 11 : 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n === 0 ? 'Save only' : n}</button>
+                  {[3, 5, 10, 15, 20].map(n => (
+                    <button key={n} onClick={() => setCount(n)} style={{ width: 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n}</button>
                   ))}
                 </div>
               </div>
@@ -1050,17 +1070,58 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
 
           {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>⚠️ {error}</div>}
 
+          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 10 }}>
-            {/* Save without generating */}
-            <button onClick={handleSaveOnly} disabled={saving || !readyToGenerate || !tmplName.trim()} style={{ flex: count === 0 ? 2 : 1, padding: 14, borderRadius: 12, border: '2px solid #0F172A', background: '#fff', color: saving || !readyToGenerate || !tmplName.trim() ? '#9CA3AF' : '#0F172A', fontSize: 14, fontWeight: 700, cursor: saving || !readyToGenerate || !tmplName.trim() ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', borderColor: saving || !readyToGenerate || !tmplName.trim() ? '#E5E7EB' : '#0F172A' }}>
-              {saving ? 'Saving…' : savedName ? `✓ Saved` : '💾 Save question'}
+            <button onClick={handlePreview} disabled={previewing || !readyToGenerate} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: previewing || !readyToGenerate ? '#9CA3AF' : subjectColor, fontSize: 14, fontWeight: 700, cursor: previewing || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', borderColor: previewing || !readyToGenerate ? '#E5E7EB' : subjectColor }}>
+              {previewing ? '⏳ Previewing…' : '👁 Preview 1 question'}
             </button>
-            {count > 0 && (
-              <button onClick={handleGenerate} disabled={loading || !readyToGenerate} style={{ flex: 2, padding: 14, borderRadius: 12, border: 'none', background: loading || !readyToGenerate ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                {loading ? '⏳ Generating…' : `✨ Preview ${count} questions`}
-              </button>
-            )}
+            <button onClick={() => { if (!readyToGenerate) { setError('Please add a question first.'); return; } setError(''); setLoading(true); setPhase('generating'); generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null).then(r => { setTemplate(r.template || ''); setQuestions(r.questions || []); setPhase('preview'); setLoading(false); }).catch(e => { setError(e.message); setPhase('input'); setLoading(false); }); }} disabled={loading || !readyToGenerate || count === 0} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: loading || !readyToGenerate || count === 0 ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate || count === 0 ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate || count === 0 ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {loading ? '⏳ Generating…' : count === 0 ? 'Select a count to generate' : `✨ Generate ${count} questions`}
+            </button>
           </div>
+
+          {/* Inline preview section — same page, appears below buttons */}
+          {(previewing || previewQ) && (
+            <div style={{ marginTop: 20, borderTop: '2px solid #F1F5F9', paddingTop: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: subjectColor, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, fontFamily: 'Inter, sans-serif' }}>
+                👁 Question preview
+                {template && <span style={{ fontWeight: 400, color: '#94A3B8', textTransform: 'none', letterSpacing: 0, marginLeft: 8 }}>— {template}</span>}
+              </div>
+
+              {previewing && (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontSize: 14 }}>
+                  ⏳ Generating preview…
+                </div>
+              )}
+
+              {previewQ && !previewing && (
+                <div style={{ background: `${subjectColor}06`, border: `1.5px solid ${subjectColor}25`, borderRadius: 14, padding: 18 }}>
+                  <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 14, fontWeight: 500 }}>{previewQ.question}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 12 }}>
+                    {Object.entries(previewQ.options || {}).map(([key, val]) => (
+                      <div key={key} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, fontFamily: 'Inter, sans-serif', background: key === previewQ.correct ? '#DCFCE7' : '#F8FAFC', color: key === previewQ.correct ? '#166534' : '#374151', fontWeight: key === previewQ.correct ? 700 : 400, border: `1px solid ${key === previewQ.correct ? '#86EFAC' : '#E5E7EB'}` }}>
+                        {key}. {val}
+                      </div>
+                    ))}
+                  </div>
+                  {previewQ.explanation && (
+                    <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', background: '#F8FAFC', borderRadius: 8, padding: '8px 12px', lineHeight: 1.6 }}>
+                      💡 {previewQ.explanation}
+                    </div>
+                  )}
+                  {/* Save + generate actions after preview */}
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <input value={tmplName} onChange={e => setTmplName(e.target.value)} placeholder="Name this template to save it…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${savedName ? '#86EFAC' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', background: savedName ? '#F0FDF4' : '#fff' }} />
+                    </div>
+                    <button onClick={handleSaveOnly} disabled={saving || !tmplName.trim()} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: tmplName.trim() && !savedName ? '#0F172A' : '#E5E7EB', color: tmplName.trim() && !savedName ? '#fff' : '#9CA3AF', fontSize: 13, fontWeight: 700, cursor: tmplName.trim() && !savedName ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+                      {saving ? 'Saving…' : savedName ? `✓ Saved as "${savedName}"` : '💾 Save'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
