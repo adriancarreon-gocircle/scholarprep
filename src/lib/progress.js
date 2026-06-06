@@ -658,3 +658,105 @@ export const clearProgress = () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(MIGRATED_KEY);
 };
+
+// ── Custom Question Templates ─────────────────────────────────────────────────
+// Save a custom question template to Supabase (and localStorage as fallback)
+export const saveCustomTemplate = async (template) => {
+  const row = {
+    name: template.name,
+    subject: template.subject,
+    question_type: template.questionType || null,
+    example_question: template.exampleQuestion,
+    template_description: template.templateDescription || null,
+    questions: template.questions,
+    question_count: template.questions.length,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      if (template.id) {
+        // Update existing
+        await supabase.from('custom_question_templates')
+          .update(row)
+          .eq('id', template.id)
+          .eq('user_id', user.id);
+      } else {
+        // Insert new
+        const { data } = await supabase.from('custom_question_templates')
+          .insert({ ...row, user_id: user.id })
+          .select('id')
+          .single();
+        if (data?.id) template.id = data.id;
+      }
+    }
+  } catch (e) {
+    console.error('saveCustomTemplate error:', e);
+  }
+
+  // Always save to localStorage as fallback
+  try {
+    const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    const existing = stored.findIndex(t => t.id === template.id);
+    if (existing >= 0) stored[existing] = template;
+    else stored.unshift({ ...template, id: template.id || `local_${Date.now()}` });
+    localStorage.setItem('sp_custom_templates', JSON.stringify(stored.slice(0, 50)));
+  } catch { }
+
+  return template;
+};
+
+// Load all custom question templates for the current user
+export const getCustomTemplates = async () => {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      const { data, error } = await supabase
+        .from('custom_question_templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+      if (!error && data?.length > 0) {
+        // Sync to localStorage
+        localStorage.setItem('sp_custom_templates', JSON.stringify(data));
+        return data.map(row => ({
+          id: row.id,
+          name: row.name,
+          subject: row.subject,
+          questionType: row.question_type,
+          exampleQuestion: row.example_question,
+          templateDescription: row.template_description,
+          questions: row.questions,
+          createdAt: row.created_at,
+        }));
+      }
+    }
+  } catch (e) {
+    console.error('getCustomTemplates error:', e);
+  }
+  // Fallback to localStorage
+  try {
+    const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    return stored;
+  } catch {
+    return [];
+  }
+};
+
+// Delete a custom question template
+export const deleteCustomTemplate = async (id) => {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      await supabase.from('custom_question_templates').delete()
+        .eq('id', id).eq('user_id', user.id);
+    }
+  } catch (e) {
+    console.error('deleteCustomTemplate error:', e);
+  }
+  try {
+    const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    localStorage.setItem('sp_custom_templates', JSON.stringify(stored.filter(t => t.id !== id)));
+  } catch { }
+};
