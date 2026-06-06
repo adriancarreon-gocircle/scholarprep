@@ -67,42 +67,30 @@ const QUESTION_BANK = {
       { key: 'synonymsantonyms', label: 'Synonyms & Antonyms', questionTypes: [{ key: 'choosesynonym', label: 'Choose the synonym', examples: ['What is a synonym for "happy"?', 'Which word means the same as "enormous"?'] }, { key: 'chooseantonym', label: 'Choose the antonym', examples: ['What is an antonym for "cold"?', 'Which word is the opposite of "ancient"?'] }] },
       { key: 'compound', label: 'Compound Words', questionTypes: [{ key: 'compoundwords', label: 'Identify/form compound words', examples: ['Which two words make a compound word: "sun" + ___?', 'What compound word uses "book" and "shelf"?'] }] },
       { key: 'figurative', label: 'Similes & Metaphors', questionTypes: [{ key: 'identfig', label: 'Identify the figure of speech', examples: ['Is "She runs like the wind" a simile or metaphor?', '"Life is a journey" — what figure of speech is this?'] }, { key: 'completesimile', label: 'Complete the simile', examples: ['Complete: "As brave as a ___"', 'Finish the simile: "She was as quiet as ___"'] }] },
-      {
-        key: 'factopinion', label: 'Fact or Opinion', questionTypes: [
-          { key: 'isfact', label: 'Is this a fact or opinion?', examples: ['"The sky is blue." — fact or opinion?', '"Summer is the best season." — fact or opinion?'] },
-          { key: 'identfact', label: 'Identify the fact', examples: ['Which is a fact: "Dogs are better pets" or "Dogs are mammals"?'] },
-          { key: 'identopinion', label: 'Identify the opinion', examples: ['Which is an opinion: "Water boils at 100°C" or "Tea tastes better cold"?'] },
-        ]
-      },
-      {
-        key: 'perspective', label: 'Point of View', questionTypes: [
-          { key: 'identpov', label: 'First, second or third person?', examples: ['"I went to the park." — what person?', '"You should try harder." — what person?', '"She loves reading." — what person?'] },
-          { key: 'rewritepov', label: 'Rewrite in a different person', examples: ['Rewrite in third person: "I love reading."', 'Rewrite in first person: "He ran to school."'] },
-        ]
-      },
-      {
-        key: 'truefalse', label: 'True or False', questionTypes: [
-          { key: 'istrue', label: 'True or False (passage-based)', examples: ['Based on the passage, is this true or false?', 'Which sentence is supported by the text?', 'Which statement is NOT mentioned in the passage?'] },
-        ]
-      },
-      {
-        key: 'articles', label: 'Articles (a, an, the)', questionTypes: [
-          { key: 'choosearticle', label: 'Choose a, an or the', examples: ['"She bought ___ umbrella."', '"___ apple fell from the tree."', '"He is ___ honest man."'] },
-          { key: 'correctarticle', label: 'Correct the article error', examples: ['Fix: "I saw a elephant at the zoo."', 'Fix: "She is an best student."'] },
-        ]
-      },
-      {
-        key: 'timewords', label: 'Time Words', questionTypes: [
-          { key: 'choosetimeword', label: 'Choose the correct time word', examples: ['"___ finishing dinner, she washed up." (After/Before)', '"He left ___ — without waiting." (right away/later)'] },
-          { key: 'sequencetime', label: 'Sequence using time words', examples: ['Order these using: first, then, finally.', '"On the way home, she stopped at the shop." — what does "on the way" mean?'] },
-        ]
-      },
-      {
-        key: 'sentencetype', label: 'Commands & Statements', questionTypes: [
-          { key: 'iscommand', label: 'Command or statement?', examples: ['"Close the door." — command or statement?', '"The door is closed." — command or statement?', '"Please sit down." — command or statement?'] },
-          { key: 'rewritecommand', label: 'Rewrite as a command or statement', examples: ['Rewrite as a command: "You should sit down."', 'Rewrite as a statement: "Eat your vegetables!"'] },
-        ]
-      },
+      { key: 'factopinion', label: 'Fact or Opinion', questionTypes: [
+        { key: 'isfact', label: 'Is this a fact or opinion?', examples: ['"The sky is blue." — fact or opinion?', '"Summer is the best season." — fact or opinion?'] },
+        { key: 'identfact', label: 'Identify the fact', examples: ['Which is a fact: "Dogs are better pets" or "Dogs are mammals"?'] },
+        { key: 'identopinion', label: 'Identify the opinion', examples: ['Which is an opinion: "Water boils at 100°C" or "Tea tastes better cold"?'] },
+      ]},
+      { key: 'perspective', label: 'Point of View', questionTypes: [
+        { key: 'identpov', label: 'First, second or third person?', examples: ['"I went to the park." — what person?', '"You should try harder." — what person?', '"She loves reading." — what person?'] },
+        { key: 'rewritepov', label: 'Rewrite in a different person', examples: ['Rewrite in third person: "I love reading."', 'Rewrite in first person: "He ran to school."'] },
+      ]},
+      { key: 'truefalse', label: 'True or False', questionTypes: [
+        { key: 'istrue', label: 'True or False (passage-based)', examples: ['Based on the passage, is this true or false?', 'Which sentence is supported by the text?', 'Which statement is NOT mentioned in the passage?'] },
+      ]},
+      { key: 'articles', label: 'Articles (a, an, the)', questionTypes: [
+        { key: 'choosearticle', label: 'Choose a, an or the', examples: ['"She bought ___ umbrella."', '"___ apple fell from the tree."', '"He is ___ honest man."'] },
+        { key: 'correctarticle', label: 'Correct the article error', examples: ['Fix: "I saw a elephant at the zoo."', 'Fix: "She is an best student."'] },
+      ]},
+      { key: 'timewords', label: 'Time Words', questionTypes: [
+        { key: 'choosetimeword', label: 'Choose the correct time word', examples: ['"___ finishing dinner, she washed up." (After/Before)', '"He left ___ — without waiting." (right away/later)'] },
+        { key: 'sequencetime', label: 'Sequence using time words', examples: ['Order these using: first, then, finally.', '"On the way home, she stopped at the shop." — what does "on the way" mean?'] },
+      ]},
+      { key: 'sentencetype', label: 'Commands & Statements', questionTypes: [
+        { key: 'iscommand', label: 'Command or statement?', examples: ['"Close the door." — command or statement?', '"The door is closed." — command or statement?', '"Please sit down." — command or statement?'] },
+        { key: 'rewritecommand', label: 'Rewrite as a command or statement', examples: ['Rewrite as a command: "You should sit down."', 'Rewrite as a statement: "Eat your vegetables!"'] },
+      ]},
     ]
   },
   general: {
@@ -294,9 +282,9 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                                       )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
-                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][selKey] = Math.max(0, (s[sk][selKey] || 0) - 1); return s; }); }} style={smallBtnStyle}>-</button>
+                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = {...prev}; if (!s[sk]) s[sk] = {}; s[sk][selKey] = Math.max(0, (s[sk][selKey]||0) - 1); return s; }); }} style={smallBtnStyle}>-</button>
                                       <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#F97316' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
-                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][selKey] = (s[sk][selKey] || 0) + 1; return s; }); }} style={smallBtnStyle}>+</button>
+                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = {...prev}; if (!s[sk]) s[sk] = {}; s[sk][selKey] = (s[sk][selKey]||0) + 1; return s; }); }} style={smallBtnStyle}>+</button>
                                     </div>
                                     <button onClick={e => { e.stopPropagation(); onDeleteTemplate(tmpl.id); }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✕</button>
                                   </div>
@@ -803,9 +791,9 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
 
 const CREATOR_SUBJECTS = [
   { key: 'mathematics', label: 'Mathematics', icon: '🔢', color: '#4338CA' },
-  { key: 'english', label: 'English', icon: '📝', color: '#7c3aed' },
-  { key: 'reading', label: 'Reading', icon: '📖', color: '#059669' },
-  { key: 'general', label: 'General Ability', icon: '🧩', color: '#F97316' },
+  { key: 'english',     label: 'English',     icon: '📝', color: '#7c3aed' },
+  { key: 'reading',     label: 'Reading',     icon: '📖', color: '#059669' },
+  { key: 'general',     label: 'General Ability', icon: '🧩', color: '#F97316' },
 ];
 
 // ── Generate questions from a text example ───────────────────────────────────
@@ -815,11 +803,11 @@ async function generateFromTemplate(exampleQuestion, subject, questionType, coun
   const system = `You are an expert Australian exam question writer for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
 ${hasImage
-      ? `The user has uploaded a photo of a question. Your job is to:
+  ? `The user has uploaded a photo of a question. Your job is to:
 1. READ and UNDERSTAND the question in the image exactly.
 2. If the question involves a visual pattern, shape, diagram or table — RECREATE it as closely as possible in text or describe it clearly in the question field.
 3. Generate ${count} NEW questions that follow the same template, changing only the numbers/names/items. If the question type is too visual to create variations (e.g. complex shape patterns), recreate the same question ${count} times with minor variations.`
-      : `The user will give you an example question. Your job is to:
+  : `The user will give you an example question. Your job is to:
 1. Extract the underlying TEMPLATE — identify what variables (numbers, names, items) can be swapped out while keeping the same structure.
 2. Generate ${count} NEW questions following the same template with completely different numbers, names, and items.
 3. Each question must require the same reasoning/skill as the example.`}
@@ -891,26 +879,26 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
 
 // ── Custom Question Creator component ────────────────────────────────────────
 function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) {
-  const [inputMode, setInputMode] = useState('text');
-  const [example, setExample] = useState('');
+  const [inputMode, setInputMode]   = useState('text');
+  const [example, setExample]       = useState('');
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMediaType, setImageMediaType] = useState('image/jpeg');
   const [imagePreview, setImagePreview] = useState(null);
-  const [subject, setSubject] = useState('mathematics');
-  const [qType, setQType] = useState('');
-  const [tmplName, setTmplName] = useState('');
-  const [count, setCount] = useState(5);
+  const [subject, setSubject]       = useState('mathematics');
+  const [qType, setQType]           = useState('');
+  const [tmplName, setTmplName]     = useState('');
+  const [count, setCount]           = useState(5);
   // Preview state — shown inline below the form
-  const [previewQ, setPreviewQ] = useState(null);   // single preview question
-  const [template, setTemplate] = useState('');
+  const [previewQ, setPreviewQ]     = useState(null);   // single preview question
+  const [template, setTemplate]     = useState('');
   const [previewing, setPreviewing] = useState(false);  // loading preview
   // Full generation state
-  const [phase, setPhase] = useState('input'); // 'input' | 'generating' | 'preview'
-  const [questions, setQuestions] = useState([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savedName, setSavedName] = useState('');
+  const [phase, setPhase]           = useState('input'); // 'input' | 'generating' | 'preview'
+  const [questions, setQuestions]   = useState([]);
+  const [error, setError]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [savedName, setSavedName]   = useState('');
   const [currentTmplId, setCurrentTmplId] = useState(null);
   const fileRef = useRef(null);
   const subjectColor = CREATOR_SUBJECTS.find(s => s.key === subject)?.color || '#4338CA';
@@ -1020,7 +1008,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
 
           {/* Mode toggle */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20, background: '#F8FAFC', borderRadius: 12, padding: 4 }}>
-            {[{ key: 'text', label: '✏️ Type a question' }, { key: 'image', label: '📷 Upload photo' }].map(m => (
+            {[{key:'text', label:'✏️ Type a question'}, {key:'image', label:'📷 Upload photo'}].map(m => (
               <button key={m.key} onClick={() => setInputMode(m.key)} style={{
                 flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
                 background: inputMode === m.key ? '#fff' : 'transparent',
@@ -1107,7 +1095,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
                   How many questions to generate?
                 </label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[3, 5, 10, 15, 20].map(n => (
+                  {[3,5,10,15,20].map(n => (
                     <button key={n} onClick={() => setCount(n)} style={{ width: 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n}</button>
                   ))}
                 </div>
@@ -1127,7 +1115,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
             <button onClick={handlePreview} disabled={previewing || !readyToGenerate} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: previewing || !readyToGenerate ? '#9CA3AF' : subjectColor, borderColor: previewing || !readyToGenerate ? '#E5E7EB' : subjectColor, fontSize: 13, fontWeight: 700, cursor: previewing || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {previewing ? '⏳ Previewing…' : '👁 Preview 1'}
             </button>
-            <button onClick={() => { if (!readyToGenerate) { setError('Please add a question first.'); return; } setError(''); setLoading(true); setPhase('generating'); generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null).then(r => { setTemplate(r.template || ''); setQuestions(r.questions || []); setPhase('preview'); setLoading(false); }).catch(e => { setError(e.message); setPhase('input'); setLoading(false); }); }} disabled={loading || !readyToGenerate || count === 0} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: loading || !readyToGenerate || count === 0 ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate || count === 0 ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate || count === 0 ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            <button onClick={() => { if (!readyToGenerate) { setError('Please add a question first.'); return; } setError(''); setLoading(true); setPhase('generating'); generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null).then(r => { setTemplate(r.template||''); setQuestions(r.questions||[]); setPhase('preview'); setLoading(false); }).catch(e => { setError(e.message); setPhase('input'); setLoading(false); }); }} disabled={loading || !readyToGenerate || count === 0} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: loading || !readyToGenerate || count === 0 ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate || count === 0 ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate || count === 0 ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {loading ? '⏳ Generating…' : count === 0 ? 'Select a count to generate' : `✨ Generate ${count} questions`}
             </button>
           </div>
@@ -1221,7 +1209,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
             {questions.map((q, i) => (
               <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ background: subjectColor, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i + 1}</span>
+                  <span style={{ background: subjectColor, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i+1}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
@@ -1276,18 +1264,18 @@ export default function CustomTestPage() {
   useEffect(() => {
     loadCustomBuilderTests().then(tests => {
       if (tests && tests.length > 0) setSavedTests(tests);
-    }).catch(() => { });
-    getCustomTemplates().then(setCustomTemplates).catch(() => { });
+    }).catch(() => {});
+    getCustomTemplates().then(setCustomTemplates).catch(() => {});
   }, []);
 
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
     const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests); saveTests(updatedTests); syncCustomBuilderTests(updatedTests).catch(() => { }); setEditingTest(null); setActiveTest(cfg); setView('quiz');
+    setSavedTests(updatedTests); saveTests(updatedTests); syncCustomBuilderTests(updatedTests).catch(()=>{}); setEditingTest(null); setActiveTest(cfg); setView('quiz');
   };
   const handleSaveOnly = (cfg) => {
     const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests2); saveTests(updatedTests2); syncCustomBuilderTests(updatedTests2).catch(() => { }); setEditingTest(null); setView('list');
+    setSavedTests(updatedTests2); saveTests(updatedTests2); syncCustomBuilderTests(updatedTests2).catch(()=>{}); setEditingTest(null); setView('list');
   };
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
@@ -1321,22 +1309,22 @@ export default function CustomTestPage() {
       )}
 
       {hasAccess && view === 'list' && <SavedTestsList
-        tests={savedTests}
-        customTemplates={customTemplates}
-        onStart={handleStart}
-        onStartTemplate={(tmpl) => {
-          setActiveTest({ name: tmpl.name, questions: tmpl.questions, subject: tmpl.subject || 'custom', color: '#F97316' });
-          setView('quiz');
-        }}
-        onEdit={(t) => { setEditingTest(t); setView('builder'); }}
-        onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); syncCustomBuilderTests(u).catch(() => { }); }}
-        onDeleteTemplate={async (id) => {
-          await deleteCustomTemplate(id);
-          setCustomTemplates(prev => prev.filter(t => t.id !== id));
-        }}
-        onCreateNew={() => { setEditingTest(null); setView('builder'); }}
-        onOpenCreator={() => setView('creator')}
-      />}
+              tests={savedTests}
+              customTemplates={customTemplates}
+              onStart={handleStart}
+              onStartTemplate={(tmpl) => {
+                setActiveTest({ name: tmpl.name, questions: tmpl.questions, subject: tmpl.subject || 'custom', color: '#F97316' });
+                setView('quiz');
+              }}
+              onEdit={(t) => { setEditingTest(t); setView('builder'); }}
+              onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); syncCustomBuilderTests(u).catch(()=>{}); }}
+              onDeleteTemplate={async (id) => {
+                await deleteCustomTemplate(id);
+                setCustomTemplates(prev => prev.filter(t => t.id !== id));
+              }}
+              onCreateNew={() => { setEditingTest(null); setView('builder'); }}
+              onOpenCreator={() => setView('creator')}
+            />}
       {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} />}
       {hasAccess && view === 'creator' && (
         <CustomQuestionCreator
