@@ -1090,6 +1090,15 @@ export default function CustomTestPage() {
   const [editingTest, setEditingTest] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
   const [result, setResult] = useState(null);
+  const [customTemplates, setCustomTemplates] = useState([]);
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    loadCustomBuilderTests().then(tests => {
+      if (tests && tests.length > 0) setSavedTests(tests);
+    }).catch(() => { });
+    getCustomTemplates().then(setCustomTemplates).catch(() => { });
+  }, []);
 
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
