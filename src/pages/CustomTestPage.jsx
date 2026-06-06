@@ -237,8 +237,78 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                       </div>
                     )}
                   </div>
-                ) : (
-                  subj.topics.map(topic => {
+                ) : (<>
+                  {/* ✨ Custom topic — Subject → Custom → Question Type → Question title */}
+                  {(() => {
+                    const subjTemplates = (customTemplates || []).filter(t => (t.subject || 'mathematics') === sk);
+                    if (!subjTemplates.length) return null;
+                    // Group templates by question type
+                    const byQType = {};
+                    subjTemplates.forEach(tmpl => {
+                      const qt = tmpl.questionType || 'Custom';
+                      if (!byQType[qt]) byQType[qt] = [];
+                      byQType[qt].push(tmpl);
+                    });
+                    const customTopicKey = `${sk}.__custom__`;
+                    const isCustomTopicExp = expandedTopics[customTopicKey];
+                    const customTotal = subjTemplates.reduce((sum, t) => sum + (selection[sk]?.['_custom_' + t.id] || 0), 0);
+                    return (
+                      <div style={{ borderBottom: '1px solid #F8FAFC' }}>
+                        {/* Topic row: ✨ Custom */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: customTotal > 0 ? '#FFF7ED' : '#fff', cursor: 'pointer' }}
+                          onClick={() => setExpandedTopics(p => ({ ...p, [customTopicKey]: !p[customTopicKey] }))}>
+                          <button style={{ ...smallBtnStyle, fontSize: 10, width: 20, height: 20 }}>{isCustomTopicExp ? '▼' : '▶'}</button>
+                          <span style={{ fontSize: 16 }}>✨</span>
+                          <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#F97316', fontFamily: 'Inter, sans-serif' }}>Custom</span>
+                          {customTotal > 0 && <span style={{ fontSize: 12, color: '#F97316', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>({customTotal}q)</span>}
+                        </div>
+                        {/* Expanded: show question types */}
+                        {isCustomTopicExp && Object.entries(byQType).map(([qtLabel, tmpls]) => {
+                          const qtKey = `${sk}.__custom__.${qtLabel}`;
+                          const isQTExp = expandedQTypes[qtKey];
+                          const qtTotal = tmpls.reduce((sum, t) => sum + (selection[sk]?.['_custom_' + t.id] || 0), 0);
+                          return (
+                            <div key={qtLabel} style={{ borderTop: '1px solid #F1F5F9' }}>
+                              {/* Question type row */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px 8px 40px', background: qtTotal > 0 ? '#FFF7ED' : '#FAFAFA', cursor: 'pointer' }}
+                                onClick={() => setExpandedQTypes(p => ({ ...p, [qtKey]: !p[qtKey] }))}>
+                                <button style={{ ...smallBtnStyle, fontSize: 10, width: 18, height: 18 }}>{isQTExp ? '▼' : '▶'}</button>
+                                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#374151', fontFamily: 'Inter, sans-serif' }}>{qtLabel}</span>
+                                {qtTotal > 0 && <span style={{ fontSize: 11, color: '#F97316', fontWeight: 700 }}>({qtTotal}q)</span>}
+                              </div>
+                              {/* Expanded: show individual question templates */}
+                              {isQTExp && tmpls.map(tmpl => {
+                                const selKey = '_custom_' + tmpl.id;
+                                const count = selection[sk]?.[selKey] || 0;
+                                return (
+                                  <div key={tmpl.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 20px 10px 56px', borderTop: '1px solid #F8FAFC', background: count > 0 ? '#FFFBEB' : '#fff' }}>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>{tmpl.name}</div>
+                                      {tmpl.exampleQuestion && tmpl.exampleQuestion !== '(from image)' && (
+                                        <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+                                          e.g. {tmpl.exampleQuestion.slice(0, 100)}{tmpl.exampleQuestion.length > 100 ? '…' : ''}
+                                        </div>
+                                      )}
+                                      {tmpl.templateDescription && (
+                                        <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginTop: 2 }}>{tmpl.templateDescription}</div>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
+                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][selKey] = Math.max(0, (s[sk][selKey] || 0) - 1); return s; }); }} style={smallBtnStyle}>-</button>
+                                      <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#F97316' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
+                                      <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][selKey] = (s[sk][selKey] || 0) + 1; return s; }); }} style={smallBtnStyle}>+</button>
+                                    </div>
+                                    <button onClick={e => { e.stopPropagation(); onDeleteTemplate(tmpl.id); }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✕</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {subj.topics.map(topic => {
                     const tTotal = getTopicTotal(sk, topic.key);
                     const tKey = `${sk}.${topic.key}`;
                     const isTExp = expandedTopics[tKey];
@@ -297,63 +367,13 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                         )}
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </>)}
               </div>
             )}
           </div>
         );
       })}
-
-      {/* Custom Question Creator templates — shown under their subject */}
-      {customTemplates && customTemplates.length > 0 && (() => {
-        // Group templates by subject
-        const bySubject = {};
-        customTemplates.forEach(tmpl => {
-          const subj = tmpl.subject || 'mathematics';
-          if (!bySubject[subj]) bySubject[subj] = [];
-          bySubject[subj].push(tmpl);
-        });
-        return Object.entries(bySubject).map(([sk, tmpls]) => {
-          const subj = QUESTION_BANK[sk] || { label: sk, icon: '✨', color: '#F97316', lightBg: '#FFF7ED' };
-          const customCount = tmpls.reduce((sum, t) => sum + (selection[sk]?.['_custom_' + t.id] || 0), 0);
-          return (
-            <div key={'custom_' + sk} style={{ background: '#fff', borderRadius: 16, marginBottom: 10, border: `1.5px solid ${customCount > 0 ? '#F97316' : 'rgba(249,115,22,0.2)'}`, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: customCount > 0 ? '#FFF7ED' : '#fff' }}>
-                <span style={{ fontSize: 20 }}>{subj.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{subj.label} — ✨ My Custom Questions</div>
-                  <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{tmpls.length} saved template{tmpls.length !== 1 ? 's' : ''}</div>
-                </div>
-                {customCount > 0 && <span style={{ fontSize: 12, color: '#F97316', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>({customCount}q selected)</span>}
-              </div>
-              <div>
-                {tmpls.map(tmpl => {
-                  const qtKey = '_custom_' + tmpl.id;
-                  const count = selection[sk]?.[qtKey] || 0;
-                  return (
-                    <div key={tmpl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px 10px 32px', borderTop: '1px solid #F8FAFC' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{tmpl.name}</div>
-                        <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-                          {tmpl.questionType || 'Custom'}{tmpl.questions?.length ? ` · ${tmpl.questions.length} saved questions` : ''}
-                        </div>
-                        {tmpl.templateDescription && <div style={{ fontSize: 11, color: '#78716C', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginTop: 2 }}>{tmpl.templateDescription}</div>}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][qtKey] = Math.max(0, (s[sk][qtKey] || 0) - 1); return s; })} style={smallBtnStyle}>-</button>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#F97316' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
-                        <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][qtKey] = (s[sk][qtKey] || 0) + 1; return s; })} style={smallBtnStyle}>+</button>
-                      </div>
-                      <button onClick={() => onDeleteTemplate(tmpl.id)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Delete</button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        });
-      })()}
 
       {totalQuestions > 0 && (
         <>
