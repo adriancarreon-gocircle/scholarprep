@@ -550,7 +550,20 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
     finishedRef.current = true;
     const correct = questions.filter((q, i) => selected[i] === q.correct).length;
     const total = questions.length;
-    await saveTestResult('custom', yearLevel, correct, total, questions, selected);
+    // Group questions by their actual subject (_subj field) and save each separately
+    const bySubject = {};
+    questions.forEach((q, i) => {
+      const subj = q._subj || test.subject || 'mathematics';
+      if (!bySubject[subj]) bySubject[subj] = { qs: [], indices: [] };
+      bySubject[subj].qs.push(q);
+      bySubject[subj].indices.push(i);
+    });
+    for (const [subj, { qs, indices }] of Object.entries(bySubject)) {
+      const subjSelected = {};
+      indices.forEach((origIdx, newIdx) => { subjSelected[newIdx] = selected[origIdx]; });
+      const subjCorrect = qs.filter((q, ni) => subjSelected[ni] === q.correct).length;
+      await saveTestResult(subj, yearLevel, subjCorrect, qs.length, qs, subjSelected);
+    }
     onFinish({ correct, total, score: Math.round((correct / total) * 100), questions, selected, passageGroups });
   }, [questions, selected, yearLevel, onFinish, passageGroups]);
 
@@ -860,6 +873,27 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
     } catch (e) { setError('Could not load image. Please try again.'); }
   };
 
+  const handleSaveOnly = async () => {
+    if (!tmplName.trim()) { setError('Please give this template a name to save it.'); return; }
+    if (!readyToGenerate) { setError(inputMode === 'image' ? 'Please upload a photo first.' : 'Please enter an example question.'); return; }
+    setSaving(true); setError('');
+    try {
+      const tmpl = {
+        id: currentTmplId,
+        name: tmplName.trim(),
+        subject,
+        questionType: qType.trim() || null,
+        exampleQuestion: example.trim() || '(from image)',
+        templateDescription: '',
+        questions: [],  // saved without generated questions
+      };
+      const saved = await onSaveTemplate(tmpl);
+      if (saved?.id) setCurrentTmplId(saved.id);
+      setSavedName(tmplName.trim());
+    } catch (e) { setError('Failed to save. Please try again.'); }
+    setSaving(false);
+  };
+
   const handleGenerate = async () => {
     if (inputMode === 'text' && !example.trim()) { setError('Please enter an example question.'); return; }
     if (inputMode === 'image' && !imageBase64) { setError('Please upload a photo of the question.'); return; }
@@ -1002,10 +1036,12 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
                 <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>Give it a name so you can find it again later</div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>How many questions?</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
+                  How many questions? <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional — leave at 0 to just save)</span>
+                </label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[3, 5, 10, 15, 20].map(n => (
-                    <button key={n} onClick={() => setCount(n)} style={{ width: 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n}</button>
+                  {[0, 3, 5, 10, 15, 20].map(n => (
+                    <button key={n} onClick={() => setCount(n)} style={{ width: n === 0 ? 52 : 44, height: 44, borderRadius: 10, border: '2px solid', borderColor: count === n ? subjectColor : '#E5E7EB', background: count === n ? `${subjectColor}12` : '#fff', fontWeight: count === n ? 800 : 500, fontSize: n === 0 ? 11 : 14, color: count === n ? subjectColor : '#374151', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{n === 0 ? 'Save only' : n}</button>
                   ))}
                 </div>
               </div>
@@ -1014,9 +1050,17 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
 
           {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>⚠️ {error}</div>}
 
-          <button onClick={handleGenerate} disabled={loading || !readyToGenerate} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: loading || !readyToGenerate ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate ? '#9CA3AF' : '#fff', fontSize: 15, fontWeight: 700, cursor: loading || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
-            {loading ? '⏳ Generating questions…' : `✨ Generate ${count} questions`}
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {/* Save without generating */}
+            <button onClick={handleSaveOnly} disabled={saving || !readyToGenerate || !tmplName.trim()} style={{ flex: count === 0 ? 2 : 1, padding: 14, borderRadius: 12, border: '2px solid #0F172A', background: '#fff', color: saving || !readyToGenerate || !tmplName.trim() ? '#9CA3AF' : '#0F172A', fontSize: 14, fontWeight: 700, cursor: saving || !readyToGenerate || !tmplName.trim() ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', borderColor: saving || !readyToGenerate || !tmplName.trim() ? '#E5E7EB' : '#0F172A' }}>
+              {saving ? 'Saving…' : savedName ? `✓ Saved` : '💾 Save question'}
+            </button>
+            {count > 0 && (
+              <button onClick={handleGenerate} disabled={loading || !readyToGenerate} style={{ flex: 2, padding: 14, borderRadius: 12, border: 'none', background: loading || !readyToGenerate ? '#E5E7EB' : subjectColor, color: loading || !readyToGenerate ? '#9CA3AF' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                {loading ? '⏳ Generating…' : `✨ Preview ${count} questions`}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
