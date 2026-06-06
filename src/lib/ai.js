@@ -1,6 +1,6 @@
 const CLAUDE_API_URL = '/api/claude';
 
-const callClaude = async (systemPrompt, userPrompt) => {
+export const callClaude = async (systemPrompt, userPrompt) => {
   const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -9,6 +9,25 @@ const callClaude = async (systemPrompt, userPrompt) => {
   const data = await response.json();
   return data.text;
 };
+
+
+// ── Chunk large question requests to avoid token limits ───────────────────────
+const CHUNK_SIZE = 12; // max questions per API call
+
+async function chunkGenerate(generateFn, yearLevel, totalCount, focus) {
+  if (totalCount <= CHUNK_SIZE) {
+    return generateFn(yearLevel, totalCount, focus);
+  }
+  const chunks = [];
+  let remaining = totalCount;
+  while (remaining > 0) {
+    const batchSize = Math.min(remaining, CHUNK_SIZE);
+    const batch = await generateFn(yearLevel, batchSize, focus);
+    chunks.push(...(Array.isArray(batch) ? batch : []));
+    remaining -= batchSize;
+  }
+  return chunks;
+}
 
 const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondary school';
 

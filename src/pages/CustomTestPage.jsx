@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions } from '../lib/ai';
-import { saveTestResult } from '../lib/progress';
+import { saveTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 
 // ── Question Bank ─────────────────────────────────────────────────────────────
@@ -118,6 +118,7 @@ const QUESTION_BANK = {
 
 const STORAGE_KEY = 'scholarprep_custom_tests';
 const loadSavedTests = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
+// saveTests writes to localStorage immediately; Supabase sync happens via syncCustomBuilderTests
 const saveTests = (t) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); } catch { } };
 const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -1093,11 +1094,11 @@ export default function CustomTestPage() {
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
     const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests); saveTests(updatedTests); setEditingTest(null); setActiveTest(cfg); setView('quiz');
+    setSavedTests(updatedTests); saveTests(updatedTests); syncCustomBuilderTests(updatedTests).catch(() => { }); setEditingTest(null); setActiveTest(cfg); setView('quiz');
   };
   const handleSaveOnly = (cfg) => {
     const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests2); saveTests(updatedTests2); setEditingTest(null); setView('list');
+    setSavedTests(updatedTests2); saveTests(updatedTests2); syncCustomBuilderTests(updatedTests2).catch(() => { }); setEditingTest(null); setView('list');
   };
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
@@ -1139,7 +1140,7 @@ export default function CustomTestPage() {
           setView('quiz');
         }}
         onEdit={(t) => { setEditingTest(t); setView('builder'); }}
-        onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); }}
+        onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); syncCustomBuilderTests(u).catch(() => { }); }}
         onDeleteTemplate={async (id) => {
           await deleteCustomTemplate(id);
           setCustomTemplates(prev => prev.filter(t => t.id !== id));

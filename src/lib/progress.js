@@ -659,6 +659,61 @@ export const clearProgress = () => {
   localStorage.removeItem(MIGRATED_KEY);
 };
 
+
+// ── Custom Builder Tests (synced to Supabase) ────────────────────────────────
+export const syncCustomBuilderTests = async (tests) => {
+  // Save the full array as a single JSON blob per user (simpler than per-row)
+  try {
+    const user = await getCurrentUser();
+    if (!user) return;
+    const { data: existing } = await supabase
+      .from('custom_tests')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    if (existing) {
+      await supabase.from('custom_tests').update({
+        tests: tests,
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing.id);
+    } else {
+      await supabase.from('custom_tests').insert({
+        user_id: user.id,
+        tests: tests,
+        updated_at: new Date().toISOString(),
+      });
+    }
+  } catch (e) {
+    console.error('syncCustomBuilderTests error:', e);
+  }
+};
+
+export const loadCustomBuilderTests = async () => {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      const { data } = await supabase
+        .from('custom_tests')
+        .select('tests')
+        .eq('user_id', user.id)
+        .single();
+      if (data?.tests && Array.isArray(data.tests)) {
+        // Merge with localStorage — Supabase wins
+        localStorage.setItem('scholarprep_custom_tests', JSON.stringify(data.tests));
+        return data.tests;
+      }
+    }
+  } catch (e) {
+    console.error('loadCustomBuilderTests error:', e);
+  }
+  // Fallback to localStorage
+  try {
+    return JSON.parse(localStorage.getItem('scholarprep_custom_tests') || '[]');
+  } catch {
+    return [];
+  }
+};
+
 // ── Custom Question Templates ─────────────────────────────────────────────────
 // Save a custom question template to Supabase (and localStorage as fallback)
 export const saveCustomTemplate = async (template) => {
