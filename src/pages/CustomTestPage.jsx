@@ -153,7 +153,7 @@ function PauseOverlay({ onResume }) {
   );
 }
 
-function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest }) {
+function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, customTemplates, onDeleteTemplate }) {
   const [selection, setSelection] = useState(editingTest?.selection || {});
   const [expandedSubjects, setExpandedSubjects] = useState({});
   const [expandedTopics, setExpandedTopics] = useState({});
@@ -168,7 +168,11 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest }) {
   const getTotalForSubject = (sk) => {
     if (sk === 'reading') return Object.keys(selection.reading || {}).length > 0 ? passages * questionsPerPassage : 0;
     const s = selection[sk] || {};
-    return Object.values(s).reduce((sum, t) => sum + Object.values(t).reduce((a, n) => a + n, 0), 0);
+    return Object.values(s).reduce((sum, t) => {
+      // t could be an object (topic → qtCounts) or a number (for _custom_ keys)
+      if (typeof t === 'number') return sum + t;
+      return sum + Object.values(t).reduce((a, n) => a + n, 0);
+    }, 0);
   };
   const totalQuestions = Object.keys(QUESTION_BANK).reduce((sum, sk) => sum + getTotalForSubject(sk), 0);
 
@@ -301,6 +305,56 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest }) {
         );
       })}
 
+      {/* Custom Question Creator templates — shown under their subject */}
+      {customTemplates && customTemplates.length > 0 && (() => {
+        // Group templates by subject
+        const bySubject = {};
+        customTemplates.forEach(tmpl => {
+          const subj = tmpl.subject || 'mathematics';
+          if (!bySubject[subj]) bySubject[subj] = [];
+          bySubject[subj].push(tmpl);
+        });
+        return Object.entries(bySubject).map(([sk, tmpls]) => {
+          const subj = QUESTION_BANK[sk] || { label: sk, icon: '✨', color: '#F97316', lightBg: '#FFF7ED' };
+          const customCount = tmpls.reduce((sum, t) => sum + (selection[sk]?.['_custom_' + t.id] || 0), 0);
+          return (
+            <div key={'custom_' + sk} style={{ background: '#fff', borderRadius: 16, marginBottom: 10, border: `1.5px solid ${customCount > 0 ? '#F97316' : 'rgba(249,115,22,0.2)'}`, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: customCount > 0 ? '#FFF7ED' : '#fff' }}>
+                <span style={{ fontSize: 20 }}>{subj.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{subj.label} — ✨ My Custom Questions</div>
+                  <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{tmpls.length} saved template{tmpls.length !== 1 ? 's' : ''}</div>
+                </div>
+                {customCount > 0 && <span style={{ fontSize: 12, color: '#F97316', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>({customCount}q selected)</span>}
+              </div>
+              <div>
+                {tmpls.map(tmpl => {
+                  const qtKey = '_custom_' + tmpl.id;
+                  const count = selection[sk]?.[qtKey] || 0;
+                  return (
+                    <div key={tmpl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px 10px 32px', borderTop: '1px solid #F8FAFC' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>{tmpl.name}</div>
+                        <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+                          {tmpl.questionType || 'Custom'}{tmpl.questions?.length ? ` · ${tmpl.questions.length} saved questions` : ''}
+                        </div>
+                        {tmpl.templateDescription && <div style={{ fontSize: 11, color: '#78716C', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginTop: 2 }}>{tmpl.templateDescription}</div>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][qtKey] = Math.max(0, (s[sk][qtKey] || 0) - 1); return s; })} style={smallBtnStyle}>-</button>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#F97316' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
+                        <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][qtKey] = (s[sk][qtKey] || 0) + 1; return s; })} style={smallBtnStyle}>+</button>
+                      </div>
+                      <button onClick={() => onDeleteTemplate(tmpl.id)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Delete</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        });
+      })()}
+
       {totalQuestions > 0 && (
         <>
           <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: 4, marginBottom: 10, border: '1px solid rgba(67,56,202,0.08)' }}>
@@ -370,34 +424,6 @@ function SavedTestsList({ tests, customTemplates, onStart, onStartTemplate, onEd
         </div>
       </div>
 
-      {/* Custom Question Creator Templates */}
-      {customTemplates && customTemplates.length > 0 && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#F97316', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 6 }}>
-            ✨ Custom Question Creator
-          </div>
-          {customTemplates.map(tmpl => (
-            <div key={tmpl.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', marginBottom: 8, border: '1.5px solid #FED7AA', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>✨</div>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>{tmpl.name}</div>
-                <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-                  {tmpl.questions?.length || 0} questions · {tmpl.subject || 'Custom'}{tmpl.questionType ? ` · ${tmpl.questionType}` : ''}
-                </div>
-                {tmpl.templateDescription && (
-                  <div style={{ fontSize: 11, color: '#78716C', fontFamily: 'Inter, sans-serif', marginTop: 3, fontStyle: 'italic', lineHeight: 1.4 }}>{tmpl.templateDescription}</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button onClick={() => onStartTemplate(tmpl)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#F97316', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>▶ Start</button>
-                <button onClick={() => onDeleteTemplate(tmpl.id)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Delete</button>
-              </div>
-            </div>
-          ))}
-          <div style={{ borderBottom: '1px solid #F1F5F9', margin: '16px 0' }} />
-        </div>
-      )}
-
       {tests.map(test => {
         const subjectKeys = Object.keys(test.selection || {});
         return (
@@ -423,7 +449,7 @@ function SavedTestsList({ tests, customTemplates, onStart, onStartTemplate, onEd
   );
 }
 
-function QuizScreen({ test, yearLevel, onFinish, onExit }) {
+function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   const [questions, setQuestions] = useState([]);
   const [passageGroups, setPassageGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -516,6 +542,16 @@ function QuizScreen({ test, yearLevel, onFinish, onExit }) {
         if (sk === 'mathematics') {
           setLoadingMsg('Generating maths questions');
           for (const [tk, qtSel] of Object.entries(topicSel)) {
+            // Custom template: tk = '_custom_<id>', qtSel = count (number)
+            if (tk.startsWith('_custom_') && typeof qtSel === 'number' && qtSel > 0) {
+              const tmplId = tk.replace('_custom_', '');
+              const tmpl = customTemplates?.find(t => t.id === tmplId);
+              if (tmpl?.questions?.length > 0) {
+                const shuffled = [...tmpl.questions].sort(() => Math.random() - 0.5);
+                allQs.push(...shuffled.slice(0, qtSel).map(q => ({ ...q, _subj: sk })));
+              }
+              continue;
+            }
             for (const [qtk, count] of Object.entries(qtSel)) {
               if (!count) continue;
               const tObj2 = QUESTION_BANK.mathematics.topics.find(t => t.key === tk);
@@ -1302,7 +1338,7 @@ export default function CustomTestPage() {
         />
       )}
 
-      {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
+      {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} customTemplates={customTemplates} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
       {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
     </div>
   );
