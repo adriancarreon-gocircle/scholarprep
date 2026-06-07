@@ -37,7 +37,7 @@ function AppRoutes() {
       <Route path="/subscribe" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
       <Route path="/pdf-generator" element={<PDFGeneratorPage />} />
       <Route path="/app" element={<ProtectedRoute><AppLayout><Home /></AppLayout></ProtectedRoute>} />
-      <Route path="/app/welcome" element={<ProtectedRoute><WelcomePage /></ProtectedRoute>} />
+      <Route path="/app/welcome" element={<ProtectedRoute><AppLayout><WelcomePage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/maths" element={<ProtectedRoute><AppLayout><TestPage subject="mathematics" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/reading" element={<ProtectedRoute><AppLayout><TestPage subject="reading" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/general" element={<ProtectedRoute><AppLayout><TestPage subject="general" /></AppLayout></ProtectedRoute>} />

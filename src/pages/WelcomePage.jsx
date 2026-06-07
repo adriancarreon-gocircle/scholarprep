@@ -383,42 +383,7 @@ export default function WelcomePage() {
       opacity: visible ? 1 : 0,
       transition: 'opacity 0.5s ease',
     }}>
-      {/* Top close bar */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(99,102,241,0.12)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 32px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'linear-gradient(135deg, #4338CA, #6366f1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ color: 'white', fontSize: 16 }}>🎓</span>
-          </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#1e1b4b', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            ScholarPrep
-          </span>
-        </div>
-        <button
-          onClick={handleDismiss}
-          style={{
-            background: '#6366f1', color: 'white', border: 'none',
-            borderRadius: 8, padding: '8px 18px',
-            fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.target.style.background = '#4338CA'}
-          onMouseLeave={e => e.target.style.background = '#6366f1'}
-        >
-          Go to Dashboard →
-        </button>
-      </div>
+      {/* Top bar removed — sidebar nav handles navigation */}
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '0 24px 80px' }}>
 
@@ -615,7 +580,7 @@ export default function WelcomePage() {
             fontSize: 22, fontWeight: 800, color: '#1e1b4b',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             marginBottom: 6,
-          }}>Everything in ScholarPrep</h2>
+          }}>How to Guide</h2>
           <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 0, fontFamily: "'Inter', sans-serif" }}>
             A guide to every feature and how to use it
           </p>

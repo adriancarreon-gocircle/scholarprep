@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { signOut } from '../lib/supabase';
 
 const navItems = [
+  { to: '/app/welcome', icon: '👋', label: 'Welcome' },
   { to: '/app', icon: '🏠', label: 'Home', end: true },
   { to: '/app/maths', icon: '🔢', label: 'Mathematics' },
   { to: '/app/reading', icon: '📖', label: 'Reading' },
