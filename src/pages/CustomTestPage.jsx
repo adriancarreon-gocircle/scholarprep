@@ -759,8 +759,9 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
           .filter(([, v]) => v.total >= 1)
           .map(([qt, v]) => ({ qt, pct: Math.round((v.correct / v.total) * 100), correct: v.correct, total: v.total }));
         if (allQT.length < 2) return null;
-        const worst = [...allQT].sort((a, b) => a.pct - b.pct).slice(0, 5);
-        const best = [...allQT].sort((a, b) => b.pct - a.pct).slice(0, 3);
+        const worst = [...allQT].filter(e => e.pct < 80).sort((a, b) => a.pct - b.pct).slice(0, 5);
+        const best = [...allQT].filter(e => e.pct >= 60).sort((a, b) => b.pct - a.pct).slice(0, 3);
+        if (worst.length === 0 && best.length === 0) return null;
         const getColor = (p) => p >= 80 ? '#059669' : p >= 60 ? '#A07010' : p >= 40 ? '#F97316' : '#EF4444';
         return (
           <div style={{ background: '#F8F9FF', borderRadius: 16, padding: '16px 20px', marginBottom: 20, border: '1px solid #EEF2FF' }}>
@@ -768,17 +769,19 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>⚠ Needs work</div>
-                {worst.map((e, i) => (
-                  <div key={i} style={{ marginBottom: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <div style={{ fontSize: 12, color: '#374151', fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, flex: 1 }}>{e.qt}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: getColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                {worst.length === 0
+                  ? <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Nothing — great job! 🎉</div>
+                  : worst.map((e, i) => (
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                        <div style={{ fontSize: 12, color: '#374151', fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, flex: 1 }}>{e.qt}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: getColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                      </div>
+                      <div style={{ height: 6, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${e.pct}%`, background: getColor(e.pct), borderRadius: 3, transition: 'width 0.5s ease' }} />
+                      </div>
                     </div>
-                    <div style={{ height: 6, background: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${e.pct}%`, background: getColor(e.pct), borderRadius: 3, transition: 'width 0.5s ease' }} />
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>✓ Strongest</div>
