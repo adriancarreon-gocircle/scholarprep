@@ -19,6 +19,7 @@ import SupportPage from './pages/SupportPage';
 import HandwritingFeedbackPage from './pages/HandwritingFeedbackPage';
 import HelpPage from './pages/HelpPage';
 import EnglishPage from './pages/EnglishPage';
+import WelcomePage from './pages/WelcomePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/subscribe" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
       <Route path="/pdf-generator" element={<PDFGeneratorPage />} />
       <Route path="/app" element={<ProtectedRoute><AppLayout><Home /></AppLayout></ProtectedRoute>} />
+      <Route path="/app/welcome" element={<ProtectedRoute><WelcomePage /></ProtectedRoute>} />
       <Route path="/app/maths" element={<ProtectedRoute><AppLayout><TestPage subject="mathematics" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/reading" element={<ProtectedRoute><AppLayout><TestPage subject="reading" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/general" element={<ProtectedRoute><AppLayout><TestPage subject="general" /></AppLayout></ProtectedRoute>} />

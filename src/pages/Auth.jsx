@@ -65,7 +65,7 @@ export function LoginPage() {
     if (demoMode) { setTimeout(() => navigate('/app'), 800); return; }
     const { error } = await signIn(email, password);
     if (error) { setError(error.message); setLoading(false); }
-    else navigate('/app');
+    else navigate('/app/welcome');
   };
 
   return (
