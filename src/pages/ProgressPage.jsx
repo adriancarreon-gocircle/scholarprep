@@ -719,10 +719,60 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
 
       {expanded && (
         <div>
-          {/* Score trend */}
+          {/* Score trend + QT breakdown side by side */}
           {sessions.length >= 1 && (
-            <div style={{ padding: '16px 24px 0' }}>
-              <ScoreTrendChart sessions={sessions} color={subject.color} />
+            <div style={{ padding: '16px 24px 0', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <ScoreTrendChart sessions={sessions} color={subject.color} />
+              </div>
+              {/* QT breakdown inline next to trend chart */}
+              {questionTypeScores && Object.keys(questionTypeScores).length > 0 && (() => {
+                const allQT = [];
+                Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
+                  const topicLabel = subject.topics.find(t => t.key === topicKey)?.label || topicKey;
+                  Object.entries(qtData).filter(([, v]) => v.total >= 2).forEach(([qtype, v]) => {
+                    allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
+                  });
+                });
+                if (allQT.length === 0) return null;
+                const worst = [...allQT].sort((a, b) => a.pct - b.pct).slice(0, 5);
+                const best = [...allQT].sort((a, b) => b.pct - a.pct).slice(0, 3);
+                return (
+                  <div style={{ flex: 1, minWidth: 0, background: '#F8F9FF', borderRadius: 12, padding: '12px 14px', border: '1px solid #EEF2FF' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#0D1B2A', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>📊 Question type breakdown</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work</div>
+                        {worst.map((e, i) => (
+                          <div key={i} style={{ marginBottom: 5 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                              <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                            </div>
+                            <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 2 }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest</div>
+                        {best.map((e, i) => (
+                          <div key={i} style={{ marginBottom: 5 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                              <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                            </div>
+                            <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${e.pct}%`, background: '#52B788', borderRadius: 2 }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
           {/* Writing with no submissions yet — show a prompt */}
@@ -779,54 +829,7 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.75 }}>{getAIAnalysis()}</div>
             </div>
 
-            {/* Question type breakdown — shown if data available */}
-            {questionTypeScores && Object.keys(questionTypeScores).length > 0 && (() => {
-              const allQT = [];
-              Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
-                const topicLabel = subject.topics.find(t => t.key === topicKey)?.label || topicKey;
-                Object.entries(qtData).filter(([, v]) => v.total >= 2).forEach(([qtype, v]) => {
-                  allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
-                });
-              });
-              if (allQT.length === 0) return null;
-              const worst = [...allQT].sort((a, b) => a.pct - b.pct).slice(0, 5);
-              const best = [...allQT].sort((a, b) => b.pct - a.pct).slice(0, 3);
-              return (
-                <div style={{ background: '#F8F9FF', borderRadius: 12, padding: '14px 16px', marginBottom: 18, border: '1px solid #EEF2FF' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0D1B2A', marginBottom: 10 }}>📊 Question type breakdown</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work</div>
-                      {worst.map((e, i) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                            <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif' }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct) }}>{e.pct}%</div>
-                          </div>
-                          <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 2 }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest</div>
-                      {best.map((e, i) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                            <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif' }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct) }}>{e.pct}%</div>
-                          </div>
-                          <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${e.pct}%`, background: '#52B788', borderRadius: 2 }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+
 
             {/* Test history */}
             {sessions.length > 0 && (
