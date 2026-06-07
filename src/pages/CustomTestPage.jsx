@@ -1207,27 +1207,33 @@ export default function CustomTestPage() {
   const { yearLevel, hasAccess } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState('list');
-  const [savedTests, setSavedTests] = useState(loadSavedTests);
+  const [savedTests, setSavedTests] = useState([]);
   const [editingTest, setEditingTest] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
   const [result, setResult] = useState(null);
   const [customTemplates, setCustomTemplates] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    loadCustomBuilderTests().then(tests => {
-      if (tests && tests.length > 0) setSavedTests(tests);
-    }).catch(() => { });
-    getCustomTemplates().then(setCustomTemplates).catch(() => { });
+    setDataLoading(true);
+    Promise.all([
+      loadCustomBuilderTests().catch(() => loadSavedTests()),
+      getCustomTemplates().catch(() => []),
+    ]).then(([tests, templates]) => {
+      setSavedTests(tests || []);
+      setCustomTemplates(templates || []);
+      setDataLoading(false);
+    });
   }, []);
 
   const handleStart = (cfg) => { setActiveTest(cfg); setView('quiz'); };
   const handleSaveAndStart = (cfg) => {
     const updatedTests = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests); saveTests(updatedTests); syncCustomBuilderTests(updatedTests).catch(() => { }); setEditingTest(null); setActiveTest(cfg); setView('quiz');
+    setSavedTests(updatedTests); syncCustomBuilderTests(updatedTests).catch(() => { }); setEditingTest(null); setActiveTest(cfg); setView('quiz');
   };
   const handleSaveOnly = (cfg) => {
     const updatedTests2 = editingTest ? savedTests.map(t => t.id === cfg.id ? cfg : t) : [...savedTests, cfg];
-    setSavedTests(updatedTests2); saveTests(updatedTests2); syncCustomBuilderTests(updatedTests2).catch(() => { }); setEditingTest(null); setView('list');
+    setSavedTests(updatedTests2); syncCustomBuilderTests(updatedTests2).catch(() => { }); setEditingTest(null); setView('list');
   };
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
@@ -1260,7 +1266,14 @@ export default function CustomTestPage() {
         </div>
       )}
 
-      {hasAccess && view === 'list' && <SavedTestsList
+      {hasAccess && view === 'list' && dataLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 32px', flexDirection: 'column', gap: 16 }}>
+          <div style={{ width: 36, height: 36, border: '3px solid #EEF2FF', borderTop: '3px solid #4338CA', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <div style={{ fontSize: 14, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>Loading your tests…</div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+      {hasAccess && view === 'list' && !dataLoading && <SavedTestsList
         tests={savedTests}
         customTemplates={customTemplates}
         onStart={handleStart}
@@ -1269,7 +1282,7 @@ export default function CustomTestPage() {
           setView('quiz');
         }}
         onEdit={(t) => { setEditingTest(t); setView('builder'); }}
-        onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); saveTests(u); syncCustomBuilderTests(u).catch(() => { }); }}
+        onDelete={(id) => { const u = savedTests.filter(t => t.id !== id); setSavedTests(u); syncCustomBuilderTests(u).catch(() => { }); }}
         onDeleteTemplate={async (id) => {
           await deleteCustomTemplate(id);
           setCustomTemplates(prev => prev.filter(t => t.id !== id));
