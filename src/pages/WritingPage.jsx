@@ -328,7 +328,18 @@ export default function WritingPage() {
   const handleGetPrompt = async () => {
     setLoading(true); setError('');
     try {
-      const p = await generateWritingPrompt(type, yearLevel, selectedTheme || null);
+      // Build a theme string that tells the AI what kind of prompt to generate
+      let themeForAI = selectedTheme || null;
+      if (type === 'values') {
+        themeForAI = selectedTheme
+          ? `Values & Character — write about ${selectedTheme}`
+          : 'Values & Character — choose a value like courage, resilience, kindness, confidence, helping others, or perseverance';
+      } else if (type === 'picture') {
+        themeForAI = selectedTheme
+          ? `Picture Prompt — generate a vivid, detailed scene description (3-4 sentences) for a ${selectedTheme} setting that a student can write a story about. The scene should describe what is visible — people, place, atmosphere, action — as if describing a photograph or illustration. Do NOT include a writing instruction in the prompt itself.`
+          : 'Picture Prompt — generate a vivid, detailed scene description (3-4 sentences) of an interesting fictional or real-world scene that a student can write a story about. Describe what is visible — people, setting, atmosphere, any action — as if describing a photograph or illustration. Vary between indoor and outdoor, real and fantastical.';
+      }
+      const p = await generateWritingPrompt(type, yearLevel, themeForAI);
       setPrompt(p); setPhase('writing'); setResponse('');
     } catch (e) {
       setError('Failed to generate prompt. Please try again.');
@@ -403,7 +414,7 @@ export default function WritingPage() {
         <div style={{ width: 40, height: 40, borderRadius: 12, background: '#FFF1F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✏️</div>
         <div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, color: '#0F172A', letterSpacing: -0.3 }}>Writing Practice</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Assessed · Year {yearLevel} · Narrative & Persuasive</div>
+          <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Assessed · Year {yearLevel} · Narrative · Persuasive · Values · Picture Prompt</div>
         </div>
       </div>
 
@@ -457,13 +468,15 @@ export default function WritingPage() {
 
             <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Writing type</div>
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                   { k: 'narrative', l: 'Narrative', icon: '📖', desc: 'Write a story using your imagination' },
-                  { k: 'persuasive', l: 'Persuasive', icon: '🗣️', desc: 'Argue a point of view convincingly' }
+                  { k: 'persuasive', l: 'Persuasive', icon: '🗣️', desc: 'Argue a point of view convincingly' },
+                  { k: 'values', l: 'Values & Character', icon: '🌟', desc: 'Write about courage, resilience, kindness and more' },
+                  { k: 'picture', l: 'Picture Prompt', icon: '🖼️', desc: 'Write a story inspired by a vivid scene or image' },
                 ].map(t => (
-                  <button key={t.k} onClick={() => setType(t.k)} style={{
-                    flex: 1, padding: 20, borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+                  <button key={t.k} onClick={() => { setType(t.k); setSelectedTheme(''); setShowThemePicker(false); }} style={{
+                    padding: 20, borderRadius: 14, cursor: 'pointer', textAlign: 'left',
                     background: type === t.k ? '#4338CA' : '#F8F9FF',
                     border: type === t.k ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
                     transition: 'all 0.15s',
@@ -477,36 +490,115 @@ export default function WritingPage() {
               </div>
             </div>
 
-            {/* Writing theme picker */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? 'rgba(67,56,202,0.3)' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showThemePicker ? 14 : 0 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Choose a theme</div>
-                  {selectedTheme
-                    ? <div style={{ fontSize: 12, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>
-                    : <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or let it pick a random theme</div>}
+            {/* Writing theme picker — only for narrative/persuasive */}
+            {(type === 'narrative' || type === 'persuasive') && (
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? 'rgba(67,56,202,0.3)' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showThemePicker ? 14 : 0 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Choose a theme</div>
+                    {selectedTheme
+                      ? <div style={{ fontSize: 12, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>
+                      : <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or let it pick a random theme</div>}
+                  </div>
+                  <button onClick={() => setShowThemePicker(p => !p)} style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showThemePicker ? '#EEF2FF' : '#F8F9FF', color: showThemePicker ? '#4338CA' : '#64748B', border: `1.5px solid ${showThemePicker ? '#4338CA' : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                    {showThemePicker ? '▲ Hide' : '▼ Choose'}
+                  </button>
                 </div>
-                <button onClick={() => setShowThemePicker(p => !p)} style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showThemePicker ? '#EEF2FF' : '#F8F9FF', color: showThemePicker ? '#4338CA' : '#64748B', border: `1.5px solid ${showThemePicker ? '#4338CA' : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                  {showThemePicker ? '▲ Hide' : '▼ Choose'}
-                </button>
+                {showThemePicker && (
+                  <div>
+                    {selectedTheme && <button onClick={() => setSelectedTheme('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>✕ Clear theme</button>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {['Environment', 'Science', 'Technology', 'Community & Social', 'History & Adventure', 'Sport & Competition', 'Friendship & Belonging', 'Animals & Nature', 'Mystery & Imagination', 'Travel & Discovery'].map(theme => (
+                        <button key={theme} onClick={() => { setSelectedTheme(theme === selectedTheme ? '' : theme); }} style={{
+                          padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          background: selectedTheme === theme ? '#EEF2FF' : '#F8F9FF',
+                          color: selectedTheme === theme ? '#4338CA' : '#64748B',
+                          border: `1.5px solid ${selectedTheme === theme ? '#4338CA' : 'rgba(67,56,202,0.1)'}`,
+                          fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                        }}>{theme}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              {showThemePicker && (
-                <div>
-                  {selectedTheme && <button onClick={() => setSelectedTheme('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>✕ Clear theme</button>}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {['Environment', 'Science', 'Technology', 'Community & Social', 'History & Adventure', 'Sport & Competition', 'Friendship & Belonging', 'Animals & Nature', 'Mystery & Imagination', 'Travel & Discovery'].map(theme => (
-                      <button key={theme} onClick={() => { setSelectedTheme(theme === selectedTheme ? '' : theme); }} style={{
-                        padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                        background: selectedTheme === theme ? '#EEF2FF' : '#F8F9FF',
-                        color: selectedTheme === theme ? '#4338CA' : '#64748B',
-                        border: `1.5px solid ${selectedTheme === theme ? '#4338CA' : 'rgba(67,56,202,0.1)'}`,
-                        fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
-                      }}>{theme}</button>
-                    ))}
+            )}
+
+            {/* Values & Character theme picker */}
+            {type === 'values' && (
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? '#F97316' : 'rgba(249,115,22,0.15)'}`, boxShadow: '0 2px 8px rgba(249,115,22,0.06)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Choose a value or character trait</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {[
+                    { label: '💪 Courage', value: 'courage' },
+                    { label: '🌱 Resilience', value: 'resilience' },
+                    { label: '✨ Confidence', value: 'confidence' },
+                    { label: '🤝 Helping Others', value: 'helping others' },
+                    { label: '💝 Sharing & Generosity', value: 'sharing and generosity' },
+                    { label: '🫂 Kindness', value: 'kindness' },
+                    { label: '🏅 Perseverance', value: 'perseverance' },
+                    { label: '🌍 Empathy', value: 'empathy' },
+                    { label: '🤗 Belonging & Inclusion', value: 'belonging and inclusion' },
+                    { label: '🦁 Bravery', value: 'bravery' },
+                    { label: '⭐ Leadership', value: 'leadership' },
+                    { label: '🎯 Responsibility', value: 'responsibility' },
+                  ].map(({ label, value }) => (
+                    <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
+                      padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      background: selectedTheme === value ? '#FFF7ED' : '#F8F9FF',
+                      color: selectedTheme === value ? '#F97316' : '#64748B',
+                      border: `1.5px solid ${selectedTheme === value ? '#F97316' : 'rgba(67,56,202,0.1)'}`,
+                      fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 10, fontFamily: 'Inter, sans-serif' }}>
+                  Optional — or leave blank for a random value prompt
+                </div>
+              </div>
+            )}
+
+            {/* Picture Prompt info */}
+            {type === 'picture' && (
+              <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFF1F2)', borderRadius: 16, padding: 24, marginBottom: 16, border: '1.5px solid rgba(249,115,22,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div style={{ fontSize: 32 }}>🖼️</div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>How Picture Prompt works</div>
+                    <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>A vivid scene will be described for you — like a real exam picture prompt</div>
                   </div>
                 </div>
-              )}
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    '🎨 A scene is described in rich detail — fictional or real-world',
+                    '✍️ You write a story or response based on what you imagine from the scene',
+                    '📊 Your writing is assessed on the same 5 criteria as other tasks',
+                  ].map((item, i) => (
+                    <div key={i} style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{item}</div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {[
+                    { label: '🌅 Fictional scene', value: 'fictional' },
+                    { label: '📸 Real-world scene', value: 'real-world' },
+                    { label: '🧙 Fantasy & Adventure', value: 'fantasy' },
+                    { label: '🏙️ City life', value: 'city life' },
+                    { label: '🌿 Nature & Outdoors', value: 'nature' },
+                    { label: '🚀 Sci-fi / Future', value: 'sci-fi' },
+                  ].map(({ label, value }) => (
+                    <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
+                      padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: selectedTheme === value ? '#FFF7ED' : '#fff',
+                      color: selectedTheme === value ? '#F97316' : '#64748B',
+                      border: `1.5px solid ${selectedTheme === value ? '#F97316' : '#E5E7EB'}`,
+                      fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>
+                  Optional — or leave blank for a surprise scene
+                </div>
+              </div>
+            )}
 
             <div style={{ background: '#EEF2FF', borderRadius: 14, padding: 18, marginBottom: 24, border: '1px solid rgba(67,56,202,0.1)' }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#4338CA', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 How it works</div>
@@ -532,26 +624,60 @@ export default function WritingPage() {
         {/* ── WRITING ── */}
         {hasAccess && phase === 'writing' && prompt && (
           <div>
-            {/* Prompt card */}
-            <div style={{ background: '#3730A3', borderRadius: 16, padding: 24, marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <span style={{ background: type === 'narrative' ? '#F97316' : '#7C3AED', color: '#fff', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Inter, sans-serif' }}>{type}</span>
-                  <span style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.65)', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>Year {yearLevel}</span>
-                </div>
-                {timerOn && (
-                  <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : '#4338CA', padding: '5px 12px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
-                    ⏱ {formatTime(timeLeft)}
+            {/* Prompt card — styled differently per writing type */}
+            {(() => {
+              const typeConfig = {
+                narrative: { bg: '#3730A3', badge: '#F97316', label: '📖 Narrative' },
+                persuasive: { bg: '#1e1b4b', badge: '#7C3AED', label: '🗣️ Persuasive' },
+                values: { bg: 'linear-gradient(135deg, #92400E, #C2410C)', badge: '#F97316', label: '🌟 Values & Character' },
+                picture: { bg: 'linear-gradient(135deg, #065F46, #0369A1)', badge: '#0EA5E9', label: '🖼️ Picture Prompt' },
+              };
+              const cfg = typeConfig[type] || typeConfig.narrative;
+              return (
+                <div style={{ background: cfg.bg, borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ background: cfg.badge, color: '#fff', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{cfg.label}</span>
+                      <span style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.65)', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>Year {yearLevel}</span>
+                    </div>
+                    {timerOn && (
+                      <div style={{ background: timeLeft < 300 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 300 ? '#BE123C' : '#4338CA', padding: '5px 12px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
+                        ⏱ {formatTime(timeLeft)}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>{prompt.prompt}</div>
-              {!timerOn && (
-                <button onClick={startTimer} style={{ marginTop: 14, background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', border: 'none', padding: '6px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                  ⏱ Start 25-minute timer
-                </button>
-              )}
-            </div>
+
+                  {/* Picture prompt: show scene description in a distinct visual frame */}
+                  {type === 'picture' ? (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>🖼️ The Scene</div>
+                      <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '16px 18px', marginBottom: 12, border: '1px solid rgba(255,255,255,0.15)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 500, color: '#fff', lineHeight: 1.8, fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>{prompt.prompt}</div>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                        ✍️ Write a story inspired by this scene. Use the details you can imagine — the people, the place, the mood — to create your narrative.
+                      </div>
+                    </div>
+                  ) : type === 'values' ? (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Your writing prompt</div>
+                      <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', marginBottom: 10 }}>{prompt.prompt}</div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+                        💡 Write a story or personal reflection that explores this theme. Use characters, events and feelings to bring it to life.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>{prompt.prompt}</div>
+                  )}
+
+                  {!timerOn && (
+                    <button onClick={startTimer} style={{ marginTop: 14, background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', border: 'none', padding: '6px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                      ⏱ Start 25-minute timer
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Criteria + ideal answer button row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
