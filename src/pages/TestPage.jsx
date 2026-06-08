@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions } from '../lib/ai';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateFreshVariant } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 
@@ -437,15 +437,10 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
     setRefreshingIdx(current);
     try {
       const q = localQuestions[current];
-      // Build a focus string matching the question's topic/type so the replacement is similar
-      const focus = q.topic
-        ? `1 question on "${q.topic}"${q.questionType ? ` — ${q.questionType}` : ''}`
-        : null;
-      const generated = await cfg.generate(yearLevel, 1, focus);
-      const newQ = Array.isArray(generated) ? generated[0] : generated?.questions?.[0];
+      // Pass the full original question so AI keeps the same format, only changes values
+      const newQ = await generateFreshVariant(q, subject, yearLevel);
       if (newQ) {
-        setLocalQuestions(prev => prev.map((old, i) => i === current ? { ...newQ, topic: q.topic, questionType: q.questionType } : old));
-        // Clear any selection/reveal for this question
+        setLocalQuestions(prev => prev.map((old, i) => i === current ? { ...newQ, _subj: q._subj, topic: q.topic || newQ.topic, questionType: q.questionType || newQ.questionType } : old));
         setSelected(s => { const n = { ...s }; delete n[current]; return n; });
         setRevealed(r => { const n = { ...r }; delete n[current]; return n; });
       }

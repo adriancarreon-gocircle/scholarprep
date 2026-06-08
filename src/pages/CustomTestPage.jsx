@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions } from '../lib/ai';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
 import { saveTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 
@@ -711,17 +711,11 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
     try {
       const q = (localQuestions.length > 0 ? localQuestions : questions)[current];
       const qSubjForRefresh = q?._subj || test.subject || 'mathematics';
-      const focus = q?.topic
-        ? `1 question on "${q.topic}"${q.questionType ? ` — ${q.questionType}` : ''}`
-        : null;
-      let generated = null;
-      if (qSubjForRefresh === 'mathematics') generated = await generateMathsQuestions(yearLevel, 1, focus);
-      else if (qSubjForRefresh === 'english') generated = await generateEnglishQuestions(yearLevel, 1, focus);
-      else if (qSubjForRefresh === 'general') generated = await generateGeneralAbilityQuestions(yearLevel, 1, focus);
-      else if (qSubjForRefresh === 'reading') generated = null; // reading passages can't single-refresh
-      const newQ = Array.isArray(generated) ? generated[0] : generated?.questions?.[0];
+      if (qSubjForRefresh === 'reading') { setRefreshingIdx(null); return; } // reading passages can't single-refresh
+      // Pass the full original question — AI keeps format, only changes values
+      const newQ = await generateFreshVariant(q, qSubjForRefresh, yearLevel);
       if (newQ) {
-        const replacement = { ...newQ, _subj: qSubjForRefresh, topic: q?.topic, questionType: q?.questionType };
+        const replacement = { ...newQ, _subj: qSubjForRefresh, topic: q?.topic || newQ.topic, questionType: q?.questionType || newQ.questionType };
         setLocalQuestions(prev => {
           const updated = prev.length > 0 ? [...prev] : [...questions];
           updated[current] = replacement;

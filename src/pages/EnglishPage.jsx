@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { generateEnglishQuestions } from '../lib/ai';
+import { generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
 
 const CFG = {
@@ -342,13 +342,9 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
     setRefreshingIdx(current);
     try {
       const q = localQuestions[current];
-      const focus = q.topic
-        ? `1 question on ${q.topic}${q.questionType ? ` — ${q.questionType}` : ''}`
-        : null;
-      const generated = await generateEnglishQuestions(yearLevel, 1, focus);
-      const newQ = Array.isArray(generated) ? generated[0] : null;
+      const newQ = await generateFreshVariant(q, 'english', yearLevel);
       if (newQ) {
-        setLocalQuestions(prev => prev.map((old, i) => i === current ? { ...newQ, topic: q.topic, questionType: q.questionType } : old));
+        setLocalQuestions(prev => prev.map((old, i) => i === current ? { ...newQ, topic: q.topic || newQ.topic, questionType: q.questionType || newQ.questionType } : old));
         setSelected(s => { const n = { ...s }; delete n[current]; return n; });
         setRevealed(r => { const n = { ...r }; delete n[current]; return n; });
       }

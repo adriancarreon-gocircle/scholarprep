@@ -1044,3 +1044,50 @@ export const generatePDFQuestions = async (subject, count, yearLevel) => {
   if (subject === 'english') return await generateEnglishQuestions(yearLevel, count);
   return [];
 };
+// ── Generate a fresh variant of an existing question ──────────────────────────
+// Keeps the exact question format/structure but changes numbers/values/words.
+// Used by the "Get a fresh question" button in quiz screens.
+export const generateFreshVariant = async (originalQuestion, subject, yearLevel) => {
+  const subjectLabel = {
+    mathematics: 'mathematics',
+    english: 'English language',
+    general: 'general ability / verbal and numerical reasoning',
+    reading: 'reading comprehension',
+  }[subject] || subject;
+
+  const system = `You are an Australian Year ${yearLevel} ${subjectLabel} exam question writer. You generate fresh variants of existing questions. Always respond with ONLY valid JSON, no other text.`;
+
+  const qA = originalQuestion.options?.A || '';
+  const qB = originalQuestion.options?.B || '';
+  const qC = originalQuestion.options?.C || '';
+  const qD = originalQuestion.options?.D || '';
+  const qTopic = originalQuestion.topic || subject;
+  const qType = originalQuestion.questionType || '';
+  const qCorrect = originalQuestion.correct || 'A';
+
+  const user = `I have an existing exam question. Generate ONE fresh variant that keeps EXACTLY the same question format and sentence structure, but changes the specific values (numbers, names, objects, words).
+
+ORIGINAL QUESTION: "${originalQuestion.question}"
+Options — A: ${qA} | B: ${qB} | C: ${qC} | D: ${qD}
+Correct: ${qCorrect} | Topic: ${qTopic} | Type: ${qType}
+
+STRICT RULES:
+1. Keep the IDENTICAL sentence structure and story format — only swap values
+2. For maths: change ALL numbers to different values. Keep the same operations and narrative.
+   Example: "320 markers and 180 rulers, remove 25 items for 5 days" → "400 markers and 200 rulers, remove 30 items for 4 days"
+3. For English: change the example sentence/word but test the SAME grammar rule
+4. For general ability: change pattern values/analogy words/sequence numbers — same reasoning structure
+5. Do NOT use any of the same numbers or key words from the original
+6. All 4 options must be plausible, only one correct
+7. The correct answer letter (A/B/C/D) should vary — do not always use the same letter as original
+
+Return ONLY this JSON with no other text:
+{"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"B","explanation":"brief explanation","topic":"${qTopic}","questionType":"${qType}","visual":null}`;
+
+  const raw = await callClaude(system, user);
+  const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('Invalid response from AI');
+  return JSON.parse(clean.slice(start, end + 1));
+};
