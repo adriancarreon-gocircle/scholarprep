@@ -332,8 +332,8 @@ export default function WritingPage() {
       let themeForAI = selectedTheme || null;
       if (type === 'values') {
         themeForAI = selectedTheme
-          ? `Values & Character — write about ${selectedTheme}`
-          : 'Values & Character — choose a value like courage, resilience, kindness, confidence, helping others, or perseverance';
+          ? `Values & Character narrative story starter — generate a compelling first-person or third-person scenario/story starter that explores the theme of "${selectedTheme}". Examples of the style to aim for: "You wake up and realise everyone in your town has disappeared.", "You find a wallet full of money on the street.", "The one time I regretted not telling the truth.", "Suddenly the lights went out and...", "You find a door that leads to the year 3025." — create a fresh, original scenario in this style that will lead the student to explore ${selectedTheme} through their story. The prompt should be 1-2 sentences maximum, open-ended, and not explicitly mention the value by name.`
+          : 'Values & Character narrative story starter — generate a compelling, open-ended story starter or scenario (1-2 sentences) in the style of exam creative writing prompts. Examples: "You wake up and realise everyone in your town has disappeared.", "You find a wallet full of money on the street.", "You and your best friend are both chosen for a solo performance.", "Suddenly the lights went out and...", "You find a door that leads to the year 3025.", "The one time I regretted not telling the truth." — create a fresh, original scenario that naturally leads a student to explore themes of courage, resilience, honesty, kindness, or responsibility through their story. Do NOT state the value explicitly.';
       } else if (type === 'picture') {
         themeForAI = selectedTheme
           ? `Picture Prompt — generate a vivid, detailed scene description (3-4 sentences) for a ${selectedTheme} setting that a student can write a story about. The scene should describe what is visible — people, place, atmosphere, action — as if describing a photograph or illustration. Do NOT include a writing instruction in the prompt itself.`
@@ -472,7 +472,7 @@ export default function WritingPage() {
                 {[
                   { k: 'narrative', l: 'Narrative', icon: '📖', desc: 'Write a story using your imagination' },
                   { k: 'persuasive', l: 'Persuasive', icon: '🗣️', desc: 'Argue a point of view convincingly' },
-                  { k: 'values', l: 'Values & Character', icon: '🌟', desc: 'Write about courage, resilience, kindness and more' },
+                  { k: 'values', l: 'Values & Character', icon: '🌟', desc: 'Story starters and scenarios that explore values through narrative' },
                   { k: 'picture', l: 'Picture Prompt', icon: '🖼️', desc: 'Write a story inspired by a vivid scene or image' },
                 ].map(t => (
                   <button key={t.k} onClick={() => { setType(t.k); setSelectedTheme(''); setShowThemePicker(false); }} style={{
@@ -526,21 +526,22 @@ export default function WritingPage() {
             {/* Values & Character theme picker */}
             {type === 'values' && (
               <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? '#F97316' : 'rgba(249,115,22,0.15)'}`, boxShadow: '0 2px 8px rgba(249,115,22,0.06)' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Choose a value or character trait</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>Choose a theme or scenario focus</div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>A narrative story starter will be generated around this theme — optional, or leave blank for a surprise</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {[
-                    { label: '💪 Courage', value: 'courage' },
-                    { label: '🌱 Resilience', value: 'resilience' },
-                    { label: '✨ Confidence', value: 'confidence' },
+                    { label: '💪 Courage & Bravery', value: 'courage and bravery' },
+                    { label: '🌱 Resilience & Perseverance', value: 'resilience and perseverance' },
+                    { label: '✨ Confidence & Self-belief', value: 'confidence and self-belief' },
                     { label: '🤝 Helping Others', value: 'helping others' },
                     { label: '💝 Sharing & Generosity', value: 'sharing and generosity' },
-                    { label: '🫂 Kindness', value: 'kindness' },
-                    { label: '🏅 Perseverance', value: 'perseverance' },
-                    { label: '🌍 Empathy', value: 'empathy' },
+                    { label: '🫂 Kindness & Empathy', value: 'kindness and empathy' },
+                    { label: '🏅 Honesty & Integrity', value: 'honesty and integrity' },
                     { label: '🤗 Belonging & Inclusion', value: 'belonging and inclusion' },
-                    { label: '🦁 Bravery', value: 'bravery' },
-                    { label: '⭐ Leadership', value: 'leadership' },
-                    { label: '🎯 Responsibility', value: 'responsibility' },
+                    { label: '⭐ Leadership & Responsibility', value: 'leadership and responsibility' },
+                    { label: '🌍 Making a Difference', value: 'making a difference' },
+                    { label: '🔮 Mystery & Discovery', value: 'mystery and discovery' },
+                    { label: '⏰ Unexpected Situations', value: 'unexpected situations' },
                   ].map(({ label, value }) => (
                     <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
                       padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -550,9 +551,6 @@ export default function WritingPage() {
                       fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
                     }}>{label}</button>
                   ))}
-                </div>
-                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 10, fontFamily: 'Inter, sans-serif' }}>
-                  Optional — or leave blank for a random value prompt
                 </div>
               </div>
             )}
@@ -663,7 +661,7 @@ export default function WritingPage() {
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Your writing prompt</div>
                       <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', marginBottom: 10 }}>{prompt.prompt}</div>
                       <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
-                        💡 Write a story or personal reflection that explores this theme. Use characters, events and feelings to bring it to life.
+                        💡 Continue the story from this scenario. Use characters, events, dialogue and feelings to explore what happens next — and what it reveals about the people involved.
                       </div>
                     </div>
                   ) : (
