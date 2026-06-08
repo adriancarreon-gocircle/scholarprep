@@ -652,8 +652,8 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
       : vsNat >= 0 ? `At or just above the national average. `
         : `Currently ${Math.abs(vsNat)}% below the national average. `;
 
-    const strong = subject.topics.filter((_, i) => (topicScores[i] || 0) >= 70).map(t => t.label);
-    const weak = subject.topics.filter((_, i) => (topicScores[i] || 0) > 0 && (topicScores[i] || 0) < 55).map(t => t.label);
+    const strong = subject.topics.filter(t => (topicScores[t.key] || 0) >= 70).map(t => t.label);
+    const weak = subject.topics.filter(t => (topicScores[t.key] || 0) > 0 && (topicScores[t.key] || 0) < 55).map(t => t.label);
     if (strong.length > 0) text += `Strong ${isWriting ? 'criteria' : 'topics'}: ${strong.join(', ')}. `;
     if (weak.length > 0) {
       text += `Needs work: ${weak.join(', ')}. `;
@@ -823,35 +823,51 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Feedback</div>
           </div>
 
-          {subject.topics.map((topic, i) => {
-            // Try exact key, then normalised match for topic trend data
-            const trendKey = topic.key;
-            const normKey = trendKey.toLowerCase().replace(/\s+/g, '');
-            const trendPoints = topicTrends?.[trendKey]
-              || topicTrends?.[normKey]
-              || Object.entries(topicTrends || {}).find(([k]) =>
-                k.toLowerCase().replace(/\s+/g, '') === normKey
-              )?.[1]
-              || [];
-            // Same normalised lookup for questionTypeScores
-            const qtScores = questionTypeScores?.[trendKey]
-              || questionTypeScores?.[normKey]
-              || Object.entries(questionTypeScores || {}).find(([k]) =>
-                k.toLowerCase().replace(/\s+/g, '') === normKey
-              )?.[1]
-              || undefined;
-            return (
-              <TopicRow
-                key={topic.key}
-                topic={topic}
-                score={topicScores[i] || 0}
-                color={subject.color}
-                trendPoints={trendPoints}
-                questionTypeScores={qtScores !== undefined ? { [topic.key]: qtScores } : questionTypeScores}
-                hideQT={subject.key === 'writing'}
-              />
-            );
-          })}
+          {(() => {
+            // Build unified topic list driven by Supabase data + config topics
+            // Step 1: collect all keys that have actual data in Supabase
+            const dataKeys = new Set([
+              ...Object.keys(topicScores || {}),
+              ...Object.keys(topicTrends || {}),
+              ...Object.keys(questionTypeScores || {}),
+            ]);
+            // Step 2: also include config topics so user sees what they haven't tested yet
+            subject.topics.forEach(t => dataKeys.add(t.key));
+            // Step 3: build merged topic objects
+            const mergedTopics = [...dataKeys].map(key => {
+              const cfgTopic = subject.topics.find(t => t.key === key);
+              return {
+                key,
+                label: cfgTopic?.label || key.charAt(0).toUpperCase() + key.slice(1),
+                nationalAvg: cfgTopic?.nationalAvg || subject.nationalAvg,
+              };
+            }).sort((a, b) => {
+              // Config topics first (in config order), then extra Supabase-only topics
+              const ai = subject.topics.findIndex(t => t.key === a.key);
+              const bi = subject.topics.findIndex(t => t.key === b.key);
+              if (ai >= 0 && bi >= 0) return ai - bi;
+              if (ai >= 0) return -1;
+              if (bi >= 0) return 1;
+              return a.label.localeCompare(b.label);
+            });
+
+            return mergedTopics.map((topic) => {
+              const score = topicScores?.[topic.key] || 0;
+              const trendPoints = topicTrends?.[topic.key] || [];
+              const qtScores = questionTypeScores?.[topic.key];
+              return (
+                <TopicRow
+                  key={topic.key}
+                  topic={topic}
+                  score={score}
+                  color={subject.color}
+                  trendPoints={trendPoints}
+                  questionTypeScores={qtScores !== undefined ? { [topic.key]: qtScores } : {}}
+                  hideQT={subject.key === 'writing'}
+                />
+              );
+            });
+          })()}
 
           <div style={{ padding: '18px 24px' }}>
             {/* Analysis */}
@@ -980,20 +996,6 @@ export default function ProgressPage() {
     return recent.filter(s => s.subject === key).reduce((sum, s) => sum + (s.total || 0), 0);
   };
 
-  const getTopicScores = (subjectKey, avg) => {
-    const realScores = allTopicScores[subjectKey];
-    const subject = subjects.find(s => s.key === subjectKey);
-    if (!subject) return [];
-    return subject.topics.map(topic => {
-      if (realScores && realScores[topic.key] !== undefined) return realScores[topic.key];
-      if (avg === null) return 0;
-      const seed = subjectKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-      const i = subject.topics.indexOf(topic);
-      const variance = ((seed * (i + 1) * 7) % 30) - 15;
-      return Math.min(100, Math.max(5, Math.round(avg + variance)));
-    });
-  };
-
   const scrollToSubject = (key) => {
     const el = document.getElementById(`subject-${key}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1063,7 +1065,8 @@ export default function ProgressPage() {
               if (!isWriting && !hasData) return null;
               // Create a minimal stats object if missing (writing with no submissions yet)
               const effectiveStats = stats || { attempts: 0, totalQuestions: 0 };
-              const topicScores = getTopicScores(s.key, avg);
+              // Pass raw Supabase-keyed scores directly - SubjectCard now uses key lookup
+              const topicScores = allTopicScores[s.key] || {};
               const sessions = getSubjectSessions(s.key);
               const topicTrends = allTopicTrends[s.key] || {};
               const questionTypeScores = allQTypeScores[s.key] || {};
