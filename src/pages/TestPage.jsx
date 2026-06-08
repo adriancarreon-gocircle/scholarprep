@@ -654,7 +654,7 @@ export default function TestPage({ subject }) {
             return `${n} questions on "${label}"`;
           })
           .join(', ');
-        const combinedFocus = `Generate exactly ${totalFromTopics} questions total. STRICT BREAKDOWN — you MUST follow this exactly: ${topicBreakdown}. Generate ONLY these topics in these exact quantities. Do NOT substitute or add other topics.`;
+        const combinedFocus = `Generate exactly ${totalFromTopics} questions total. STRICT BREAKDOWN — you MUST follow this exactly: ${topicBreakdown}. Generate ONLY these topics in these exact quantities. Do NOT substitute, mix in, or add any other topics not listed here. Each question must clearly belong to the specified topic.`;
         const qs = await cfg.generate(yearLevel, totalFromTopics, combinedFocus);
         const allQs = Array.isArray(qs) ? qs : [];
         setQuestions(allQs);

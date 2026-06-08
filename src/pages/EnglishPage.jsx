@@ -531,19 +531,11 @@ export default function EnglishPage() {
     setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); setError('');
   }, [location.key]);
 
-  const handleStart = async (count, timer, mode, topicCounts) => {
+  const handleStart = async (count, timer, mode, focusObj) => {
     setPhase('loading'); setError(''); setTimerSecs(timer); setReviewMode(mode);
     try {
-      let focus = null;
-      if (topicCounts && Object.keys(topicCounts).length > 0) {
-        const parts = Object.entries(topicCounts)
-          .filter(([, n]) => n > 0)
-          .map(([key, n]) => {
-            const label = ENGLISH_TOPICS.find(t => t.key === key)?.label || key;
-            return `${n} question${n > 1 ? 's' : ''} on ${label}`;
-          });
-        focus = parts.join(', ');
-      }
+      // SetupScreen passes { _focus: "detailed focus string" } or null
+      const focus = focusObj?._focus || null;
       const qs = await generateEnglishQuestions(yearLevel, count, focus);
       setQuestions(qs);
       setPhase('quiz');

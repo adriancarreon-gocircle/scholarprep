@@ -730,44 +730,50 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
                 const allQT = [];
                 Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
                   const topicLabel = subject.topics.find(t => t.key === topicKey)?.label || topicKey;
-                  Object.entries(qtData).filter(([, v]) => v.total >= 2).forEach(([qtype, v]) => {
+                  Object.entries(qtData).filter(([, v]) => v.total >= 1).forEach(([qtype, v]) => {
                     allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
                   });
                 });
                 if (allQT.length === 0) return null;
-                const worst = [...allQT].sort((a, b) => a.pct - b.pct).slice(0, 5);
-                const best = [...allQT].sort((a, b) => b.pct - a.pct).slice(0, 3);
+                const worst = [...allQT].filter(e => e.pct < 70).sort((a, b) => a.pct - b.pct).slice(0, 5);
+                const ok = [...allQT].filter(e => e.pct >= 70 && e.pct <= 89).sort((a, b) => a.pct - b.pct).slice(0, 3);
+                const best = [...allQT].filter(e => e.pct >= 90).sort((a, b) => b.pct - a.pct).slice(0, 3);
+                const hasAnyData = worst.length > 0 || ok.length > 0 || best.length > 0;
+                if (!hasAnyData) return null;
+                const qtBarItem = (e, barColor) => (
+                  <div key={e.qtype + e.topicLabel} style={{ marginBottom: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                    </div>
+                    <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${e.pct}%`, background: barColor, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                );
                 return (
                   <div style={{ flex: 1, minWidth: 0, background: '#F8F9FF', borderRadius: 12, padding: '12px 14px', border: '1px solid #EEF2FF' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#0D1B2A', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>📊 Question type breakdown</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: worst.length > 0 || ok.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work</div>
-                        {worst.map((e, i) => (
-                          <div key={i} style={{ marginBottom: 5 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                              <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
-                            </div>
-                            <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${e.pct}%`, background: getGradeColor(e.pct), borderRadius: 2 }} />
-                            </div>
-                          </div>
-                        ))}
+                        {worst.length > 0 && <>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work (&lt;70%)</div>
+                          {worst.map(e => qtBarItem(e, getGradeColor(e.pct)))}
+                        </>}
+                        {ok.length > 0 && <>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#A07010', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginTop: worst.length > 0 ? 8 : 0 }}>📈 Ok, needs improvement (70–89%)</div>
+                          {ok.map(e => qtBarItem(e, '#A07010'))}
+                        </>}
+                        {worst.length === 0 && ok.length === 0 && (
+                          <div style={{ fontSize: 11, color: '#2D6A4F', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>All question types performing well! 🎉</div>
+                        )}
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest</div>
-                        {best.map((e, i) => (
-                          <div key={i} style={{ marginBottom: 5 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                              <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
-                            </div>
-                            <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${e.pct}%`, background: '#52B788', borderRadius: 2 }} />
-                            </div>
-                          </div>
-                        ))}
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest (≥90%)</div>
+                        {best.length > 0
+                          ? best.map(e => qtBarItem(e, '#52B788'))
+                          : <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Keep practising to build 90%+ types</div>
+                        }
                       </div>
                     </div>
                   </div>
