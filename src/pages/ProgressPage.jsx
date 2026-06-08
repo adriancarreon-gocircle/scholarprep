@@ -21,6 +21,7 @@ const subjects = [
       { label: 'Algebra', key: 'algebra', nationalAvg: 58 },
       { label: 'Statistics & Averages', key: 'statistics', nationalAvg: 60 },
       { label: 'Word Problems', key: 'wordproblems', nationalAvg: 63 },
+      { label: 'Order of Operations', key: 'orderofoperations', nationalAvg: 58 },
     ]
   },
   {

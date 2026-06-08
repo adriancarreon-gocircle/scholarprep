@@ -186,6 +186,14 @@ Algebra:
 ${yearLevel >= 9 ? `- Quadratic equations (e.g. "Solve x² - 5x + 6 = 0")
 - Simultaneous equations (e.g. "Solve: 2x + y = 10 and x - y = 2")` : ''}
 
+Order of Operations (BODMAS/BIDMAS):
+- Mixed calculations with 3–4 numbers using +, −, ×, ÷ and brackets
+- Rule: Brackets first → Division & Multiplication (left to right) → Addition & Subtraction (left to right)
+- Basic mixed: "4 + 2 × 3 − 5 = ?", "8 ÷ 2 + 5 × 2 = ?", "20 − 3 × 4 + 6 = ?"
+- With brackets: "123 − (34 + 32) = ?", "(5 + 3) × 4 − 6 = ?", "50 ÷ (2 + 3) × 4 = ?"
+- Nested: "(12 − 4) × (3 + 2) = ?", "3 × (4 + 2) − (8 ÷ 2) = ?"
+- ALWAYS include 3–4 distinct numbers. NEVER just two numbers with one operator.
+
 Geometry & Angles:
 - Angles in parallel lines (co-interior, alternate, corresponding)
 - Angles in polygons (e.g. "What is the sum of interior angles of a pentagon?")
@@ -307,6 +315,7 @@ TOPIC TAGS — assign exactly one to each question:
 - "geometry" — shapes, 2D, 3D, symmetry, angles
 - "measurement" — length, area, perimeter, volume, time, money
 - "algebra" — algebra, expressions, equations
+- "orderofoperations" — order of operations, BODMAS, BIDMAS, brackets, mixed calculations with multiple operators
 - "statistics" — averages, mean, median, mode, data
 - "wordproblems" — multi-step worded problems
 

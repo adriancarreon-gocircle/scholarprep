@@ -82,6 +82,7 @@ const TOPIC_PICKER = {
     { key: 'charts', label: 'Charts & Data' },
     { key: 'algebra', label: 'Algebra' },
     { key: 'geometry', label: 'Shapes (2D & 3D)' },
+    { key: 'orderofoperations', label: 'Order of Operations' },
   ],
   general: [
     { key: 'sequences', label: 'Number Patterns' },
