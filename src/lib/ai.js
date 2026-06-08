@@ -743,6 +743,71 @@ const WRITING_THEMES = [
 ];
 
 export const generateWritingPrompt = async (type, yearLevel, themeOverride) => {
+  const system = `You are an Australian ${schoolLevel(yearLevel)} writing exam designer for scholarship and selective entry tests. Always respond with ONLY valid JSON, no other text.`;
+
+  // ── Values & Character: narrative story starters and scenarios ──
+  if (type === 'values') {
+    const valueTheme = themeOverride || null;
+    const themeInstruction = valueTheme
+      ? `The scenario must naturally lead a student to explore the theme of: ${valueTheme}. Do NOT name the value directly in the prompt.`
+      : `The scenario must naturally lead a student to explore one of these values through their story: courage, resilience, honesty, kindness, empathy, generosity, or responsibility. Do NOT name the value directly in the prompt.`;
+
+    const user = `Generate a short, compelling narrative story starter or scenario for a Year ${yearLevel} student writing exam.
+
+${themeInstruction}
+
+STYLE RULES — the prompt must:
+- Be 1–2 sentences maximum
+- Be written as a scenario, story starter, or open-ended situation — NOT a persuasive question or essay topic
+- Use second person ("You...") or a dramatic opening ("Suddenly...", "The day...", "It was the moment...")
+- Leave the student to continue the story — do NOT resolve the situation or tell them what to write
+- Be age-appropriate and imaginative for Year ${yearLevel}
+
+GOOD EXAMPLES of the style to match:
+- "You wake up and realise everyone in your town has disappeared."
+- "You find a wallet full of money lying on the footpath."
+- "You and your best friend are both chosen for the same solo performance — but there is only one spot."
+- "Suddenly the lights went out and something moved in the darkness."
+- "You discover a door at the back of the library that leads to the year 3025."
+- "The one time I regretted not telling the truth was..."
+- "The note slipped under your door read: 'I need your help.'"
+
+Return ONLY this JSON: {"prompt":"the story starter or scenario","type":"narrative","time":25,"criteria":["Ideas and content","Structure and organisation","Language and vocabulary","Sentence structure","Punctuation and spelling"]}`;
+    const raw = await callClaude(system, user);
+    const parsed = JSON.parse(raw);
+    parsed.type = 'narrative'; // always assess as narrative
+    return parsed;
+  }
+
+  // ── Picture Prompt: vivid scene description ──
+  if (type === 'picture') {
+    const sceneTheme = themeOverride || null;
+    const sceneInstruction = sceneTheme
+      ? `The scene must be set in a ${sceneTheme} context.`
+      : `The scene can be fictional, real-world, fantastical, historical, or futuristic — vary widely.`;
+
+    const user = `Generate a vivid picture prompt for a Year ${yearLevel} student writing exam.
+
+${sceneInstruction}
+
+RULES:
+- Describe a scene in 2–4 sentences, as if describing a photograph or illustration
+- Include specific visual details: people (appearance, expression, posture), setting (time of day, weather, location), atmosphere (mood, colour, light), and any action or tension visible
+- Do NOT include a writing instruction — only describe the scene itself
+- The scene should be interesting and rich enough to inspire a narrative story
+- Be original — avoid clichés like generic sunsets or beaches
+
+EXAMPLE of the style:
+"A young girl stands alone at the edge of a crumbling stone bridge, clutching a glass jar that glows faintly blue. Below, a dark river swirls between ancient trees whose roots have broken through the riverbank. On the far side, a crowd of people watch in silence, their faces lit only by the strange light in the jar."
+
+Return ONLY this JSON: {"prompt":"the scene description","type":"narrative","time":25,"criteria":["Ideas and content","Structure and organisation","Language and vocabulary","Sentence structure","Punctuation and spelling"]}`;
+    const raw = await callClaude(system, user);
+    const parsed = JSON.parse(raw);
+    parsed.type = 'narrative'; // always assess as narrative
+    return parsed;
+  }
+
+  // ── Narrative and Persuasive: original theme-based prompts ──
   const themeObj = themeOverride
     ? WRITING_THEMES.find(t => t.theme === themeOverride) || WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)]
     : WRITING_THEMES[Math.floor(Math.random() * WRITING_THEMES.length)];
@@ -750,7 +815,6 @@ export const generateWritingPrompt = async (type, yearLevel, themeOverride) => {
     ? `The prompt must be about: ${themeObj.narrative}`
     : `The prompt must be about: ${themeObj.persuasive}`;
 
-  const system = `You are an Australian ${schoolLevel(yearLevel)} writing exam designer for scholarship and selective entry tests. Always respond with ONLY valid JSON, no other text.`;
   const user = `Generate a ${type} writing prompt for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
 
 THEME: ${themeObj.theme}

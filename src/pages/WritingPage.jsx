@@ -328,18 +328,8 @@ export default function WritingPage() {
   const handleGetPrompt = async () => {
     setLoading(true); setError('');
     try {
-      // Build a theme string that tells the AI what kind of prompt to generate
-      let themeForAI = selectedTheme || null;
-      if (type === 'values') {
-        themeForAI = selectedTheme
-          ? `Values & Character narrative story starter — generate a compelling first-person or third-person scenario/story starter that explores the theme of "${selectedTheme}". Examples of the style to aim for: "You wake up and realise everyone in your town has disappeared.", "You find a wallet full of money on the street.", "The one time I regretted not telling the truth.", "Suddenly the lights went out and...", "You find a door that leads to the year 3025." — create a fresh, original scenario in this style that will lead the student to explore ${selectedTheme} through their story. The prompt should be 1-2 sentences maximum, open-ended, and not explicitly mention the value by name.`
-          : 'Values & Character narrative story starter — generate a compelling, open-ended story starter or scenario (1-2 sentences) in the style of exam creative writing prompts. Examples: "You wake up and realise everyone in your town has disappeared.", "You find a wallet full of money on the street.", "You and your best friend are both chosen for a solo performance.", "Suddenly the lights went out and...", "You find a door that leads to the year 3025.", "The one time I regretted not telling the truth." — create a fresh, original scenario that naturally leads a student to explore themes of courage, resilience, honesty, kindness, or responsibility through their story. Do NOT state the value explicitly.';
-      } else if (type === 'picture') {
-        themeForAI = selectedTheme
-          ? `Picture Prompt — generate a vivid, detailed scene description (3-4 sentences) for a ${selectedTheme} setting that a student can write a story about. The scene should describe what is visible — people, place, atmosphere, action — as if describing a photograph or illustration. Do NOT include a writing instruction in the prompt itself.`
-          : 'Picture Prompt — generate a vivid, detailed scene description (3-4 sentences) of an interesting fictional or real-world scene that a student can write a story about. Describe what is visible — people, setting, atmosphere, any action — as if describing a photograph or illustration. Vary between indoor and outdoor, real and fantastical.';
-      }
-      const p = await generateWritingPrompt(type, yearLevel, themeForAI);
+      // Pass type and theme directly — ai.js handles all 4 types with appropriate prompts
+      const p = await generateWritingPrompt(type, yearLevel, selectedTheme || null);
       setPrompt(p); setPhase('writing'); setResponse('');
     } catch (e) {
       setError('Failed to generate prompt. Please try again.');
