@@ -335,131 +335,138 @@ function TopicLineChart({ topicKey, trendPoints, color }) {
     return () => ro.disconnect();
   }, []);
 
-  if (!trendPoints || trendPoints.length === 0) {
-    return (
-      <div ref={containerRef} style={{ width: '100%', fontSize: 10, color: '#CBD5E1', textAlign: 'center', padding: '12px 0', fontFamily: 'Inter, sans-serif' }}>
-        No data yet
-      </div>
-    );
-  }
-
-  const sorted = [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
-
-  if (sorted.length === 1) {
-    return (
-      <div ref={containerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 0', gap: 2 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: getGradeColor(sorted[0].score) }}>{sorted[0].score}%</div>
-        <div style={{ fontSize: 9, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-          {new Date(sorted[0].date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-        </div>
-      </div>
-    );
-  }
-
-  // Chart layout constants
-  const PAD_L = 24;   // y-axis labels
-  const PAD_R = 16;   // right margin (last label)
-  const PAD_T = 16;   // top (score label above first/last dot)
-  const PAD_B = 20;   // bottom (date labels)
-  const PLOT_H = 70;  // height of the plot area
+  // Chart layout constants — always defined so axes render even with 0/1 data points
+  const PAD_L = 24;
+  const PAD_R = 16;
+  const PAD_T = 16;
+  const PAD_B = 20;
+  const PLOT_H = 70;
   const W = containerW;
   const plotW = W - PAD_L - PAD_R;
   const SVG_H = PAD_T + PLOT_H + PAD_B;
-
   const toY = (v) => PAD_T + PLOT_H - (v / 100) * PLOT_H;
-  const toX = (i) => PAD_L + (sorted.length === 1 ? plotW / 2 : (i / (sorted.length - 1)) * plotW);
 
+  const noData = !trendPoints || trendPoints.length === 0;
+  const sorted = noData ? [] : [...trendPoints].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
+  const oneDot = sorted.length === 1;
+  const hasLine = sorted.length >= 2;
+
+  const toX = (i) => PAD_L + (sorted.length <= 1 ? plotW / 2 : (i / (sorted.length - 1)) * plotW);
   const pts = sorted.map((p, i) => ({ x: toX(i), y: toY(p.score), score: p.score, date: p.date }));
-  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-  const areaD = `${lineD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} Z`;
+  const lineD = hasLine ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') : '';
+  const areaD = hasLine ? `${lineD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PAD_T + PLOT_H).toFixed(1)} Z` : '';
+  const trend = hasLine ? sorted[sorted.length - 1].score - sorted[0].score : null;
 
-  const trend = sorted[sorted.length - 1].score - sorted[0].score;
-
-  // Decide which points show a % label (avoid overlapping)
-  // Show label if gap from previous labeled point is big enough
+  // Only compute label sets when we have data
   const minLabelGap = 28;
   const labeledPts = [];
-  pts.forEach((p, i) => {
-    const isFirst = i === 0;
-    const isLast = i === pts.length - 1;
-    const prev = labeledPts[labeledPts.length - 1];
-    const farEnough = !prev || (p.x - prev.x) >= minLabelGap;
-    if (isFirst || isLast || farEnough) labeledPts.push({ ...p, i });
-  });
-
-  // X-axis date labels: show for first, last, and every ~80px
-  const dateLabeledIdx = new Set([0, pts.length - 1]);
-  pts.forEach((p, i) => {
-    if (i === 0 || i === pts.length - 1) return;
-    const prev = [...dateLabeledIdx].filter(j => j < i).pop();
-    if (prev !== undefined && (p.x - pts[prev].x) >= 70) dateLabeledIdx.add(i);
-  });
-
+  if (hasLine) {
+    pts.forEach((p, i) => {
+      const isFirst = i === 0;
+      const isLast = i === pts.length - 1;
+      const prev = labeledPts[labeledPts.length - 1];
+      const farEnough = !prev || (p.x - prev.x) >= minLabelGap;
+      if (isFirst || isLast || farEnough) labeledPts.push({ ...p, i });
+    });
+  }
+  const dateLabeledIdx = new Set(hasLine ? [0, pts.length - 1] : []);
+  if (hasLine) {
+    pts.forEach((p, i) => {
+      if (i === 0 || i === pts.length - 1) return;
+      const prev = [...dateLabeledIdx].filter(j => j < i).pop();
+      if (prev !== undefined && (p.x - pts[prev].x) >= 70) dateLabeledIdx.add(i);
+    });
+  }
   const fmtDate = (d) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  const midX = PAD_L + plotW / 2;
 
   return (
     <div ref={containerRef} style={{ width: '100%' }}>
       <svg width={W} height={SVG_H} style={{ display: 'block', overflow: 'visible' }}>
-        {/* Y-axis lines at 0, 50, 100 */}
+        {/* Y-axis grid lines and labels — always shown */}
         {[0, 50, 100].map(v => (
           <g key={v}>
             <line x1={PAD_L} x2={PAD_L + plotW} y1={toY(v)} y2={toY(v)}
-              stroke={v === 0 ? '#D1D5DB' : '#E5E7EB'} strokeWidth={v === 0 ? 1 : 1}
+              stroke={v === 0 ? '#D1D5DB' : '#E5E7EB'} strokeWidth={1}
               strokeDasharray={v === 0 ? 'none' : '3,4'} />
             <text x={PAD_L - 3} y={toY(v) + 3.5} textAnchor="end"
               fontSize={8} fill="#9AA5B0" fontFamily="Inter, sans-serif">{v}</text>
           </g>
         ))}
 
-        {/* Area fill */}
-        <path d={areaD} fill={`${color}18`} />
+        {/* No data message centred on chart */}
+        {noData && (
+          <text x={midX} y={toY(50)} textAnchor="middle" dominantBaseline="middle"
+            fontSize={9} fill="#CBD5E1" fontFamily="Inter, sans-serif">
+            Complete a test to see your trend
+          </text>
+        )}
 
-        {/* Line */}
-        <path d={lineD} fill="none" stroke={color} strokeWidth={2}
-          strokeLinejoin="round" strokeLinecap="round" />
-
-        {/* All dots */}
-        {pts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y}
-            r={i === pts.length - 1 ? 4 : 3}
-            fill={color} stroke="#fff" strokeWidth={1.5} />
-        ))}
-
-        {/* % labels above dots — spaced so they don't overlap */}
-        {labeledPts.map((p) => {
-          // Position label above or below depending on whether there's room above
-          const above = p.y - PAD_T > 14;
-          const labelY = above ? p.y - 7 : p.y + 14;
-          const anchor = p.x < PAD_L + 20 ? 'start' : p.x > W - PAD_R - 20 ? 'end' : 'middle';
-          return (
-            <text key={p.i} x={p.x} y={labelY} textAnchor={anchor}
-              fontSize={9} fontWeight="700"
-              fill={getGradeColor(p.score)} fontFamily="Inter, sans-serif">
-              {p.score}%
+        {/* 1 data point — dot + score + date label + "do another test" hint */}
+        {oneDot && pts[0] && (
+          <g>
+            <circle cx={pts[0].x} cy={pts[0].y} r={5} fill={color} stroke="#fff" strokeWidth={2} />
+            <text x={pts[0].x} y={pts[0].y - 9} textAnchor="middle"
+              fontSize={9} fontWeight="700" fill={getGradeColor(pts[0].score)} fontFamily="Inter, sans-serif">
+              {pts[0].score}%
             </text>
-          );
-        })}
-
-        {/* X-axis date labels */}
-        {[...dateLabeledIdx].map(i => {
-          const p = pts[i];
-          const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
-          return (
-            <text key={i} x={p.x} y={PAD_T + PLOT_H + 13} textAnchor={anchor}
+            <text x={pts[0].x} y={PAD_T + PLOT_H + 13} textAnchor="middle"
               fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
-              {fmtDate(sorted[i].date)}
+              {fmtDate(sorted[0].date)}
             </text>
-          );
-        })}
+            <text x={midX} y={toY(20)} textAnchor="middle"
+              fontSize={8} fill="#CBD5E1" fontFamily="Inter, sans-serif">
+              Do 1 more test to see trend line
+            </text>
+          </g>
+        )}
+
+        {/* Full line chart — only when 2+ data points */}
+        {hasLine && (
+          <g>
+            <path d={areaD} fill={`${color}18`} />
+            <path d={lineD} fill="none" stroke={color} strokeWidth={2}
+              strokeLinejoin="round" strokeLinecap="round" />
+            {pts.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y}
+                r={i === pts.length - 1 ? 4 : 3}
+                fill={color} stroke="#fff" strokeWidth={1.5} />
+            ))}
+            {labeledPts.map((p) => {
+              const above = p.y - PAD_T > 14;
+              const labelY = above ? p.y - 7 : p.y + 14;
+              const anchor = p.x < PAD_L + 20 ? 'start' : p.x > W - PAD_R - 20 ? 'end' : 'middle';
+              return (
+                <text key={p.i} x={p.x} y={labelY} textAnchor={anchor}
+                  fontSize={9} fontWeight="700"
+                  fill={getGradeColor(p.score)} fontFamily="Inter, sans-serif">
+                  {p.score}%
+                </text>
+              );
+            })}
+            {[...dateLabeledIdx].map(i => {
+              const p = pts[i];
+              const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
+              return (
+                <text key={i} x={p.x} y={PAD_T + PLOT_H + 13} textAnchor={anchor}
+                  fontSize={8} fill="#94A3B8" fontFamily="Inter, sans-serif">
+                  {fmtDate(sorted[i].date)}
+                </text>
+              );
+            })}
+          </g>
+        )}
       </svg>
 
-      {/* Trend tag */}
-      <div style={{
-        fontSize: 9, fontWeight: 700, marginTop: 1, fontFamily: 'Inter, sans-serif',
-        color: trend > 0 ? '#2D6A4F' : trend < 0 ? '#B04030' : '#94A3B8'
-      }}>
-        {trend > 0 ? `↑ +${trend}% since first test` : trend < 0 ? `↓ ${trend}% since first test` : '→ No change'}
-      </div>
+      {/* Trend tag — only when line exists */}
+      {hasLine && trend !== null && (
+        <div style={{
+          fontSize: 9, fontWeight: 700, marginTop: 1, fontFamily: 'Inter, sans-serif',
+          color: trend > 0 ? '#2D6A4F' : trend < 0 ? '#B04030' : '#94A3B8'
+        }}>
+          {trend > 0 ? `↑ +${trend}% since first test` : trend < 0 ? `↓ ${trend}% since first test` : '→ No change'}
+        </div>
+      )}
     </div>
   );
 }
@@ -723,71 +730,105 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
 
       {expanded && (
         <div>
-          {/* Score trend + QT breakdown side by side */}
+          {/* Score trend chart — only when sessions exist */}
           {sessions.length >= 1 && (
-            <div style={{ padding: '16px 24px 0', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-              <div style={{ flex: '0 0 auto' }}>
-                <ScoreTrendChart sessions={sessions} color={subject.color} />
-              </div>
-              {/* QT breakdown inline next to trend chart */}
-              {questionTypeScores && Object.keys(questionTypeScores).length > 0 && (() => {
-                const allQT = [];
-                Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
-                  const normTopicKey = topicKey.trim().toLowerCase().replace(/\s+/g, '');
-                  const topicLabel = subject.topics.find(t =>
-                    t.key === topicKey || t.key === normTopicKey
-                  )?.label || topicKey;
-                  Object.entries(qtData).filter(([, v]) => v.total >= 1).forEach(([qtype, v]) => {
-                    allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
-                  });
-                });
-                if (allQT.length === 0) return null;
-                const worst = [...allQT].filter(e => e.pct < 70).sort((a, b) => a.pct - b.pct).slice(0, 5);
-                const ok = [...allQT].filter(e => e.pct >= 70 && e.pct <= 89).sort((a, b) => a.pct - b.pct).slice(0, 3);
-                const best = [...allQT].filter(e => e.pct >= 90).sort((a, b) => b.pct - a.pct).slice(0, 3);
-                const hasAnyData = worst.length > 0 || ok.length > 0 || best.length > 0;
-                if (!hasAnyData) return null;
-                const qtBarItem = (e, barColor) => (
-                  <div key={e.qtype + e.topicLabel} style={{ marginBottom: 5 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>{e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span></div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
-                    </div>
-                    <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${e.pct}%`, background: barColor, borderRadius: 2 }} />
-                    </div>
-                  </div>
-                );
-                return (
-                  <div style={{ flex: 1, minWidth: 0, background: '#F8F9FF', borderRadius: 12, padding: '12px 14px', border: '1px solid #EEF2FF' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#0D1B2A', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>📊 Question type breakdown</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: worst.length > 0 || ok.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
-                      <div>
-                        {worst.length > 0 && <>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work (&lt;70%)</div>
-                          {worst.map(e => qtBarItem(e, getGradeColor(e.pct)))}
-                        </>}
-                        {ok.length > 0 && <>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: '#A07010', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginTop: worst.length > 0 ? 8 : 0 }}>📈 Ok, needs improvement (70–89%)</div>
-                          {ok.map(e => qtBarItem(e, '#A07010'))}
-                        </>}
-                        {worst.length === 0 && ok.length === 0 && (
-                          <div style={{ fontSize: 11, color: '#2D6A4F', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>All question types performing well! 🎉</div>
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest (≥90%)</div>
-                        {best.length > 0
-                          ? best.map(e => qtBarItem(e, '#52B788'))
-                          : <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Keep practising to build 90%+ types</div>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+            <div style={{ padding: '16px 24px 0' }}>
+              <ScoreTrendChart sessions={sessions} color={subject.color} />
             </div>
           )}
+
+          {/* QT breakdown — always shown, empty bars (0%) when no data yet */}
+          {(() => {
+            const hasRealData = questionTypeScores && Object.keys(questionTypeScores).length > 0;
+            const allQT = [];
+            if (hasRealData) {
+              Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
+                const normTopicKey = topicKey.trim().toLowerCase().replace(/\s+/g, '');
+                const topicLabel = subject.topics.find(t =>
+                  t.key === topicKey || t.key === normTopicKey
+                )?.label || topicKey;
+                Object.entries(qtData).filter(([, v]) => v.total >= 1).forEach(([qtype, v]) => {
+                  allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
+                });
+              });
+            }
+
+            const worst = allQT.filter(e => e.pct < 70).sort((a, b) => a.pct - b.pct).slice(0, 5);
+            const ok = allQT.filter(e => e.pct >= 70 && e.pct <= 89).sort((a, b) => a.pct - b.pct).slice(0, 3);
+            const best = allQT.filter(e => e.pct >= 90).sort((a, b) => b.pct - a.pct).slice(0, 3);
+
+            // Empty placeholder bars shown when no data yet
+            const emptyBar = (label) => (
+              <div key={label} style={{ marginBottom: 5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, color: '#CBD5E1', fontFamily: 'Inter, sans-serif' }}>{label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1' }}>0%</div>
+                </div>
+                <div style={{ height: 5, background: '#F1F5F9', borderRadius: 2 }} />
+              </div>
+            );
+
+            const qtBarItem = (e, barColor) => (
+              <div key={e.qtype + e.topicLabel} style={{ marginBottom: 5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, color: '#374151', fontFamily: 'Inter, sans-serif', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 6 }}>
+                    {e.qtype}<span style={{ fontSize: 9, color: '#9AA5B0' }}> · {e.topicLabel}</span>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: getGradeColor(e.pct), flexShrink: 0 }}>{e.pct}%</div>
+                </div>
+                <div style={{ height: 5, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${e.pct}%`, background: barColor, borderRadius: 2 }} />
+                </div>
+              </div>
+            );
+
+            return (
+              <div style={{ padding: '16px 24px 0' }}>
+                <div style={{ background: '#F8F9FF', borderRadius: 12, padding: '12px 14px', border: '1px solid #EEF2FF' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#0D1B2A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>📊 Question type breakdown</div>
+                    {!hasRealData && (
+                      <div style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>
+                        Complete a test to see results
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                    {/* Needs work column */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#B04030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>⚠ Needs work (&lt;70%)</div>
+                      {!hasRealData
+                        ? [emptyBar('—'), emptyBar('—'), emptyBar('—')]
+                        : worst.length > 0
+                          ? worst.map(e => qtBarItem(e, getGradeColor(e.pct)))
+                          : <div style={{ fontSize: 11, color: '#2D6A4F', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Nothing here 🎉</div>
+                      }
+                    </div>
+                    {/* Ok / needs improvement column */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#A07010', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>📈 Ok (70–89%)</div>
+                      {!hasRealData
+                        ? [emptyBar('—'), emptyBar('—'), emptyBar('—')]
+                        : ok.length > 0
+                          ? ok.map(e => qtBarItem(e, '#A07010'))
+                          : <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>None yet</div>
+                      }
+                    </div>
+                    {/* Strongest column */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>✓ Strongest (≥90%)</div>
+                      {!hasRealData
+                        ? [emptyBar('—'), emptyBar('—'), emptyBar('—')]
+                        : best.length > 0
+                          ? best.map(e => qtBarItem(e, '#52B788'))
+                          : <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>Keep practising to build 90%+ types</div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {/* Writing with no submissions yet — show a prompt */}
           {subject.key === 'writing' && sessions.length === 0 && (
             <div style={{ padding: '24px 24px 0' }}>
