@@ -42,17 +42,23 @@ const saveLocalProgress = (progress) => {
 
 // ── Topic score helpers ───────────────────────────────────────────────────────
 
+// Normalise topic key: lowercase, trim, collapse spaces — so AI-generated topics
+// match the progress config keys regardless of casing/spacing differences
+const normaliseTopicKey = (topic) => {
+  if (!topic) return null;
+  return topic.trim().toLowerCase().replace(/\s+/g, '');
+};
+
 // Extract per-topic correct/total from a questions array
 const extractTopicScores = (questions, selected) => {
   const topicMap = {};
   questions.forEach((q, i) => {
-    const topic = q.topic;
+    const topic = normaliseTopicKey(q.topic);
     if (!topic) return;
     if (!topicMap[topic]) topicMap[topic] = { correct: 0, total: 0 };
     topicMap[topic].total += 1;
     if (selected && selected[i] === q.correct) topicMap[topic].correct += 1;
     else if (!selected) {
-      // If no selected map (simulated exam finish), count all as attempted
       topicMap[topic].correct += 0;
     }
   });
@@ -74,7 +80,7 @@ const normaliseQType = (qtype, topic) => {
 const extractQuestionTypeScores = (questions, selected) => {
   const qtMap = {};
   questions.forEach((q, i) => {
-    const topic = q.topic;
+    const topic = normaliseTopicKey(q.topic);
     const rawQtype = q.questionType;
     if (!topic || !rawQtype) return;
     const qtype = normaliseQType(rawQtype, topic);
@@ -431,8 +437,10 @@ export const getTopicScoreHistory = async (subject) => {
     if (error || !data) return {};
     const result = {};
     data.forEach(row => {
-      if (!result[row.topic_key]) result[row.topic_key] = [];
-      result[row.topic_key].push({
+      // Normalise topic key on read to match config keys
+      const topicKey = row.topic_key ? row.topic_key.trim().toLowerCase().replace(/\s+/g, '') : row.topic_key;
+      if (!result[topicKey]) result[topicKey] = [];
+      result[topicKey].push({
         date: row.session_date,
         score: row.score_pct,
         correct: row.correct,
@@ -458,20 +466,21 @@ export const getQuestionTypeScoresForSubject = async (subject) => {
       .eq('subject', subject);
     if (error || !data) return {};
     const result = {};
-    // Merge rows with similar question type names (normalise on read too)
+    // Normalise both topic_key and question_type on read
     data.forEach(row => {
-      if (!result[row.topic_key]) result[row.topic_key] = {};
-      const normQtype = normaliseQType(row.question_type, row.topic_key);
+      // Normalise topic key: lowercase, no spaces — matches normaliseTopicKey() used on save
+      const topicKey = row.topic_key ? row.topic_key.trim().toLowerCase().replace(/\s+/g, '') : row.topic_key;
+      if (!result[topicKey]) result[topicKey] = {};
+      const normQtype = normaliseQType(row.question_type, topicKey);
       const key = normQtype || row.question_type;
-      if (result[row.topic_key][key]) {
-        // Merge duplicate normalised entries
-        result[row.topic_key][key].correct += row.correct;
-        result[row.topic_key][key].total += row.total;
-        result[row.topic_key][key].pct = result[row.topic_key][key].total > 0
-          ? Math.round((result[row.topic_key][key].correct / result[row.topic_key][key].total) * 100)
+      if (result[topicKey][key]) {
+        result[topicKey][key].correct += row.correct;
+        result[topicKey][key].total += row.total;
+        result[topicKey][key].pct = result[topicKey][key].total > 0
+          ? Math.round((result[topicKey][key].correct / result[topicKey][key].total) * 100)
           : 0;
       } else {
-        result[row.topic_key][key] = {
+        result[topicKey][key] = {
           correct: row.correct,
           total: row.total,
           pct: row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0,
@@ -500,8 +509,9 @@ export const getTopicScoresForSubject = async (subject) => {
 
     const result = {};
     data.forEach(row => {
+      const topicKey = row.topic_key ? row.topic_key.trim().toLowerCase().replace(/\s+/g, '') : row.topic_key;
       if (row.total > 0) {
-        result[row.topic_key] = Math.round((row.correct / row.total) * 100);
+        result[topicKey] = Math.round((row.correct / row.total) * 100);
       }
     });
     return result;

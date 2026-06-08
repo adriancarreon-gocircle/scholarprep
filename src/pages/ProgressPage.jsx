@@ -475,7 +475,11 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores, hideQT
   const [showQTypes, setShowQTypes] = React.useState(false);
 
   // Build question type data for this topic
-  const qtData = questionTypeScores?.[topic.key] || {};
+  // Try exact key first, then case-insensitive match (topic keys from AI may differ in casing)
+  const qtData = questionTypeScores?.[topic.key]
+    || questionTypeScores?.[topic.key.toLowerCase()]
+    || Object.entries(questionTypeScores || {}).find(([k]) => k.toLowerCase().replace(/\s+/g, '') === topic.key.toLowerCase().replace(/\s+/g, ''))?.[1]
+    || {};
   const qtEntries = Object.entries(qtData)
     .filter(([, v]) => v.total >= 1)
     .map(([qtype, v]) => ({ qtype, pct: Math.round((v.correct / v.total) * 100), correct: v.correct, total: v.total }))
@@ -543,7 +547,7 @@ function TopicRow({ topic, score, color, trendPoints, questionTypeScores, hideQT
               fontFamily: 'Inter, sans-serif', fontWeight: 600,
               width: '100%', justifyContent: 'center',
             }}>
-              {showQTypes ? '▲' : '▼'} {showQTypes ? 'Hide question types' : `${qtEntries.length} question type${qtEntries.length !== 1 ? 's' : ''}`}
+              {showQTypes ? '▲' : '▼'} {showQTypes ? 'Hide question types' : hasQTData ? `${qtEntries.length} question type${qtEntries.length !== 1 ? 's' : ''}` : 'Question types'}
             </button>
           )}
 
@@ -729,7 +733,10 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
               {questionTypeScores && Object.keys(questionTypeScores).length > 0 && (() => {
                 const allQT = [];
                 Object.entries(questionTypeScores).forEach(([topicKey, qtData]) => {
-                  const topicLabel = subject.topics.find(t => t.key === topicKey)?.label || topicKey;
+                  const normTopicKey = topicKey.trim().toLowerCase().replace(/\s+/g, '');
+                  const topicLabel = subject.topics.find(t =>
+                    t.key === topicKey || t.key === normTopicKey
+                  )?.label || topicKey;
                   Object.entries(qtData).filter(([, v]) => v.total >= 1).forEach(([qtype, v]) => {
                     allQT.push({ topicLabel, qtype, pct: Math.round((v.correct / v.total) * 100), total: v.total });
                   });
@@ -816,17 +823,35 @@ function SubjectCard({ subject, avg, stats, sessions, topicScores, topicTrends, 
             <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#5A6A7A', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Feedback</div>
           </div>
 
-          {subject.topics.map((topic, i) => (
-            <TopicRow
-              key={topic.key}
-              topic={topic}
-              score={topicScores[i] || 0}
-              color={subject.color}
-              trendPoints={topicTrends?.[topic.key] || []}
-              questionTypeScores={questionTypeScores}
-              hideQT={subject.key === 'writing'}
-            />
-          ))}
+          {subject.topics.map((topic, i) => {
+            // Try exact key, then normalised match for topic trend data
+            const trendKey = topic.key;
+            const normKey = trendKey.toLowerCase().replace(/\s+/g, '');
+            const trendPoints = topicTrends?.[trendKey]
+              || topicTrends?.[normKey]
+              || Object.entries(topicTrends || {}).find(([k]) =>
+                k.toLowerCase().replace(/\s+/g, '') === normKey
+              )?.[1]
+              || [];
+            // Same normalised lookup for questionTypeScores
+            const qtScores = questionTypeScores?.[trendKey]
+              || questionTypeScores?.[normKey]
+              || Object.entries(questionTypeScores || {}).find(([k]) =>
+                k.toLowerCase().replace(/\s+/g, '') === normKey
+              )?.[1]
+              || undefined;
+            return (
+              <TopicRow
+                key={topic.key}
+                topic={topic}
+                score={topicScores[i] || 0}
+                color={subject.color}
+                trendPoints={trendPoints}
+                questionTypeScores={qtScores !== undefined ? { [topic.key]: qtScores } : questionTypeScores}
+                hideQT={subject.key === 'writing'}
+              />
+            );
+          })}
 
           <div style={{ padding: '18px 24px' }}>
             {/* Analysis */}
