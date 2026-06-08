@@ -261,6 +261,43 @@ function LoadingScreen() {
   );
 }
 
+// ── Dispute Panel ────────────────────────────────────────────────────────────
+function DisputePanel({ question, onDispute, disputed }) {
+  const [open, setOpen] = React.useState(false);
+  const [picked, setPicked] = React.useState(null);
+  if (disputed) return (
+    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+      ✅ <span>Marked as correct — your answer <strong>{disputed}</strong> recorded.</span>
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 10 }}>
+      {!open ? (
+        <button onClick={() => setOpen(true)} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, textDecoration: 'underline dotted' }}>
+          ⚑ Disagree with this answer?
+        </button>
+      ) : (
+        <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 14px', border: '1px solid #FDE68A' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>⚑ Which answer do you think is correct?</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {Object.entries(question.options).map(([letter, text]) => (
+              <button key={letter} onClick={() => setPicked(letter)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: picked === letter ? '#059669' : '#fff', color: picked === letter ? '#fff' : '#374151', border: `1.5px solid ${picked === letter ? '#059669' : '#E5E7EB'}`, fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
+                {letter}. {text}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setOpen(false)} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>Cancel</button>
+            <button onClick={() => { if (picked) { onDispute(picked); setOpen(false); } }} disabled={!picked} style={{ padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, cursor: picked ? 'pointer' : 'not-allowed', background: picked ? '#059669' : '#E5E7EB', color: picked ? '#fff' : '#9CA3AF', border: 'none', fontFamily: 'Inter, sans-serif' }}>
+              ✓ Mark as correct
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Quiz Screen ───────────────────────────────────────────────────────────────
 function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onExit }) {
   const [current, setCurrent] = useState(0);
@@ -272,6 +309,7 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
   const [finished, setFinished] = useState(false);
   const [localQuestions, setLocalQuestions] = useState(questions);
   const [refreshingIdx, setRefreshingIdx] = useState(null);
+  const [disputes, setDisputes] = useState({});
   const q = localQuestions[current];
 
   useEffect(() => {
@@ -418,6 +456,14 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
             <strong>💡 Explanation:</strong> {q?.explanation}
           </div>
         )}
+        {revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
+          <DisputePanel question={q} disputed={disputes[current]} onDispute={(letter) => setDisputes(d => ({ ...d, [current]: letter }))} />
+        )}
+        {disputes[current] && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+            ✅ <span>Marked as correct — your answer <strong>{disputes[current]}</strong> recorded.</span>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -439,7 +485,11 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
 
 // ── Results Screen ────────────────────────────────────────────────────────────
 function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest }) {
-  const pct = result.score;
+  const [disputes, setDisputes] = React.useState({});
+  const disputeCount = Object.keys(disputes).length;
+  const adjustedCorrect = result.correct + disputeCount;
+  const adjustedPct = Math.round((adjustedCorrect / result.total) * 100);
+  const pct = adjustedPct;
   const msg = pct >= 80 ? 'Excellent work! 🌟' : pct >= 60 ? 'Good effort! 👍' : 'Keep practising! 💪';
 
   return (
@@ -447,9 +497,9 @@ function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest
       <div style={{ background: '#fff', borderRadius: 24, padding: 36, textAlign: 'center', marginBottom: 24, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 20px rgba(67,56,202,0.08)' }}>
         <div style={{ fontSize: 72, fontWeight: 800, color: pct >= 80 ? '#059669' : pct >= 60 ? CFG.color : '#F97316', lineHeight: 1, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{pct}%</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginTop: 10, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{msg}</div>
-        <div style={{ fontSize: 14, color: '#64748B', marginTop: 6, fontFamily: 'Inter, sans-serif' }}>{result.correct} correct out of {result.total} questions · English</div>
+        <div style={{ fontSize: 14, color: '#64748B', marginTop: 6, fontFamily: 'Inter, sans-serif' }}>{adjustedCorrect} correct out of {result.total} questions · English{disputeCount > 0 ? ` (includes ${disputeCount} disputed)` : ''}</div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20 }}>
-          <div style={{ fontSize: 14, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {result.correct} correct</div>
+          <div style={{ fontSize: 14, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {adjustedCorrect} correct</div>
           <div style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✗ {result.total - result.correct} incorrect</div>
         </div>
       </div>
@@ -513,28 +563,26 @@ function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const userAnswer = selected[i];
-        const isCorrectAnswer = userAnswer === q.correct;
+        const isDisputeWin = !!disputes[i];
+        const isCorrectAnswer = userAnswer === q.correct || isDisputeWin;
         return (
-          <div key={i} style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 10, border: '1px solid rgba(67,56,202,0.06)', display: 'flex', gap: 14, boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
+          <div key={i} style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 10, border: `1px solid ${isDisputeWin ? 'rgba(5,150,105,0.2)' : 'rgba(67,56,202,0.06)'}`, display: 'flex', gap: 14, boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
             <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: isCorrectAnswer ? '#ECFDF5' : '#FFF1F2', color: isCorrectAnswer ? '#059669' : '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>{isCorrectAnswer ? '✓' : '✗'}</div>
             <div style={{ flex: 1 }}>
-              {/* Topic + question type badges */}
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                {q.topic && (
-                  <span style={{ fontSize: 11, fontWeight: 700, background: isCorrectAnswer ? '#ECFDF5' : '#FFF1F2', color: isCorrectAnswer ? '#059669' : '#BE123C', borderRadius: 100, padding: '2px 9px', fontFamily: 'Inter, sans-serif' }}>
-                    {q.topic}
-                  </span>
-                )}
-                {q.questionType && (
-                  <span style={{ fontSize: 11, color: '#64748B', background: '#F1F5F9', borderRadius: 100, padding: '2px 9px', fontFamily: 'Inter, sans-serif' }}>
-                    {q.questionType}
-                  </span>
-                )}
+                {q.topic && <span style={{ fontSize: 11, fontWeight: 700, background: isCorrectAnswer ? '#ECFDF5' : '#FFF1F2', color: isCorrectAnswer ? '#059669' : '#BE123C', borderRadius: 100, padding: '2px 9px', fontFamily: 'Inter, sans-serif' }}>{q.topic}</span>}
+                {q.questionType && <span style={{ fontSize: 11, color: '#64748B', background: '#F1F5F9', borderRadius: 100, padding: '2px 9px', fontFamily: 'Inter, sans-serif' }}>{q.questionType}</span>}
               </div>
               <div style={{ fontSize: 14, fontWeight: 500, color: '#0F172A', marginBottom: 6, lineHeight: 1.6, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}><strong>Q{i + 1}.</strong> {q.question}</div>
-              {!isCorrectAnswer && <div style={{ fontSize: 13, color: '#BE123C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>You answered: <strong>{userAnswer ? `${userAnswer}. ${q.options[userAnswer]}` : 'Not answered'}</strong></div>}
-              <div style={{ fontSize: 13, color: '#059669', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
+              {userAnswer && !isDisputeWin && userAnswer !== q.correct && <div style={{ fontSize: 13, color: '#BE123C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>You answered: <strong>{userAnswer}. {q.options[userAnswer]}</strong></div>}
+              {isDisputeWin
+                ? <div style={{ fontSize: 13, color: '#059669', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>✅ Disputed &amp; accepted — your answer <strong>{disputes[i]}. {q.options[disputes[i]]}</strong> marked correct.</div>
+                : <div style={{ fontSize: 13, color: '#059669', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
+              }
               {!isCorrectAnswer && <div style={{ fontSize: 13, color: '#64748B', background: '#EEF2FF', padding: '10px 14px', borderRadius: 10, lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
+              {!isCorrectAnswer && !isDisputeWin && userAnswer && (
+                <DisputePanel question={q} disputed={disputes[i]} onDispute={(letter) => setDisputes(d => ({ ...d, [i]: letter }))} />
+              )}
             </div>
           </div>
         );
