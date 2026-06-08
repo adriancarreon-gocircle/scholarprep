@@ -463,6 +463,57 @@ function SavedTestsList({ tests, customTemplates, onStart, onStartTemplate, onEd
   );
 }
 
+// ── Dispute Panel ────────────────────────────────────────────────────────────
+function DisputePanel({ question, onDispute, disputed, disputeText }) {
+  const [open, setOpen] = React.useState(false);
+  const [picked, setPicked] = React.useState(null);
+  const [ownAnswer, setOwnAnswer] = React.useState('');
+  if (disputed) {
+    const label = disputed === 'own' ? `"${disputeText}"` : `${disputed}. ${question.options[disputed]}`;
+    return (
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+        ✅ <span>Marked as correct — your answer <strong>{label}</strong> recorded.</span>
+      </div>
+    );
+  }
+  const canSubmit = picked === 'own' ? ownAnswer.trim().length > 0 : !!picked;
+  return (
+    <div style={{ marginTop: 10 }}>
+      {!open ? (
+        <button onClick={() => setOpen(true)} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, textDecoration: 'underline dotted' }}>
+          ⚑ Disagree with this answer?
+        </button>
+      ) : (
+        <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 14px', border: '1px solid #FDE68A' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>⚑ Which answer do you think is correct?</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {Object.entries(question.options).map(([letter, text]) => (
+              <button key={letter} onClick={() => setPicked(letter)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: picked === letter ? '#059669' : '#fff', color: picked === letter ? '#fff' : '#374151', border: `1.5px solid ${picked === letter ? '#059669' : '#E5E7EB'}`, fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
+                {letter}. {text}
+              </button>
+            ))}
+            <button onClick={() => setPicked('own')} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: picked === 'own' ? '#7C3AED' : '#fff', color: picked === 'own' ? '#fff' : '#7C3AED', border: `1.5px solid ${picked === 'own' ? '#7C3AED' : '#DDD6FE'}`, fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
+              ✗ All answers are wrong
+            </button>
+          </div>
+          {picked === 'own' && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#7C3AED', fontWeight: 600, marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>Type the correct answer you know:</div>
+              <input type="text" value={ownAnswer} onChange={e => setOwnAnswer(e.target.value)} placeholder="Type the correct answer here" autoFocus style={{ width: '100%', boxSizing: 'border-box', padding: '7px 10px', borderRadius: 8, border: '1.5px solid #DDD6FE', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#0F172A' }} />
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setOpen(false); setPicked(null); setOwnAnswer(''); }} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>Cancel</button>
+            <button onClick={() => { if (canSubmit) { onDispute(picked, picked === 'own' ? ownAnswer.trim() : null); setOpen(false); } }} disabled={!canSubmit} style={{ padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', background: canSubmit ? '#059669' : '#E5E7EB', color: canSubmit ? '#fff' : '#9CA3AF', border: 'none', fontFamily: 'Inter, sans-serif' }}>
+              ✓ Mark as correct
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   const [questions, setQuestions] = useState([]);
   const [passageGroups, setPassageGroups] = useState([]);
@@ -476,6 +527,9 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   const [paused, setPaused] = useState(false);
   const [showExit, setShowExit] = useState(false);
   const [dots, setDots] = useState('');
+  const [localQuestions, setLocalQuestions] = useState([]);
+  const [refreshingIdx, setRefreshingIdx] = useState(null);
+  const [disputes, setDisputes] = useState({});
   const finishedRef = useRef(false);
 
   useEffect(() => { const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500); return () => clearInterval(t); }, []);
@@ -555,10 +609,42 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
             if (!count || !selKey.startsWith('_custom_')) continue;
             const tmplId = selKey.replace('_custom_', '');
             const tmpl = customTemplates?.find(t => t.id === tmplId);
-            if (tmpl?.questions?.length > 0) {
-              const shuffled = [...tmpl.questions].sort(() => Math.random() - 0.5);
-              const tmplSubj = (tmpl.subject && tmpl.subject !== 'custom') ? tmpl.subject : 'mathematics';
-              allQs.push(...shuffled.slice(0, count).map(q => ({ ...q, _subj: q._subj && q._subj !== 'custom' ? q._subj : tmplSubj })));
+            if (!tmpl) continue;
+            const tmplSubj = (tmpl.subject && tmpl.subject !== 'custom') ? tmpl.subject : 'mathematics';
+            const saved = (tmpl.questions || []).map(q => ({ ...q, _subj: q._subj && q._subj !== 'custom' ? q._subj : tmplSubj }));
+            if (saved.length >= count) {
+              // Enough saved questions — shuffle and pick
+              const shuffled = [...saved].sort(() => Math.random() - 0.5);
+              allQs.push(...shuffled.slice(0, count));
+            } else {
+              // Need more questions than saved — use saved ones then generate extras via AI
+              allQs.push(...saved);
+              const needed = count - saved.length;
+              if (needed > 0 && tmpl.exampleQuestion && tmpl.exampleQuestion !== '(from image)') {
+                setLoadingMsg(`Generating ${needed} more question${needed > 1 ? 's' : ''} from your template`);
+                try {
+                  const result = await generateFromTemplate(
+                    tmpl.exampleQuestion, tmplSubj,
+                    tmpl.questionType || null, needed, yearLevel, null, null
+                  );
+                  const extras = (result.questions || []).slice(0, needed).map(q => ({
+                    ...q, _subj: tmplSubj,
+                    topic: q.topic || tmplSubj,
+                    questionType: q.questionType || tmpl.questionType || 'Custom',
+                  }));
+                  allQs.push(...extras);
+                } catch {
+                  // If generation fails, just repeat the saved questions to fill count
+                  for (let r = 0; r < needed; r++) {
+                    allQs.push({ ...saved[r % saved.length], _generatedCopy: true });
+                  }
+                }
+              } else {
+                // No example to generate from — repeat saved questions
+                for (let r = 0; r < needed; r++) {
+                  allQs.push({ ...saved[r % saved.length], _generatedCopy: true });
+                }
+              }
             }
           }
           continue;
@@ -581,6 +667,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
       }
       setPassageGroups(groups);
       setQuestions(allQs);
+      setLocalQuestions(allQs);
       setLoading(false);
     } catch (e) {
       setError('Failed to generate questions. Please try again.');
@@ -597,24 +684,56 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   const handleFinish = useCallback(async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    const correct = questions.filter((q, i) => selected[i] === q.correct).length;
-    const total = questions.length;
+    const effectiveQs = localQuestions.length > 0 ? localQuestions : questions;
+    const correct = effectiveQs.filter((q, i) => disputes[i] ? true : selected[i] === q.correct).length;
+    const total = effectiveQs.length;
     const bySubject = {};
-    questions.forEach((q, i) => {
+    effectiveQs.forEach((q, i) => {
       const rawSubj = q._subj || test.subject || 'mathematics';
       const subj = (rawSubj === 'custom') ? 'mathematics' : rawSubj;
+      const dispQ = disputes[i] && disputes[i].letter !== 'own' ? { ...q, correct: disputes[i].letter } : q;
       if (!bySubject[subj]) bySubject[subj] = { qs: [], indices: [] };
-      bySubject[subj].qs.push(q);
+      bySubject[subj].qs.push(dispQ);
       bySubject[subj].indices.push(i);
     });
     for (const [subj, { qs, indices }] of Object.entries(bySubject)) {
       const subjSelected = {};
       indices.forEach((origIdx, newIdx) => { subjSelected[newIdx] = selected[origIdx]; });
-      const subjCorrect = qs.filter((q, ni) => subjSelected[ni] === q.correct).length;
+      const subjCorrect = qs.filter((q, ni) => disputes[indices[ni]] ? true : subjSelected[ni] === q.correct).length;
       await saveTestResult(subj, yearLevel, subjCorrect, qs.length, qs, subjSelected);
     }
-    onFinish({ correct, total, score: Math.round((correct / total) * 100), questions, selected, passageGroups });
-  }, [questions, selected, yearLevel, onFinish, passageGroups]);
+    onFinish({ correct, total, score: Math.round((correct / total) * 100), questions: effectiveQs, selected, passageGroups });
+  }, [localQuestions, questions, disputes, selected, yearLevel, onFinish, passageGroups]);
+
+  const handleRefreshQuestion = async () => {
+    if (refreshingIdx !== null) return;
+    setRefreshingIdx(current);
+    try {
+      const q = (localQuestions.length > 0 ? localQuestions : questions)[current];
+      const qSubjForRefresh = q?._subj || test.subject || 'mathematics';
+      const focus = q?.topic
+        ? `1 question on "${q.topic}"${q.questionType ? ` — ${q.questionType}` : ''}`
+        : null;
+      let generated = null;
+      if (qSubjForRefresh === 'mathematics') generated = await generateMathsQuestions(yearLevel, 1, focus);
+      else if (qSubjForRefresh === 'english') generated = await generateEnglishQuestions(yearLevel, 1, focus);
+      else if (qSubjForRefresh === 'general') generated = await generateGeneralAbilityQuestions(yearLevel, 1, focus);
+      else if (qSubjForRefresh === 'reading') generated = null; // reading passages can't single-refresh
+      const newQ = Array.isArray(generated) ? generated[0] : generated?.questions?.[0];
+      if (newQ) {
+        const replacement = { ...newQ, _subj: qSubjForRefresh, topic: q?.topic, questionType: q?.questionType };
+        setLocalQuestions(prev => {
+          const updated = prev.length > 0 ? [...prev] : [...questions];
+          updated[current] = replacement;
+          return updated;
+        });
+        setQuestions(prev => { const updated = [...prev]; updated[current] = replacement; return updated; });
+        setSelected(s => { const n = { ...s }; delete n[current]; return n; });
+        setRevealed(r => { const n = { ...r }; delete n[current]; return n; });
+      }
+    } catch (e) { /* silently fail */ }
+    setRefreshingIdx(null);
+  };
 
   const handleSelect = (letter) => {
     if (revealed[current]) return;
@@ -622,7 +741,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
     if (test.reviewMode === 'each') setRevealed(r => ({ ...r, [current]: true }));
   };
 
-  const q = questions[current];
+  const activeQuestions = localQuestions.length > 0 ? localQuestions : questions;
+  const q = activeQuestions[current];
   const qSubj = q?._subj || 'mathematics';
   const qColor = QUESTION_BANK[qSubj]?.color || '#4338CA';
   const passage = (() => {
@@ -651,14 +771,14 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
     </div>
   );
 
-  const progress = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0;
+  const progress = activeQuestions.length > 0 ? ((current + 1) / activeQuestions.length) * 100 : 0;
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
       {showExit && <ExitDialog onConfirm={onExit} onCancel={() => setShowExit(false)} />}
       {paused && <PauseOverlay onResume={() => setPaused(false)} />}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{test.name || 'Custom Test'} · Q{current + 1}/{questions.length}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{test.name || 'Custom Test'} · Q{current + 1}/{activeQuestions.length}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {test.timerSecs > 0 && <>
             <div style={{ background: timeLeft < 60 ? '#FFF1F2' : '#EEF2FF', color: timeLeft < 60 ? '#BE123C' : '#4338CA', padding: '6px 14px', borderRadius: 100, fontSize: 13, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>⏱ {formatTime(timeLeft)}</div>
@@ -692,6 +812,19 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
             {q.questionType && <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>· {q.questionType}</span>}
           </div>
           <div style={{ background: '#fff', borderRadius: 20, padding: 22, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+            {/* Fresh question button — only before answering */}
+            {!selected[current] && !revealed[current] && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                <button
+                  onClick={handleRefreshQuestion}
+                  disabled={refreshingIdx !== null}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: refreshingIdx === current ? '#EEF2FF' : '#F8F9FF', color: refreshingIdx === current ? qColor : '#94A3B8', border: `1px solid ${refreshingIdx === current ? qColor + '40' : '#E5E7EB'}`, cursor: refreshingIdx !== null ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
+                  <span style={{ display: 'inline-block', animation: refreshingIdx === current ? 'spin 0.7s linear infinite' : 'none' }}>🔄</span>
+                  {refreshingIdx === current ? 'Getting fresh question…' : 'Get a fresh question'}
+                </button>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
             {q.visual && <QuestionVisual visual={q.visual} />}
             <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 16, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}>{q.question}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -717,6 +850,12 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
               })}
             </div>
             {revealed[current] && <div style={{ marginTop: 12, padding: '12px 14px', background: '#EEF2FF', borderRadius: 10, fontSize: 13, color: '#4338CA', lineHeight: 1.65, fontFamily: 'Inter, sans-serif', border: '1px solid #C7D2FE' }}>💡 {q.explanation}</div>}
+            {revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
+              <DisputePanel question={q} disputed={disputes[current]?.letter} disputeText={disputes[current]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [current]: { letter, ownText } }))} />
+            )}
+            {disputes[current] && (
+              <DisputePanel question={q} disputed={disputes[current].letter} disputeText={disputes[current].ownText} onDispute={() => { }} />
+            )}
           </div>
         </>
       )}
@@ -724,12 +863,12 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Prev</button>
         <div style={{ display: 'flex', gap: 4 }}>
-          {questions.slice(0, Math.min(questions.length, 20)).map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === questions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
+          {activeQuestions.slice(0, Math.min(activeQuestions.length, 20)).map((_, i) => (
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === activeQuestions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
           ))}
           {questions.length > 20 && <span style={{ fontSize: 11, color: '#94A3B8' }}>+{questions.length - 20}</span>}
         </div>
-        {current < questions.length - 1
+        {current < activeQuestions.length - 1
           ? <button onClick={() => setCurrent(c => c + 1)} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: qColor, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Next →</button>
           : <button onClick={handleFinish} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Finish ✓</button>
         }
@@ -739,13 +878,17 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
 }
 
 function ResultsScreen({ test, result, onRetry, onBack }) {
-  const { correct, total, score, questions, selected } = result;
+  const { correct: origCorrect, total, score: origScore, questions, selected } = result;
+  const [disputes, setDisputes] = React.useState({});
+  const disputeCount = Object.keys(disputes).length;
+  const correct = origCorrect + disputeCount;
+  const score = Math.round((correct / total) * 100);
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: 32 }}>
       <div style={{ background: '#fff', borderRadius: 24, padding: 36, textAlign: 'center', marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)' }}>
         {test.name && <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>{test.name}</div>}
         <div style={{ fontSize: 64, fontWeight: 900, color: score >= 70 ? '#059669' : score >= 50 ? '#4338CA' : '#F97316', lineHeight: 1, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{score}%</div>
-        <div style={{ fontSize: 14, color: '#64748B', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>{correct} correct out of {total}</div>
+        <div style={{ fontSize: 14, color: '#64748B', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>{correct} correct out of {total}{disputeCount > 0 ? ` (includes ${disputeCount} disputed)` : ''}</div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12 }}>
           <span style={{ fontSize: 14, color: '#059669', fontWeight: 700 }}>✓ {correct}</span>
           <span style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700 }}>✗ {total - correct}</span>
@@ -809,7 +952,7 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const ua = selected[i];
-        const isCorrectQ = ua === q.correct;
+        const isCorrectQ = ua === q.correct || !!disputes[i];
         const qSubjR = q._subj || 'mathematics';
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '12px 16px', marginBottom: 8, border: '1px solid rgba(67,56,202,0.06)', display: 'flex', gap: 12 }}>
@@ -829,9 +972,21 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
                 )}
               </div>
               <div style={{ fontSize: 13, color: '#0F172A', marginBottom: 3, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
-              {!isCorrectQ && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You: <strong>{ua ? `${ua}. ${q.options[ua]}` : 'Not answered'}</strong></div>}
-              <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
-              {!isCorrectQ && q.explanation && <div style={{ marginTop: 6, fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '7px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
+              {!isCorrectQ && !disputes[i] && <div style={{ fontSize: 12, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>You: <strong>{ua ? `${ua}. ${q.options[ua]}` : 'Not answered'}</strong></div>}
+              {disputes[i]
+                ? <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
+                  ✅ Disputed &amp; accepted —{' '}
+                  {disputes[i].letter === 'own'
+                    ? <span>your answer <strong>"{disputes[i].ownText}"</strong> marked correct.</span>
+                    : <span>your answer <strong>{disputes[i].letter}. {q.options[disputes[i].letter]}</strong> marked correct.</span>
+                  }
+                </div>
+                : <div style={{ fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
+              }
+              {!isCorrectQ && !disputes[i] && q.explanation && <div style={{ marginTop: 6, fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '7px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
+              {!isCorrectQ && !disputes[i] && ua && (
+                <DisputePanel question={q} disputed={disputes[i]?.letter} disputeText={disputes[i]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [i]: { letter, ownText } }))} />
+              )}
             </div>
           </div>
         );
