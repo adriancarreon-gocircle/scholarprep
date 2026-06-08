@@ -330,8 +330,10 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
   const [paused, setPaused] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [localQuestions, setLocalQuestions] = useState(questions);
+  const [refreshingIdx, setRefreshingIdx] = useState(null);
   const cfg = SUBJECT_CONFIG[subject];
-  const q = questions[current];
+  const q = localQuestions[current];
 
   useEffect(() => {
     if (timerSecs === 0 || finished || paused) return;
@@ -344,15 +346,38 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
     return () => clearInterval(t);
   }, [timerSecs, finished, paused]);
 
+  const handleRefreshQuestion = async () => {
+    if (refreshingIdx !== null) return;
+    setRefreshingIdx(current);
+    try {
+      const q = localQuestions[current];
+      // Build a focus string matching the question's topic/type so the replacement is similar
+      const focus = q.topic
+        ? `1 question on "${q.topic}"${q.questionType ? ` — ${q.questionType}` : ''}`
+        : null;
+      const generated = await cfg.generate(yearLevel, 1, focus);
+      const newQ = Array.isArray(generated) ? generated[0] : generated?.questions?.[0];
+      if (newQ) {
+        setLocalQuestions(prev => prev.map((old, i) => i === current ? { ...newQ, topic: q.topic, questionType: q.questionType } : old));
+        // Clear any selection/reveal for this question
+        setSelected(s => { const n = { ...s }; delete n[current]; return n; });
+        setRevealed(r => { const n = { ...r }; delete n[current]; return n; });
+      }
+    } catch (e) {
+      // silently fail — question stays as is
+    }
+    setRefreshingIdx(null);
+  };
+
   const handleFinish = useCallback(async () => {
     setFinished(true);
-    const correct = questions.filter((q, i) => selected[i] === q.correct).length;
-    const total = questions.length;
+    const correct = localQuestions.filter((q, i) => selected[i] === q.correct).length;
+    const total = localQuestions.length;
     const score = Math.round((correct / total) * 100);
     const result = { correct, total, score };
-    await saveTestResult(subject, yearLevel, correct, total, questions, selected);
+    await saveTestResult(subject, yearLevel, correct, total, localQuestions, selected);
     onFinish(result, selected);
-  }, [questions, selected, subject, yearLevel, onFinish]);
+  }, [localQuestions, selected, subject, yearLevel, onFinish]);
 
   const handleSelect = (letter) => {
     if (revealed[current]) return;
@@ -366,7 +391,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progress = ((current + 1) / questions.length) * 100;
+  const progress = ((current + 1) / localQuestions.length) * 100;
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: 32 }}>
@@ -376,7 +401,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-          Question {current + 1} of {questions.length} · {cfg.label}
+          Question {current + 1} of {localQuestions.length} · {cfg.label}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {timerSecs > 0 && (
@@ -436,6 +461,20 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
 
       {/* Question card */}
       <div style={{ background: '#fff', borderRadius: 20, padding: 28, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 16px rgba(67,56,202,0.06)' }}>
+        {/* Fresh question button — only shown if question not yet answered */}
+        {!selected[current] && !revealed[current] && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <button
+              onClick={handleRefreshQuestion}
+              disabled={refreshingIdx !== null}
+              title="Replace this question with a fresh one"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: refreshingIdx === current ? '#EEF2FF' : '#F8F9FF', color: refreshingIdx === current ? cfg.color : '#94A3B8', border: `1px solid ${refreshingIdx === current ? cfg.color + '40' : '#E5E7EB'}`, cursor: refreshingIdx !== null ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
+              <span style={{ display: 'inline-block', animation: refreshingIdx === current ? 'spin 0.7s linear infinite' : 'none' }}>🔄</span>
+              {refreshingIdx === current ? 'Getting fresh question…' : 'Get a fresh question'}
+            </button>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
         {q?.visual && <QuestionVisual visual={q.visual} />}
         <div style={{ fontSize: 15, fontWeight: 600, color: '#0F172A', lineHeight: 1.7, marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>{q?.question}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -479,11 +518,11 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Previous</button>
         <div style={{ display: 'flex', gap: 5 }}>
-          {questions.map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? '#4338CA' : (selected[i] && reviewMode !== 'end') ? (selected[i] === questions[i].correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0', transition: 'background 0.2s' }}></div>
+          {localQuestions.map((_, i) => (
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? '#4338CA' : (selected[i] && reviewMode !== 'end') ? (selected[i] === localQuestions[i].correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0', transition: 'background 0.2s' }}></div>
           ))}
         </div>
-        {current < questions.length - 1 ? (
+        {current < localQuestions.length - 1 ? (
           <button onClick={() => setCurrent(c => c + 1)} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Next →</button>
         ) : (
           <button onClick={handleFinish} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.3)' }}>Finish test ✓</button>
