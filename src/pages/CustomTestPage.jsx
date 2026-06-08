@@ -981,6 +981,25 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
     setPreviewing(false);
   };
 
+  const resetFormForNext = (justSavedName) => {
+    // Brief delay so user sees the "Saved!" confirmation, then reset for next question
+    setTimeout(() => {
+      setExample('');
+      setTmplName('');
+      setQType('');
+      setPreviewQ(null);
+      setTemplate('');
+      setQuestions([]);
+      setImageBase64(null);
+      setImagePreview(null);
+      setImageMediaType('image/jpeg');
+      setCurrentTmplId(null);
+      setSavedName('');
+      setPhase('input');
+      setError('');
+    }, 1800);
+  };
+
   const handleSaveOnly = async () => {
     if (!tmplName.trim()) { setError('Please give this template a name before saving.'); return; }
     setSaving(true); setError('');
@@ -994,7 +1013,9 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);
-      setSavedName(tmplName.trim());
+      const justSaved = tmplName.trim();
+      setSavedName(justSaved);
+      resetFormForNext(justSaved);
     } catch (e) { setError('Failed to save. Please try again.'); }
     setSaving(false);
   };
@@ -1011,7 +1032,9 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);
-      setSavedName(tmplName.trim());
+      const justSaved = tmplName.trim();
+      setSavedName(justSaved);
+      resetFormForNext(justSaved);
     } catch (e) { setError('Failed to save. Please try again.'); }
     setSaving(false);
   };
@@ -1100,7 +1123,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleSaveOnly} disabled={saving || !tmplName.trim()} style={{ flex: 1, padding: 13, borderRadius: 12, border: '2px solid', borderColor: tmplName.trim() && !saving ? '#0F172A' : '#E5E7EB', background: '#fff', color: tmplName.trim() && !saving ? '#0F172A' : '#9CA3AF', fontSize: 13, fontWeight: 700, cursor: tmplName.trim() && !saving ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
-              {saving ? 'Saving…' : savedName ? '✓ Saved' : '💾 Save'}
+              {saving ? 'Saving…' : savedName ? '✓ Saved! Creating next →' : '💾 Save'}
             </button>
             <button onClick={handlePreview} disabled={previewing || !readyToGenerate} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: previewing || !readyToGenerate ? '#9CA3AF' : subjectColor, borderColor: previewing || !readyToGenerate ? '#E5E7EB' : subjectColor, fontSize: 13, fontWeight: 700, cursor: previewing || !readyToGenerate ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {previewing ? '⏳ Previewing…' : '👁 Preview 1'}
@@ -1133,7 +1156,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
                       <input value={tmplName} onChange={e => setTmplName(e.target.value)} placeholder="Name this template to save it…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${savedName ? '#86EFAC' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', background: savedName ? '#F0FDF4' : '#fff' }} />
                     </div>
                     <button onClick={handleSaveOnly} disabled={saving || !tmplName.trim()} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: tmplName.trim() && !savedName ? '#0F172A' : '#E5E7EB', color: tmplName.trim() && !savedName ? '#fff' : '#9CA3AF', fontSize: 13, fontWeight: 700, cursor: tmplName.trim() && !savedName ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
-                      {saving ? 'Saving…' : savedName ? `✓ Saved as "${savedName}"` : '💾 Save'}
+                      {saving ? 'Saving…' : savedName ? '✓ Saved! Creating next →' : '💾 Save'}
                     </button>
                   </div>
                 </div>
