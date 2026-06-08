@@ -239,9 +239,13 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
   const blueprint = getMathsBlueprint(yearLevel);
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
-  const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified. Every question's "topic" field must match the topic it was generated for.`
+  const refreshBoost = count === 1
+    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT numbers, names, objects and scenarios from any typical question on this topic\n- Vary the context: if typical questions use apples/money/distance, use something unexpected like tiles/paint/tickets\n- Vary the operation structure: if typical questions add, try a missing-value or comparison format\n- The question must feel meaningfully different from a standard version of this topic\n- Do NOT use 2, 4, 5, 10, 100 as the main numbers — choose unusual values like 7, 13, 47, 126, 384`
     : '';
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified. Every question's "topic" field must match the topic it was generated for.${refreshBoost}`
+    : refreshBoost;
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
 ${focusInstruction}
@@ -318,6 +322,13 @@ TOPIC TAGS — assign exactly one to each question:
 - "orderofoperations" — order of operations, BODMAS, BIDMAS, brackets, mixed calculations with multiple operators
 - "statistics" — averages, mean, median, mode, data
 - "wordproblems" — multi-step worded problems
+
+VARIABILITY RULES — critical for avoiding repetition:
+- Use a wide variety of contexts: cooking, sport, travel, animals, school, construction, nature, space, shopping, farming — rotate freely
+- Vary number sizes and types: whole numbers, decimals, fractions, large numbers — never default to round numbers like 10, 20, 50, 100
+- Vary the question format: sometimes ask for the missing value, sometimes ask which is largest, sometimes ask "how many more", sometimes give extra information
+- Never use "apples and oranges" or "Sam and Tom" as the default characters — use diverse Australian names and real-world scenarios
+- Each question in a batch must use a different context and different numbers
 
 EXPLANATION RULES:
 - State the answer in 1-2 sentences maximum
@@ -550,9 +561,13 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
 export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
 
-  const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.\n`
+  const refreshBoost = count === 1
+    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT content from a typical question on this topic\n- Vary the pattern values, analogy words, sequence numbers or logic scenario entirely\n- Avoid obvious or common examples — choose unexpected content\n- The question must feel clearly different from a standard version of this topic`
     : '';
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.\n${refreshBoost}`
+    : refreshBoost;
 
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
 ${focusInstruction}
@@ -650,9 +665,13 @@ For picture pattern questions, replace null with the visual object. For text-onl
 export const generateEnglishQuestions = async (yearLevel, count, questionTypeFocus) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate grammar, spelling, punctuation and language questions that closely match these exams. Always respond with ONLY valid JSON, no other text.`;
 
-  const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.`
+  const refreshBoost = count === 1
+    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT words, sentences and examples from typical questions on this topic\n- Vary the sentence context entirely: different subject, tense, setting and vocabulary\n- Do NOT use common example words like "cat", "dog", "happy", "quickly", "run", "big"\n- The question must feel clearly distinct from a standard version of this topic`
     : '';
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.${refreshBoost}`
+    : refreshBoost;
 
   const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
 ${focusInstruction}
@@ -717,6 +736,8 @@ RULES:
 - Answer options must be A, B, C, D — exactly 4 options per question
 - The correct answer must NOT always be the longest option — vary position and length
 - Never use the same example word or sentence twice in a batch
+- Use diverse, interesting sentences: vary topics (sport, nature, technology, food, travel, school, family), avoid generic sentences like 'The cat sat on the mat' or 'She ran to school'
+- Vary the difficulty of distractors — some should be very plausible, not just obviously wrong
 
 TOPIC TAGS — assign exactly one to each question:
 - "spelling" — spelling, ie/ei, adding -ing/-ed
