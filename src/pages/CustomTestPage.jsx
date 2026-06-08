@@ -476,15 +476,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   const finishedRef = useRef(false);
 
   useEffect(() => { const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500); return () => clearInterval(t); }, []);
-  useEffect(() => {
-    // If questions are already provided (e.g. launched from Custom Question Creator), use them directly
-    if (test.questions && test.questions.length > 0) {
-      setQuestions(test.questions.map(q => ({ ...q, _subj: q._subj || test.subject || 'mathematics' })));
-      setLoading(false);
-    } else {
-      generateAllQuestions();
-    }
-  }, []);
+  useEffect(() => { generateAllQuestions(); }, []);
 
   const generateAllQuestions = async () => {
     setLoading(true); setError(''); finishedRef.current = false;
@@ -492,7 +484,6 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
       const allQs = [];
       const groups = [];
       const { selection, passages, questionsPerPassage } = test;
-      if (!selection) { setError('No test configuration found.'); setLoading(false); return; }
       for (const [sk, topicSel] of Object.entries(selection)) {
         if (sk === 'reading') {
           setLoadingMsg('Generating reading passages');
@@ -563,7 +554,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
             const tmpl = customTemplates?.find(t => t.id === tmplId);
             if (tmpl?.questions?.length > 0) {
               const shuffled = [...tmpl.questions].sort(() => Math.random() - 0.5);
-              allQs.push(...shuffled.slice(0, count).map(q => ({ ...q, _subj: tmpl.subject || 'mathematics' })));
+              const tmplSubj = (tmpl.subject && tmpl.subject !== 'custom') ? tmpl.subject : 'mathematics';
+              allQs.push(...shuffled.slice(0, count).map(q => ({ ...q, _subj: q._subj && q._subj !== 'custom' ? q._subj : tmplSubj })));
             }
           }
           continue;
@@ -606,7 +598,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
     const total = questions.length;
     const bySubject = {};
     questions.forEach((q, i) => {
-      const subj = q._subj || test.subject || 'mathematics';
+      const rawSubj = q._subj || test.subject || 'mathematics';
+      const subj = (rawSubj === 'custom') ? 'mathematics' : rawSubj;
       if (!bySubject[subj]) bySubject[subj] = { qs: [], indices: [] };
       bySubject[subj].qs.push(q);
       bySubject[subj].indices.push(i);

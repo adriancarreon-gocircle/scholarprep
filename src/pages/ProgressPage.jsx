@@ -78,7 +78,7 @@ const getStatusLabel = (score, na) => {
   if (d >= -15) return { text: 'Below average', color: '#E07A5F' };
   return { text: 'Well below average', color: '#B04030' };
 };
-const SUBJECT_COLORS = Object.fromEntries(subjects.map(s => [s.key, s.color]));
+const SUBJECT_COLORS = { ...Object.fromEntries(subjects.map(s => [s.key, s.color])), custom: '#94A3B8' };
 
 // ── Build per-topic trend data from full sessions ────────────────────────────
 // Strategy: for each session that contains questions[] with topic tags,
@@ -207,7 +207,7 @@ function CalendarHeatmap({ sessions }) {
           const subjectCounts = {};
           daySessions.forEach(s => { subjectCounts[s.subject] = (subjectCounts[s.subject] || 0) + 1; });
           const tooltip = count > 0
-            ? `${count} test${count > 1 ? 's' : ''}: ${Object.entries(subjectCounts).map(([k, v]) => `${v} ${subjects.find(s => s.key === k)?.shortLabel || k}`).join(', ')}`
+            ? `${count} test${count > 1 ? 's' : ''}: ${Object.entries(subjectCounts).map(([k, v]) => `${v} ${subjects.find(s => s.key === k)?.shortLabel || (k === 'custom' ? 'Custom' : k)}`).join(', ')}`
             : '';
           return (
             <div key={day} title={tooltip} style={{
