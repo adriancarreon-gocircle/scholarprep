@@ -679,6 +679,8 @@ QUESTION TYPES AVAILABLE (choose appropriate ones based on year level and focus)
 - Articles (a, an, the): "Choose the correct article: ___ apple / ___ banana / ___ umbrella", "Correct the article error in the sentence"
 - Time Words: fill in the correct time word (after, later, right away, on the way, first, then, finally, meanwhile, eventually, soon) in context
 - Commands and Statements: "Is this sentence a command or a statement?", "Rewrite this command as a statement" or vice versa
+- Modality: questions about the level of certainty/obligation expressed by modal verbs. Three levels — HIGH modality (must, will, have to, need to — strong obligation/certainty e.g. "You must clean your room!"), MEDIUM modality (should, ought to, would — recommendation/expectation e.g. "You should clean your room."), LOW modality (could, might, may, can — possibility/suggestion e.g. "You could clean your room."). Question types: "Identify the level of modality (high/medium/low)", "Choose the correct modal verb to match the required level", "Rewrite the sentence using a different modality level"
+- Quotation Marks: punctuation rules for written dialogue. Key rules — (1) opening and closing speech marks surround the spoken words only; (2) a comma separates the speech tag from the spoken words when the tag comes first e.g. Amanda said, "The playground looks so much cleaner today!"; (3) when the tag comes after, the end punctuation (. ! ?) goes INSIDE the closing speech mark e.g. "The playground looks so much cleaner today!" said Amanda.; (4) a new speaker starts a new line; (5) capital letter starts the first word of spoken words. Question types: "Add the correct quotation marks and punctuation", "Identify the punctuation error in the dialogue", "Choose the correctly punctuated dialogue sentence"
 
 SPECIAL FORMAT FOR "Sequence the steps" questions:
 - Present 4 steps from a real-world process in SHUFFLED / OUT-OF-ORDER numbering
@@ -714,6 +716,8 @@ TOPIC TAGS — assign exactly one to each question:
 - "vocabulary" — synonyms, antonyms, homophones, compound words, prefixes/suffixes
 - "sentence" — sentence order, sequence the steps, arranging words/sentences
 - "figurative" — similes, metaphors, figures of speech
+- "modality" — modality (high/medium/low), modal verbs (must, should, could, might, may, will, would)
+- "quotation" — quotation marks, punctuation of dialogue, speech marks
 
 EXPLANATION RULES:
 - State the answer in 1-2 sentences maximum

@@ -42,6 +42,8 @@ const ENGLISH_TOPICS = [
   { key: 'articles', label: 'Articles (a, an, the)', types: ['Choose a, an or the', 'Fill in the missing article', 'Correct the article error'] },
   { key: 'timewords', label: 'Time Words', types: ['Choose the correct time word', 'Use after, later, right away, on the way', 'Sequence using time words'] },
   { key: 'sentencetype', label: 'Commands & Statements', types: ['Is this a command or a statement?', 'Rewrite as a command', 'Rewrite as a statement'] },
+  { key: 'modality', label: 'Modality', types: ['Identify the level of modality', 'Choose the correct modal verb', 'Rewrite using a different modality level'] },
+  { key: 'quotationmarks', label: 'Quotation Marks', types: ['Add the correct quotation marks and punctuation', 'Identify the punctuation error', 'Choose the correctly punctuated dialogue'] },
 ];
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────

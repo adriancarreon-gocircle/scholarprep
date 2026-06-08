@@ -43,6 +43,8 @@ const subjects = [
       { label: 'Vocabulary', key: 'vocabulary', nationalAvg: 65 },
       { label: 'Sentence Order', key: 'sentence', nationalAvg: 62 },
       { label: 'Figurative Language', key: 'figurative', nationalAvg: 60 },
+      { label: 'Modality', key: 'modality', nationalAvg: 61 },
+      { label: 'Quotation Marks', key: 'quotation', nationalAvg: 62 },
     ]
   },
   {
