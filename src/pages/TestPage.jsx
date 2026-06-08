@@ -322,18 +322,24 @@ function LoadingScreen({ subject }) {
 }
 
 // ── Dispute Panel ────────────────────────────────────────────────────────────
-function DisputePanel({ question, onDispute, disputed }) {
+function DisputePanel({ question, onDispute, disputed, disputeText }) {
   const [open, setOpen] = React.useState(false);
-  const [picked, setPicked] = React.useState(null);
+  const [picked, setPicked] = React.useState(null); // 'A'|'B'|'C'|'D'|'own'
+  const [ownAnswer, setOwnAnswer] = React.useState('');
 
   if (disputed) {
+    const label = disputed === 'own'
+      ? `"${disputeText}"`
+      : `${disputed}. ${question.options[disputed]}`;
     return (
       <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
         <span>✅</span>
-        <span fontWeight={600}>Marked as correct — your answer <strong>{disputed}</strong> recorded.</span>
+        <span>Marked as correct — your answer <strong>{label}</strong> recorded.</span>
       </div>
     );
   }
+
+  const canSubmit = picked === 'own' ? ownAnswer.trim().length > 0 : !!picked;
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -358,14 +364,39 @@ function DisputePanel({ question, onDispute, disputed }) {
                 {letter}. {text}
               </button>
             ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setOpen(false)} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>Cancel</button>
-            <button onClick={() => { if (picked) { onDispute(picked); setOpen(false); } }} disabled={!picked} style={{
-              padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, cursor: picked ? 'pointer' : 'not-allowed',
-              background: picked ? '#059669' : '#E5E7EB', color: picked ? '#fff' : '#9CA3AF',
-              border: 'none', fontFamily: 'Inter, sans-serif',
+            {/* All wrong option */}
+            <button onClick={() => setPicked('own')} style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: picked === 'own' ? '#7C3AED' : '#fff',
+              color: picked === 'own' ? '#fff' : '#7C3AED',
+              border: `1.5px solid ${picked === 'own' ? '#7C3AED' : '#DDD6FE'}`,
+              fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
             }}>
+              ✗ All answers are wrong
+            </button>
+          </div>
+          {/* Own answer text input */}
+          {picked === 'own' && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#7C3AED', fontWeight: 600, marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>
+                Type the correct answer you know:
+              </div>
+              <input
+                type="text"
+                value={ownAnswer}
+                onChange={e => setOwnAnswer(e.target.value)}
+                placeholder="e.g. 7 hundreds (700)"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '7px 10px', borderRadius: 8, border: '1.5px solid #DDD6FE', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#0F172A' }}
+                autoFocus
+              />
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={() => { setOpen(false); setPicked(null); setOwnAnswer(''); }} style={{ fontSize: 11, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>Cancel</button>
+            <button
+              onClick={() => { if (canSubmit) { onDispute(picked, picked === 'own' ? ownAnswer.trim() : null); setOpen(false); } }}
+              disabled={!canSubmit}
+              style={{ padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', background: canSubmit ? '#059669' : '#E5E7EB', color: canSubmit ? '#fff' : '#9CA3AF', border: 'none', fontFamily: 'Inter, sans-serif' }}>
               ✓ Mark as correct
             </button>
           </div>
@@ -386,7 +417,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
   const [finished, setFinished] = useState(false);
   const [localQuestions, setLocalQuestions] = useState(questions);
   const [refreshingIdx, setRefreshingIdx] = useState(null);
-  const [disputes, setDisputes] = useState({}); // { [idx]: 'A'|'B'|'C'|'D' } — overrides correct answer
+  const [disputes, setDisputes] = useState({}); // { [idx]: { letter, ownText? } } — overrides correct answer
   const cfg = SUBJECT_CONFIG[subject];
   const q = localQuestions[current];
 
@@ -427,14 +458,14 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
   const handleFinish = useCallback(async () => {
     setFinished(true);
     const correct = localQuestions.filter((q, i) => {
-      const effectiveCorrect = disputes[i] || q.correct;
-      return selected[i] === effectiveCorrect;
+      if (!disputes[i]) return selected[i] === q.correct;
+      return true; // any dispute counts as correct
     }).length;
     const total = localQuestions.length;
     const score = Math.round((correct / total) * 100);
     const result = { correct, total, score };
     // Apply dispute overrides to question correct answers before saving
-    const questionsWithDisputes = localQuestions.map((q, i) => disputes[i] ? { ...q, correct: disputes[i] } : q);
+    const questionsWithDisputes = localQuestions.map((q, i) => disputes[i] ? { ...q, correct: disputes[i].letter, disputeOwnText: disputes[i].ownText } : q);
     await saveTestResult(subject, yearLevel, correct, total, questionsWithDisputes, selected);
     onFinish(result, selected);
   }, [localQuestions, selected, subject, yearLevel, onFinish]);
@@ -575,14 +606,18 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
         {revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
           <DisputePanel
             question={q}
-            disputed={disputes[current]}
-            onDispute={(letter) => setDisputes(d => ({ ...d, [current]: letter }))}
+            disputed={disputes[current]?.letter}
+            disputeText={disputes[current]?.ownText}
+            onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [current]: { letter, ownText } }))}
           />
         )}
         {disputes[current] && (
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
-            ✅ <span>Marked as correct — your answer <strong>{disputes[current]}</strong> recorded.</span>
-          </div>
+          <DisputePanel
+            question={q}
+            disputed={disputes[current].letter}
+            disputeText={disputes[current].ownText}
+            onDispute={() => { }}
+          />
         )}
       </div>
 
@@ -607,7 +642,7 @@ function QuizScreen({ subject, questions, passage, timerSecs, yearLevel, reviewM
 // ── Results Screen ────────────────────────────────────────────────────────────
 function ResultsScreen({ subject, questions, selected, result, onRetry, onHome, onNewTest }) {
   const cfg = SUBJECT_CONFIG[subject];
-  const [disputes, setDisputes] = React.useState({});
+  const [disputes, setDisputes] = React.useState({}); // { [idx]: { letter, ownText? } }
   const disputeCount = Object.keys(disputes).length;
   const adjustedCorrect = result.correct + disputeCount;
   const adjustedPct = Math.round((adjustedCorrect / result.total) * 100);
@@ -685,7 +720,8 @@ function ResultsScreen({ subject, questions, selected, result, onRetry, onHome, 
       <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Question review</div>
       {questions.map((q, i) => {
         const userAnswer = selected[i];
-        const isDisputeWin = !!disputes[i];
+        const dispute = disputes[i];
+        const isDisputeWin = !!dispute;
         const isCorrectAnswer = userAnswer === q.correct || isDisputeWin;
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 10, border: `1px solid ${isDisputeWin ? 'rgba(5,150,105,0.2)' : 'rgba(67,56,202,0.06)'}`, display: 'flex', gap: 14, boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
@@ -694,15 +730,22 @@ function ResultsScreen({ subject, questions, selected, result, onRetry, onHome, 
               <div style={{ fontSize: 14, fontWeight: 500, color: '#0F172A', marginBottom: 6, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}><strong>Q{i + 1}.</strong> {q.question}</div>
               {userAnswer && !isDisputeWin && userAnswer !== q.correct && <div style={{ fontSize: 13, color: '#BE123C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>You answered: <strong>{userAnswer}. {q.options[userAnswer]}</strong></div>}
               {isDisputeWin
-                ? <div style={{ fontSize: 13, color: '#059669', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>✅ Disputed &amp; accepted — your answer <strong>{disputes[i]}. {q.options[disputes[i]]}</strong> marked correct.</div>
+                ? <div style={{ fontSize: 13, color: '#059669', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>
+                  ✅ Disputed &amp; accepted —{' '}
+                  {dispute.letter === 'own'
+                    ? <span>your answer <strong>"{dispute.ownText}"</strong> marked correct.</span>
+                    : <span>your answer <strong>{dispute.letter}. {q.options[dispute.letter]}</strong> marked correct.</span>
+                  }
+                </div>
                 : <div style={{ fontSize: 13, color: '#059669', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>Correct: <strong>{q.correct}. {q.options[q.correct]}</strong></div>
               }
               {!isCorrectAnswer && <div style={{ fontSize: 13, color: '#64748B', background: '#EEF2FF', padding: '10px 14px', borderRadius: 10, lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
               {!isCorrectAnswer && !isDisputeWin && userAnswer && (
                 <DisputePanel
                   question={q}
-                  disputed={disputes[i]}
-                  onDispute={(letter) => setDisputes(d => ({ ...d, [i]: letter }))}
+                  disputed={dispute?.letter}
+                  disputeText={dispute?.ownText}
+                  onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [i]: { letter, ownText } }))}
                 />
               )}
             </div>
