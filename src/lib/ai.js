@@ -244,7 +244,7 @@ export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus
     : '';
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified. Every question's "topic" field must match the topic it was generated for.${refreshBoost}`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong to the specified topic(s) only. Returning questions on any other topic is a failure. Every question's "topic" field must match the topic it was generated for.${refreshBoost}`
     : refreshBoost;
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
@@ -566,7 +566,7 @@ export const generateGeneralAbilityQuestions = async (yearLevel, count, question
     : '';
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.\n${refreshBoost}`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic. Do NOT generate any other topic. Match the exact quantities specified. Forbidden topics listed above must not appear even once.\n${refreshBoost}`
     : refreshBoost;
 
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
@@ -670,7 +670,7 @@ export const generateEnglishQuestions = async (yearLevel, count, questionTypeFoc
     : '';
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nDo NOT generate questions on any other topic. Match the exact quantities specified.${refreshBoost}`
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic and skill. Do NOT generate any other topic or skill. Forbidden topics listed above must not appear even once.${refreshBoost}`
     : refreshBoost;
 
   const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.

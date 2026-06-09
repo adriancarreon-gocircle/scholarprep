@@ -553,51 +553,62 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
         }
         if (sk === 'english') {
           setLoadingMsg('Generating English questions');
-          const focusParts = [];
+          // Build exclusion list — all english topics NOT selected
+          const allEnglishTopicLabels = QUESTION_BANK.english.topics.map(t => t.label);
+          const selectedEnglishTopics = new Set();
+          for (const [tk] of Object.entries(topicSel)) {
+            const tObj = QUESTION_BANK.english.topics.find(t => t.key === tk);
+            if (tObj) selectedEnglishTopics.add(tObj.label);
+          }
+          const excludedEnglish = allEnglishTopicLabels.filter(l => !selectedEnglishTopics.has(l));
+          const englishExclusionClause = excludedEnglish.length > 0
+            ? `\nSTRICTLY FORBIDDEN topics — do NOT generate any of: ${excludedEnglish.join(', ')}.`
+            : '';
+          // One call per topic/question-type combination
           for (const [tk, qtSel] of Object.entries(topicSel)) {
             for (const [qtk, count] of Object.entries(qtSel)) {
               if (!count) continue;
               const tObj = QUESTION_BANK.english.topics.find(t => t.key === tk);
               const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
               const focusStr = qtk === '_topic'
-                ? `${count} question${count > 1 ? 's' : ''} on ${tObj?.label || tk} — any question type from this topic`
-                : qtObj ? `${count} question${count > 1 ? 's' : ''} on ${tObj?.label} — ${qtObj.label}` : null;
-              if (focusStr) focusParts.push(focusStr);
+                ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on the topic: "${tObj?.label || tk}". Every question MUST test "${tObj?.label || tk}" — no other topic.${englishExclusionClause}`
+                : qtObj
+                  ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Every question MUST test this exact skill.${englishExclusionClause}`
+                  : null;
+              if (!focusStr) continue;
+              const genQs = await generateEnglishQuestions(yearLevel, count, focusStr);
+              allQs.push(...genQs.slice(0, count).map(q => ({
+                ...q, _subj: 'english',
+                topic: tk,
+                questionType: q.questionType || qtObj?.label || tObj?.label || tk,
+              })));
             }
-          }
-          const totalEnglish = Object.values(topicSel).reduce((sum, t) => sum + Object.values(t).reduce((a, n) => a + n, 0), 0);
-          if (totalEnglish > 0) {
-            const focus = focusParts.length > 0 ? focusParts.join(', ') : null;
-            const genQs = await generateEnglishQuestions(yearLevel, totalEnglish, focus);
-            const qtOrder = [];
-            for (const [tk2, qtSel2] of Object.entries(topicSel)) {
-              for (const [qtk2, cnt2] of Object.entries(qtSel2)) {
-                if (!cnt2) continue;
-                const tObj2e = QUESTION_BANK.english.topics.find(t => t.key === tk2);
-                const qtObj2e = tObj2e?.questionTypes.find(q => q.key === qtk2);
-                for (let i = 0; i < cnt2; i++) {
-                  qtOrder.push({ topic: tk2, questionType: qtObj2e?.label || tObj2e?.label || tk2 });
-                }
-              }
-            }
-            allQs.push(...genQs.map((q, i) => ({
-              ...q, _subj: 'english',
-              topic: qtOrder[i]?.topic || q.topic,
-              questionType: q.questionType || qtOrder[i]?.questionType,
-            })));
           }
           continue;
         }
         if (sk === 'general') {
           setLoadingMsg('Generating general ability questions');
+          // Build exclusion list for GA
+          const allGATopicLabels = QUESTION_BANK.general.topics.map(t => t.label);
+          const selectedGATopics = new Set();
+          for (const [tk] of Object.entries(topicSel)) {
+            const tObj = QUESTION_BANK.general.topics.find(t => t.key === tk);
+            if (tObj) selectedGATopics.add(tObj.label);
+          }
+          const excludedGA = allGATopicLabels.filter(l => !selectedGATopics.has(l));
+          const gaExclusionClause = excludedGA.length > 0
+            ? `\nSTRICTLY FORBIDDEN topics — do NOT generate any of: ${excludedGA.join(', ')}.`
+            : '';
           for (const [tk, qtSel] of Object.entries(topicSel)) {
             for (const [qtk, count] of Object.entries(qtSel)) {
               if (!count) continue;
               const tObj = QUESTION_BANK.general.topics.find(t => t.key === tk);
               const qtObj = tObj?.questionTypes.find(q => q.key === qtk);
               const focusStr = qtk === '_topic'
-                ? `${tObj?.label || tk} — any question type from this topic, vary the types`
-                : qtObj ? `${tObj?.label} — ${qtObj.label}: ${qtObj.examples?.[0] || ''}` : null;
+                ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label || tk}" — vary question types within this topic.${gaExclusionClause}`
+                : qtObj
+                  ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${gaExclusionClause}`
+                  : null;
               const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr);
               allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk })));
             }
@@ -651,14 +662,27 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
         }
         if (sk === 'mathematics') {
           setLoadingMsg('Generating maths questions');
+          // Build exclusion list for Maths
+          const allMathsTopicLabels = QUESTION_BANK.mathematics.topics.map(t => t.label);
+          const selectedMathsTopics = new Set();
+          for (const [tk] of Object.entries(topicSel)) {
+            const tObj = QUESTION_BANK.mathematics.topics.find(t => t.key === tk);
+            if (tObj) selectedMathsTopics.add(tObj.label);
+          }
+          const excludedMaths = allMathsTopicLabels.filter(l => !selectedMathsTopics.has(l));
+          const mathsExclusionClause = excludedMaths.length > 0
+            ? `\nSTRICTLY FORBIDDEN topics — do NOT generate any of: ${excludedMaths.join(', ')}.`
+            : '';
           for (const [tk, qtSel] of Object.entries(topicSel)) {
             for (const [qtk, count] of Object.entries(qtSel)) {
               if (!count) continue;
               const tObj2 = QUESTION_BANK.mathematics.topics.find(t => t.key === tk);
               const qtObj2 = tObj2?.questionTypes.find(q => q.key === qtk);
               const focusStr2 = qtk === '_topic'
-                ? `${tObj2?.label || tk} — any question type from this topic, vary the types`
-                : qtObj2 ? `${tObj2?.label} - ${qtObj2.label}. Example: ${qtObj2.examples?.[0] || ''}` : null;
+                ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj2?.label || tk}" — vary question types within this topic.${mathsExclusionClause}`
+                : qtObj2
+                  ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj2?.label} — ${qtObj2.label}". Example: ${qtObj2.examples?.[0] || ''}${mathsExclusionClause}`
+                  : null;
               const genQs2 = await generateMathsQuestions(yearLevel, count, focusStr2);
               allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk })));
             }

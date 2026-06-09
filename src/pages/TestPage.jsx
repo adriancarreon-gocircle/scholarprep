@@ -808,20 +808,25 @@ export default function TestPage({ subject }) {
         setPassage(groups); // store array of passage groups
         setQuestions(allQs);
       } else if (topicCounts && Object.keys(topicCounts).length > 0) {
-        // Build a combined focus label for all topics — single API call
+        // One API call per topic — guarantees exact counts and no topic drift
         const topicEntries = Object.entries(topicCounts).filter(([, n]) => n > 0);
-        const totalFromTopics = topicEntries.reduce((sum, [, n]) => sum + n, 0);
-        // Look up human-readable label for each topic key so the AI understands
         const subjectTopics = TOPIC_PICKER[subject] || [];
-        const topicBreakdown = topicEntries
-          .map(([key, n]) => {
-            const label = subjectTopics.find(t => t.key === key)?.label || key;
-            return `${n} questions on "${label}"`;
-          })
-          .join(', ');
-        const combinedFocus = `Generate exactly ${totalFromTopics} questions total. STRICT BREAKDOWN — you MUST follow this exactly: ${topicBreakdown}. Generate ONLY these topics in these exact quantities. Do NOT substitute, mix in, or add any other topics not listed here. Each question must clearly belong to the specified topic.`;
-        const qs = await cfg.generate(yearLevel, totalFromTopics, combinedFocus);
-        const allQs = Array.isArray(qs) ? qs : [];
+        // Build the full list of all topic labels for explicit exclusion
+        const allTopicLabels = subjectTopics.map(t => t.label);
+        const includedLabels = new Set(topicEntries.map(([key]) => subjectTopics.find(t => t.key === key)?.label || key));
+        const excludedLabels = allTopicLabels.filter(l => !includedLabels.has(l));
+        const exclusionClause = excludedLabels.length > 0
+          ? `\nSTRICTLY FORBIDDEN topics — do NOT generate any questions on: ${excludedLabels.join(', ')}.`
+          : '';
+        const allQs = [];
+        for (const [key, n] of topicEntries) {
+          if (!n) continue;
+          const label = subjectTopics.find(t => t.key === key)?.label || key;
+          const focus = `Generate exactly ${n} question${n > 1 ? 's' : ''} ONLY on the topic: "${label}". Every question MUST be about "${label}" — no exceptions.${exclusionClause}`;
+          const qs = await cfg.generate(yearLevel, n, focus);
+          const batch = Array.isArray(qs) ? qs : [];
+          allQs.push(...batch.slice(0, n));
+        }
         setQuestions(allQs);
       } else {
         data = await cfg.generate(yearLevel, count);
