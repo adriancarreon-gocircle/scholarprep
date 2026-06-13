@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
 import { saveTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
+import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
 // ── Question Bank ─────────────────────────────────────────────────────────────
 
@@ -386,8 +387,12 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
 
           <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginBottom: 10, border: '1px solid rgba(67,56,202,0.08)' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Answer review</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[{ key: 'each', icon: '💡', title: 'Review as I go', desc: 'See answer after each question.' }, { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers at end only.' }].map(m => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {[
+                { key: 'each', icon: '💡', title: 'Review as I go', desc: 'See answer after each question.' },
+                { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers at end only.' },
+                { key: 'sheet', icon: '📝', title: 'Answer Sheet', desc: 'Write answers on a printable sheet, then photograph it.' },
+              ].map(m => (
                 <button key={m.key} onClick={() => setReviewMode(m.key)} style={{ padding: '14px 16px', borderRadius: 12, border: `2px solid ${reviewMode === m.key ? '#4338CA' : '#E5E7EB'}`, background: reviewMode === m.key ? '#EEF2FF' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>{m.icon}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: reviewMode === m.key ? '#4338CA' : '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif', marginBottom: 2 }}>{m.title}</div>
@@ -395,6 +400,29 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                 </button>
               ))}
             </div>
+            {reviewMode === 'sheet' && (
+              <div style={{ marginTop: 12, padding: '12px 16px', background: totalQuestions > 60 ? '#FFF1F2' : '#FFF7ED', border: `1px solid ${totalQuestions > 60 ? '#FDA4AF' : '#FED7AA'}`, borderRadius: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: totalQuestions > 60 ? '#BE123C' : '#C2410C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>📋 Answer Sheet mode — max 60 questions</div>
+                {totalQuestions > 60 ? (
+                  <div style={{ fontSize: 12, color: '#BE123C', lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>
+                    This test has {totalQuestions} questions, which is more than the 60-question sheet supports. Please reduce the number of questions to 60 or fewer to use Answer Sheet mode.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 12, color: '#9A3412', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', marginBottom: 8 }}>
+                      You'll write your answers (A, B, C, D) on a printed ScholarPrep answer sheet instead of tapping them on screen. At the end of the test, take a photo of your completed sheet and we'll mark it automatically. This test uses {totalQuestions} question{totalQuestions !== 1 ? 's' : ''} — only fill in rows 1–{totalQuestions} on the sheet.
+                    </div>
+                    <a href="/scholarprep_answer_sheet.pdf" download target="_blank" rel="noopener noreferrer" style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#C2410C',
+                      background: '#fff', border: '1.5px solid #FDBA74', borderRadius: 100, padding: '6px 14px',
+                      textDecoration: 'none', fontFamily: 'Inter, sans-serif',
+                    }}>
+                      📄 Download printable answer sheet (PDF)
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid rgba(67,56,202,0.08)' }}>
@@ -403,7 +431,7 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
             </div>
             <input value={testName} onChange={e => setTestName(e.target.value)} placeholder="Name this test (optional — to save and reuse later)" style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: `1.5px solid ${focused === 'name' ? '#4338CA' : '#E5E7EB'}`, fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#0F172A', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} onFocus={() => setFocused('name')} onBlur={() => setFocused('')} />
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => onStart(buildConfig())} style={{ flex: '2 1 160px', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.25)' }}>
+              <button onClick={() => onStart(buildConfig())} disabled={reviewMode === 'sheet' && totalQuestions > 60} style={{ flex: '2 1 160px', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, background: (reviewMode === 'sheet' && totalQuestions > 60) ? '#CBD5E1' : '#4338CA', color: '#fff', border: 'none', cursor: (reviewMode === 'sheet' && totalQuestions > 60) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: (reviewMode === 'sheet' && totalQuestions > 60) ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
                 Generate test now →
               </button>
               {testName.trim() && (
@@ -514,7 +542,182 @@ function DisputePanel({ question, onDispute, disputed, disputeText }) {
   );
 }
 
-function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
+// ── Camera Capture Modal ────────────────────────────────────────────────────
+// Uses getUserMedia so "Take photo" works in-browser on both phones and computers.
+function CameraCaptureModal({ onCapture, onClose, accentColor }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [camError, setCamError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'environment' }, audio: false })
+      .then(stream => {
+        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => { });
+        }
+        setReady(true);
+      })
+      .catch(() => setCamError('Could not access the camera. Please allow camera access, or use "Upload photo" instead.'));
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    onCapture(dataUrl);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#000', borderRadius: 20, overflow: 'hidden', maxWidth: 480, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'relative', background: '#0F172A', minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {camError ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#FCA5A5', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{camError}</div>
+          ) : (
+            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 480, display: 'block', objectFit: 'contain' }} />
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 10, padding: 16, background: '#fff' }}>
+          <button onClick={onClose} style={{ padding: '12px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+          <button onClick={handleCapture} disabled={!ready || !!camError} style={{
+            flex: 1, padding: '12px 20px', borderRadius: 100, fontSize: 15, fontWeight: 700,
+            background: (!ready || camError) ? '#CBD5E1' : (accentColor || '#4338CA'), color: '#fff', border: 'none',
+            cursor: (!ready || camError) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+          }}>
+            📸 Capture photo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Answer Sheet Scan Screen ─────────────────────────────────────────────────
+function AnswerSheetScanScreen({ questions, onComplete, onBack }) {
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [imageMediaType, setImageMediaType] = useState('image/jpeg');
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    try {
+      const { dataUrl, base64, mediaType } = await compressImageFile(file);
+      setImagePreview(dataUrl);
+      setImageBase64(base64);
+      setImageMediaType(mediaType);
+    } catch {
+      setError('Could not read that image. Please try a different photo.');
+    }
+  };
+
+  const handleCameraCapture = async (rawDataUrl) => {
+    setShowCamera(false);
+    setError('');
+    try {
+      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl);
+      setImagePreview(dataUrl);
+      setImageBase64(base64);
+      setImageMediaType(mediaType);
+    } catch {
+      setError('Could not process that photo. Please try again.');
+    }
+  };
+
+  const handleScan = async () => {
+    if (!imageBase64) return;
+    setScanning(true); setError('');
+    try {
+      const result = await scanAnswerSheet(imageBase64, imageMediaType, questions.length);
+      const answers = result?.answers || {};
+      const selected = {};
+      questions.forEach((q, i) => {
+        const ans = answers[String(i + 1)];
+        if (ans === 'A' || ans === 'B' || ans === 'C' || ans === 'D') selected[i] = ans;
+      });
+      const unanswered = questions.length - Object.keys(selected).length;
+      onComplete(selected, { confidence: result?.confidence, notes: result?.notes, unanswered });
+    } catch (e) {
+      setError(e.message || 'Failed to scan the answer sheet. Please try a clearer photo and try again.');
+    }
+    setScanning(false);
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>
+      {showCamera && (
+        <CameraCaptureModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} accentColor="#4338CA" />
+      )}
+      <div style={{ marginBottom: 24, textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 16px' }}>📷</div>
+        <h1 style={{ fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif", fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 }}>Scan your answer sheet</h1>
+        <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+          Take a clear, well-lit photo of your completed answer sheet (rows 1–{questions.length}), or upload one from your device.
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+        {imagePreview ? (
+          <div style={{ marginBottom: 16 }}>
+            <img src={imagePreview} alt="Answer sheet preview" style={{ width: '100%', borderRadius: 12, border: '1px solid #E5E7EB', display: 'block' }} />
+          </div>
+        ) : (
+          <div style={{ border: '2px dashed #E5E7EB', borderRadius: 12, padding: '40px 20px', textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>No photo selected yet</div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => setShowCamera(true)} style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            📷 Take photo
+          </button>
+          <label style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            🖼️ Upload photo
+            <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+          </label>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onBack} style={{ padding: '14px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#64748B', border: '1.5px solid #E5E7EB', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Back to test</button>
+        <button onClick={handleScan} disabled={!imageBase64 || scanning} style={{
+          flex: 1, padding: '14px 24px', borderRadius: 100, fontSize: 15, fontWeight: 700,
+          background: (!imageBase64 || scanning) ? '#CBD5E1' : '#4338CA', color: '#fff', border: 'none',
+          cursor: (!imageBase64 || scanning) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+          boxShadow: (!imageBase64 || scanning) ? 'none' : '0 4px 16px rgba(67,56,202,0.3)',
+        }}>
+          {scanning ? 'Scanning your sheet…' : '✓ Scan & get results'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan, onExit }) {
   const [questions, setQuestions] = useState([]);
   const [passageGroups, setPassageGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -707,8 +910,13 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
 
   const handleFinish = useCallback(async () => {
     if (finishedRef.current) return;
-    finishedRef.current = true;
     const effectiveQs = localQuestions.length > 0 ? localQuestions : questions;
+    if (test.reviewMode === 'sheet') {
+      finishedRef.current = true;
+      onRequestScan(effectiveQs, disputes, passageGroups);
+      return;
+    }
+    finishedRef.current = true;
     const correct = effectiveQs.filter((q, i) => disputes[i] ? true : selected[i] === q.correct).length;
     const total = effectiveQs.length;
     const bySubject = {};
@@ -727,7 +935,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
       await saveTestResult(subj, yearLevel, subjCorrect, qs.length, qs, subjSelected);
     }
     onFinish({ correct, total, score: Math.round((correct / total) * 100), questions: effectiveQs, selected, passageGroups });
-  }, [localQuestions, questions, disputes, selected, yearLevel, onFinish, passageGroups]);
+  }, [localQuestions, questions, disputes, selected, yearLevel, onFinish, onRequestScan, passageGroups, test.reviewMode]);
 
   const handleRefreshQuestion = async () => {
     if (refreshingIdx !== null) return;
@@ -754,6 +962,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
   };
 
   const handleSelect = (letter) => {
+    if (test.reviewMode === 'sheet') return;
     if (revealed[current]) return;
     setSelected(s => ({ ...s, [current]: letter }));
     if (test.reviewMode === 'each') setRevealed(r => ({ ...r, [current]: true }));
@@ -809,6 +1018,15 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
         <div style={{ width: `${progress}%`, height: '100%', background: qColor, borderRadius: 2, transition: 'width 0.3s' }} />
       </div>
 
+      {test.reviewMode === 'sheet' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 12, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>📝</span>
+          <div style={{ fontSize: 12, color: '#9A3412', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+            <strong>Answer Sheet mode:</strong> write your answer for Q{current + 1} (A, B, C or D) on row {current + 1} of your printed sheet. When you've answered every question, tap <strong>Finish &amp; scan sheet</strong>.
+          </div>
+        </div>
+      )}
+
       {passage && isFirstInPassage && (
         <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 14, border: '1px solid rgba(5,150,105,0.15)' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 8, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{passage.title}</div>
@@ -831,7 +1049,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
           </div>
           <div style={{ background: '#fff', borderRadius: 20, padding: 22, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
             {/* Fresh question button — only before answering */}
-            {!selected[current] && !revealed[current] && (
+            {test.reviewMode !== 'sheet' && !selected[current] && !revealed[current] && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
                 <button
                   onClick={handleRefreshQuestion}
@@ -847,15 +1065,16 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
             <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 16, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}>{q.question}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(q.options).map(([letter, text]) => {
-                const isSel = selected[current] === letter;
-                const isRev = revealed[current];
+                const isSheet = test.reviewMode === 'sheet';
+                const isSel = !isSheet && selected[current] === letter;
+                const isRev = !isSheet && revealed[current];
                 const isCorr = q.correct === letter;
                 const answerFrame = q.visual?.answerFrames?.[letter];
                 let bg = '#F8F9FF', bdr = '1.5px solid rgba(67,56,202,0.1)', clr = '#334155';
                 if (isRev) { if (isCorr) { bg = '#ECFDF5'; bdr = '1.5px solid #6EE7B7'; clr = '#059669'; } else if (isSel) { bg = '#FFF1F2'; bdr = '1.5px solid #FDA4AF'; clr = '#BE123C'; } }
                 else if (isSel) { bg = '#EEF2FF'; bdr = `1.5px solid ${qColor}`; clr = qColor; }
                 return (
-                  <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: answerFrame ? '8px 14px' : '11px 14px', borderRadius: 10, cursor: isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
+                  <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: answerFrame ? '8px 14px' : '11px 14px', borderRadius: 10, cursor: isSheet ? 'default' : isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
                     <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (isRev && isCorr) ? '#059669' : (isRev && isSel) ? '#BE123C' : isSel ? qColor : 'rgba(67,56,202,0.08)', color: (isRev && isCorr) || (isRev && isSel) || isSel ? '#fff' : '#64748B' }}>{letter}</div>
                     {answerFrame
                       ? <PatternFrame frame={answerFrame} size={52} selected={isSel} correct={isCorr} revealed={isRev} color={qColor} />
@@ -867,11 +1086,11 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
                 );
               })}
             </div>
-            {revealed[current] && <div style={{ marginTop: 12, padding: '12px 14px', background: '#EEF2FF', borderRadius: 10, fontSize: 13, color: '#4338CA', lineHeight: 1.65, fontFamily: 'Inter, sans-serif', border: '1px solid #C7D2FE' }}>💡 {q.explanation}</div>}
-            {revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
+            {test.reviewMode !== 'sheet' && revealed[current] && <div style={{ marginTop: 12, padding: '12px 14px', background: '#EEF2FF', borderRadius: 10, fontSize: 13, color: '#4338CA', lineHeight: 1.65, fontFamily: 'Inter, sans-serif', border: '1px solid #C7D2FE' }}>💡 {q.explanation}</div>}
+            {test.reviewMode !== 'sheet' && revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
               <DisputePanel question={q} disputed={disputes[current]?.letter} disputeText={disputes[current]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [current]: { letter, ownText } }))} />
             )}
-            {disputes[current] && (
+            {test.reviewMode !== 'sheet' && disputes[current] && (
               <DisputePanel question={q} disputed={disputes[current].letter} disputeText={disputes[current].ownText} onDispute={() => { }} />
             )}
           </div>
@@ -882,13 +1101,13 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onExit }) {
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Prev</button>
         <div style={{ display: 'flex', gap: 4 }}>
           {activeQuestions.slice(0, Math.min(activeQuestions.length, 20)).map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === activeQuestions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', background: i === current ? qColor : test.reviewMode === 'sheet' ? '#E2E8F0' : (selected[i] && test.reviewMode !== 'end') ? (selected[i] === activeQuestions[i]?.correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0' }} />
           ))}
           {questions.length > 20 && <span style={{ fontSize: 11, color: '#94A3B8' }}>+{questions.length - 20}</span>}
         </div>
         {current < activeQuestions.length - 1
           ? <button onClick={() => setCurrent(c => c + 1)} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: qColor, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Next →</button>
-          : <button onClick={handleFinish} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Finish ✓</button>
+          : <button onClick={handleFinish} style={{ padding: '10px 22px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>{test.reviewMode === 'sheet' ? 'Finish & scan sheet 📷' : 'Finish ✓'}</button>
         }
       </div>
     </div>
@@ -1439,6 +1658,40 @@ export default function CustomTestPage() {
 
   const isSaved = (test) => savedTests.some(t => t.id === test?.id);
 
+  // ── Answer Sheet mode ──
+  const [scanQuestions, setScanQuestions] = useState(null);
+  const [scanDisputes, setScanDisputes] = useState({});
+  const [scanPassageGroups, setScanPassageGroups] = useState([]);
+  const handleRequestScan = (qs, disputes, passageGroups) => {
+    setScanQuestions(qs);
+    setScanDisputes(disputes || {});
+    setScanPassageGroups(passageGroups || []);
+    setView('scan');
+  };
+  const handleScanComplete = async (sel, meta) => {
+    const qs = scanQuestions || [];
+    const correct = qs.filter((q, i) => scanDisputes[i] ? true : sel[i] === q.correct).length;
+    const total = qs.length;
+    const bySubject = {};
+    qs.forEach((q, i) => {
+      const rawSubj = q._subj || activeTest?.subject || 'mathematics';
+      const subj = (rawSubj === 'custom') ? 'mathematics' : rawSubj;
+      const dispQ = scanDisputes[i] && scanDisputes[i].letter !== 'own' ? { ...q, correct: scanDisputes[i].letter } : q;
+      if (!bySubject[subj]) bySubject[subj] = { qs: [], indices: [] };
+      bySubject[subj].qs.push(dispQ);
+      bySubject[subj].indices.push(i);
+    });
+    for (const [subj, { qs: subjQs, indices }] of Object.entries(bySubject)) {
+      const subjSelected = {};
+      indices.forEach((origIdx, newIdx) => { subjSelected[newIdx] = sel[origIdx]; });
+      const subjCorrect = subjQs.filter((q, ni) => scanDisputes[indices[ni]] ? true : subjSelected[ni] === q.correct).length;
+      await saveTestResult(subj, yearLevel, subjCorrect, subjQs.length, subjQs, subjSelected);
+    }
+    setResult({ correct, total, score: Math.round((correct / total) * 100), questions: qs, selected: sel, passageGroups: scanPassageGroups, scanMeta: meta });
+    setView('results');
+  };
+  const handleScanBack = () => { setView('quiz'); };
+
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
       <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1511,7 +1764,8 @@ export default function CustomTestPage() {
           }}
         />
       )}
-      {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} customTemplates={customTemplates} onFinish={(res) => { setResult(res); setView('results'); }} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
+      {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} customTemplates={customTemplates} onFinish={(res) => { setResult(res); setView('results'); }} onRequestScan={handleRequestScan} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
+      {hasAccess && view === 'scan' && scanQuestions && <AnswerSheetScanScreen questions={scanQuestions} onComplete={handleScanComplete} onBack={handleScanBack} />}
       {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
     </div>
   );
