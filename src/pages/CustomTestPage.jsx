@@ -619,7 +619,7 @@ function AnswerSheetScanScreen({ questions, onComplete, onBack }) {
     if (!file) return;
     setError('');
     try {
-      const { dataUrl, base64, mediaType } = await compressImageFile(file);
+      const { dataUrl, base64, mediaType } = await compressImageFile(file, 1800, 0.85);
       setImagePreview(dataUrl);
       setImageBase64(base64);
       setImageMediaType(mediaType);
@@ -632,7 +632,7 @@ function AnswerSheetScanScreen({ questions, onComplete, onBack }) {
     setShowCamera(false);
     setError('');
     try {
-      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl);
+      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl, 1800, 0.9);
       setImagePreview(dataUrl);
       setImageBase64(base64);
       setImageMediaType(mediaType);

@@ -1096,16 +1096,30 @@ Return ONLY this JSON with no other text:
 // shaded letter (A/B/C/D) for each question number 1..numQuestions.
 // Numbers beyond numQuestions on the sheet are ignored.
 export const scanAnswerSheet = async (base64Image, mediaType, numQuestions) => {
-  const system = `You are an exam answer sheet scanner. You read photos of multiple-choice bubble/answer sheets and identify which letter (A, B, C or D) has been marked, circled, ticked, or shaded for each question number. Always respond with ONLY valid JSON, no other text.`;
+  const system = `You are an exam answer sheet scanner specialised in reading bubble/multiple-choice answer sheets. You are extremely careful about SPATIAL POSITION — you never rely on reading a printed letter glyph alone, because a filled-in bubble can obscure or distort the letter inside it. Always respond with ONLY valid JSON, no other text.`;
 
-  const user = `This photo shows a student's completed answer sheet. The sheet has numbered rows (1 to 60), each with four options A, B, C, D that the student marks by shading, circling, ticking, or writing over.
+  const user = `This photo shows a student's completed bubble answer sheet, in the ScholarPrep format.
 
-This particular test only has ${numQuestions} questions, so only question numbers 1 to ${numQuestions} are relevant — IGNORE any marks on question numbers above ${numQuestions}.
+SHEET LAYOUT:
+- The sheet is split into 4 columns of question rows.
+- Each row has a question number on the left, followed by exactly 4 circular bubbles in a horizontal line.
+- The bubbles are in FIXED LEFT-TO-RIGHT ORDER: position 1 = A, position 2 = B, position 3 = C, position 4 = D. This order NEVER changes.
+- Each bubble has a small printed letter (A, B, C or D) inside it. When a bubble is filled/shaded/coloured in, that printed letter becomes hard or impossible to read — this is EXPECTED and is exactly how you identify the answer.
 
-For each question from 1 to ${numQuestions}:
-- Identify which letter (A, B, C, or D) has been marked/shaded/circled
-- If a question has no clear mark, or multiple marks, or you cannot tell, use null
-- Marks can be: filled-in bubbles, circles around a letter, ticks/checks, crosses, or handwritten letters
+HOW TO READ EACH ROW — follow this exact method for every question:
+1. Find the row for the question number.
+2. Look at the 4 bubbles from left to right.
+3. Identify which ONE bubble (if any) is visibly filled in, shaded dark, scribbled over, ticked, or has a thick circle/cross drawn on it — compared to the other 3 bubbles in the SAME row which should look like plain empty outlined circles.
+4. Determine the marked bubble's POSITION in the row (1st, 2nd, 3rd, or 4th from the left) — NOT by trying to read the letter printed inside it.
+5. Convert that position to a letter: 1st position = A, 2nd position = B, 3rd position = C, 4th position = D.
+6. Double-check by comparing the marked bubble's darkness/fill against the other 3 bubbles in that same row — the correct bubble should look clearly different (darker, filled, scribbled, circled) from its row-mates.
+
+IMPORTANT RULES:
+- A bubble being the 2nd from the left is ALWAYS "B", regardless of what letter glyph you think you can see inside it.
+- If NO bubble in a row looks different from the others (i.e. all 4 look empty), the question is unanswered — use null.
+- If TWO OR MORE bubbles in the same row look marked, use null (ambiguous).
+- Marks can be: solid fill/shading, heavy pencil/pen scribble, a circle drawn around the bubble, a tick, or a cross — any of these count as "marked" for that position.
+- This test only has ${numQuestions} questions — only read question numbers 1 to ${numQuestions} and IGNORE any rows beyond that.
 
 Return ONLY this JSON with no other text:
 {"answers":{"1":"A","2":"C","3":null,"4":"B", ... up to "${numQuestions}"},"confidence":"high|medium|low","notes":"any issues reading the sheet, or empty string"}`;

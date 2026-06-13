@@ -510,7 +510,7 @@ function AnswerSheetScanScreen({ subject, yearLevel, questions, disputes, onComp
     if (!file) return;
     setError('');
     try {
-      const { dataUrl, base64, mediaType } = await compressImageFile(file);
+      const { dataUrl, base64, mediaType } = await compressImageFile(file, 1800, 0.85);
       setImagePreview(dataUrl);
       setImageBase64(base64);
       setImageMediaType(mediaType);
@@ -523,7 +523,7 @@ function AnswerSheetScanScreen({ subject, yearLevel, questions, disputes, onComp
     setShowCamera(false);
     setError('');
     try {
-      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl);
+      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl, 1800, 0.9);
       setImagePreview(dataUrl);
       setImageBase64(base64);
       setImageMediaType(mediaType);
