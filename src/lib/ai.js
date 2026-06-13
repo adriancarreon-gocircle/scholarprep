@@ -1101,25 +1101,25 @@ export const scanAnswerSheet = async (base64Image, mediaType, numQuestions) => {
   const user = `This photo shows a student's completed bubble answer sheet, in the ScholarPrep format.
 
 SHEET LAYOUT:
-- The sheet is split into 4 columns of question rows.
-- Each row has a question number on the left, followed by exactly 4 circular bubbles in a horizontal line.
-- The bubbles are in FIXED LEFT-TO-RIGHT ORDER: position 1 = A, position 2 = B, position 3 = C, position 4 = D. This order NEVER changes.
+- The sheet is organised into up to 3 horizontal blocks. Each block has up to 20 question COLUMNS side by side.
+- Each column has a question number printed at the TOP, with exactly 4 circular bubbles stacked VERTICALLY directly below it.
+- The 4 bubbles in each column are in FIXED TOP-TO-BOTTOM ORDER: the TOPMOST bubble = A, the next one down = B, the next = C, and the BOTTOM bubble = D. This order NEVER changes.
 - Each bubble has a small printed letter (A, B, C or D) inside it. When a bubble is filled/shaded/coloured in, that printed letter becomes hard or impossible to read — this is EXPECTED and is exactly how you identify the answer.
 
-HOW TO READ EACH ROW — follow this exact method for every question:
-1. Find the row for the question number.
-2. Look at the 4 bubbles from left to right.
-3. Identify which ONE bubble (if any) is visibly filled in, shaded dark, scribbled over, ticked, or has a thick circle/cross drawn on it — compared to the other 3 bubbles in the SAME row which should look like plain empty outlined circles.
-4. Determine the marked bubble's POSITION in the row (1st, 2nd, 3rd, or 4th from the left) — NOT by trying to read the letter printed inside it.
-5. Convert that position to a letter: 1st position = A, 2nd position = B, 3rd position = C, 4th position = D.
-6. Double-check by comparing the marked bubble's darkness/fill against the other 3 bubbles in that same row — the correct bubble should look clearly different (darker, filled, scribbled, circled) from its row-mates.
+HOW TO READ EACH QUESTION — follow this exact method:
+1. Find the column for the question number (read the number printed above the column).
+2. Look at the 4 bubbles in that column from TOP to BOTTOM.
+3. Identify which ONE bubble (if any) is visibly filled in, shaded dark, scribbled over, ticked, or has a thick circle/cross drawn on it — compared to the other 3 bubbles in the SAME column which should look like plain empty outlined circles.
+4. Determine the marked bubble's VERTICAL POSITION in the column (1st/topmost, 2nd, 3rd, or 4th/bottommost) — NOT by trying to read the letter printed inside it.
+5. Convert that position to a letter: topmost (1st) = A, 2nd = B, 3rd = C, bottommost (4th) = D.
+6. Double-check by comparing the marked bubble's darkness/fill against the other 3 bubbles in that same column — the correct bubble should look clearly different (darker, filled, scribbled, circled) from the others in its column.
 
 IMPORTANT RULES:
-- A bubble being the 2nd from the left is ALWAYS "B", regardless of what letter glyph you think you can see inside it.
-- If NO bubble in a row looks different from the others (i.e. all 4 look empty), the question is unanswered — use null.
-- If TWO OR MORE bubbles in the same row look marked, use null (ambiguous).
+- A bubble being the topmost in its column is ALWAYS "A", and the bottommost is ALWAYS "D" — regardless of what letter glyph you think you can see inside it.
+- If NO bubble in a column looks different from the others (i.e. all 4 look empty), the question is unanswered — use null.
+- If TWO OR MORE bubbles in the same column look marked, use null (ambiguous).
 - Marks can be: solid fill/shading, heavy pencil/pen scribble, a circle drawn around the bubble, a tick, or a cross — any of these count as "marked" for that position.
-- This test only has ${numQuestions} questions — only read question numbers 1 to ${numQuestions} and IGNORE any rows beyond that.
+- This test only has ${numQuestions} questions — only read question numbers 1 to ${numQuestions} and IGNORE any columns beyond that.
 
 Return ONLY this JSON with no other text:
 {"answers":{"1":"A","2":"C","3":null,"4":"B", ... up to "${numQuestions}"},"confidence":"high|medium|low","notes":"any issues reading the sheet, or empty string"}`;

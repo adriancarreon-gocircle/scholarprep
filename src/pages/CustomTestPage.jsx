@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
-import { saveTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
+import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
@@ -917,6 +917,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
       return;
     }
     finishedRef.current = true;
+    const sessionDate = new Date().toISOString();
     const correct = effectiveQs.filter((q, i) => disputes[i] ? true : selected[i] === q.correct).length;
     const total = effectiveQs.length;
     const bySubject = {};
@@ -932,9 +933,9 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
       const subjSelected = {};
       indices.forEach((origIdx, newIdx) => { subjSelected[newIdx] = selected[origIdx]; });
       const subjCorrect = qs.filter((q, ni) => disputes[indices[ni]] ? true : subjSelected[ni] === q.correct).length;
-      await saveTestResult(subj, yearLevel, subjCorrect, qs.length, qs, subjSelected);
+      await saveTestResult(subj, yearLevel, subjCorrect, qs.length, qs, subjSelected, sessionDate);
     }
-    onFinish({ correct, total, score: Math.round((correct / total) * 100), questions: effectiveQs, selected, passageGroups });
+    onFinish({ correct, total, score: Math.round((correct / total) * 100), questions: effectiveQs, selected, passageGroups, sessionDate });
   }, [localQuestions, questions, disputes, selected, yearLevel, onFinish, onRequestScan, passageGroups, test.reviewMode]);
 
   const handleRefreshQuestion = async () => {
@@ -1114,12 +1115,47 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
   );
 }
 
-function ResultsScreen({ test, result, onRetry, onBack }) {
-  const { correct: origCorrect, total, score: origScore, questions, selected } = result;
+function ResultsScreen({ test, yearLevel, result, onRetry, onBack }) {
+  const { correct: origCorrect, total, score: origScore, questions, selected, sessionDate } = result;
   const [disputes, setDisputes] = React.useState({});
+  const [appliedKeys, setAppliedKeys] = React.useState(new Set());
+  const [updating, setUpdating] = React.useState(false);
+  const [updated, setUpdated] = React.useState(false);
   const disputeCount = Object.keys(disputes).length;
   const correct = origCorrect + disputeCount;
   const score = Math.round((correct / total) * 100);
+  const pendingCount = Object.keys(disputes).filter(k => !appliedKeys.has(k)).length;
+
+  // Custom tests can mix subjects — group questions by subject so each
+  // gets its own updateTestResult call (matching how saveTestResult was called per subject)
+  const handleUpdateResults = async () => {
+    if (pendingCount === 0 || updating) return;
+    setUpdating(true);
+    const pendingGlobalIdx = Object.keys(disputes).filter(k => !appliedKeys.has(k)).map(Number);
+
+    const bySubject = {};
+    questions.forEach((q, i) => {
+      const rawSubj = q._subj || test.subject || 'mathematics';
+      const subj = (rawSubj === 'custom') ? 'mathematics' : rawSubj;
+      if (!bySubject[subj]) bySubject[subj] = { qs: [], selected: {}, flags: {}, indices: [] };
+      const localIdx = bySubject[subj].qs.length;
+      bySubject[subj].qs.push(q);
+      bySubject[subj].selected[localIdx] = selected[i];
+      bySubject[subj].indices.push(i);
+      if (pendingGlobalIdx.includes(i)) bySubject[subj].flags[localIdx] = true;
+    });
+
+    for (const [subj, { qs, selected: subjSelected, flags }] of Object.entries(bySubject)) {
+      if (Object.keys(flags).length === 0) continue;
+      await updateTestResult(subj, yearLevel, qs, subjSelected, flags, sessionDate);
+    }
+
+    setAppliedKeys(prev => new Set([...prev, ...pendingGlobalIdx.map(String)]));
+    setUpdating(false);
+    setUpdated(true);
+    setTimeout(() => setUpdated(false), 2500);
+  };
+
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: 32 }}>
       <div style={{ background: '#fff', borderRadius: 24, padding: 36, textAlign: 'center', marginBottom: 20, border: '1px solid rgba(67,56,202,0.08)' }}>
@@ -1130,6 +1166,23 @@ function ResultsScreen({ test, result, onRetry, onBack }) {
           <span style={{ fontSize: 14, color: '#059669', fontWeight: 700 }}>✓ {correct}</span>
           <span style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700 }}>✗ {total - correct}</span>
         </div>
+
+        {/* Update results — appears once any answer has been disputed */}
+        {pendingCount > 0 && (
+          <button onClick={handleUpdateResults} disabled={updating} style={{
+            marginTop: 18, padding: '10px 24px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+            background: updating ? '#CBD5E1' : '#059669', color: '#fff', border: 'none',
+            cursor: updating ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+            boxShadow: updating ? 'none' : '0 4px 12px rgba(5,150,105,0.25)',
+          }}>
+            {updating ? 'Updating…' : `↻ Update results (${pendingCount} new correction${pendingCount > 1 ? 's' : ''})`}
+          </button>
+        )}
+        {pendingCount === 0 && updated && (
+          <div style={{ marginTop: 18, fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+            ✅ Results updated — your Progress page now reflects this correction.
+          </div>
+        )}
       </div>
       {/* Question type breakdown */}
       {(() => {
@@ -1670,6 +1723,7 @@ export default function CustomTestPage() {
   };
   const handleScanComplete = async (sel, meta) => {
     const qs = scanQuestions || [];
+    const sessionDate = new Date().toISOString();
     const correct = qs.filter((q, i) => scanDisputes[i] ? true : sel[i] === q.correct).length;
     const total = qs.length;
     const bySubject = {};
@@ -1685,9 +1739,9 @@ export default function CustomTestPage() {
       const subjSelected = {};
       indices.forEach((origIdx, newIdx) => { subjSelected[newIdx] = sel[origIdx]; });
       const subjCorrect = subjQs.filter((q, ni) => scanDisputes[indices[ni]] ? true : subjSelected[ni] === q.correct).length;
-      await saveTestResult(subj, yearLevel, subjCorrect, subjQs.length, subjQs, subjSelected);
+      await saveTestResult(subj, yearLevel, subjCorrect, subjQs.length, subjQs, subjSelected, sessionDate);
     }
-    setResult({ correct, total, score: Math.round((correct / total) * 100), questions: qs, selected: sel, passageGroups: scanPassageGroups, scanMeta: meta });
+    setResult({ correct, total, score: Math.round((correct / total) * 100), questions: qs, selected: sel, passageGroups: scanPassageGroups, scanMeta: meta, sessionDate });
     setView('results');
   };
   const handleScanBack = () => { setView('quiz'); };
@@ -1766,7 +1820,7 @@ export default function CustomTestPage() {
       )}
       {hasAccess && view === 'quiz' && activeTest && <QuizScreen test={activeTest} yearLevel={yearLevel} customTemplates={customTemplates} onFinish={(res) => { setResult(res); setView('results'); }} onRequestScan={handleRequestScan} onExit={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
       {hasAccess && view === 'scan' && scanQuestions && <AnswerSheetScanScreen questions={scanQuestions} onComplete={handleScanComplete} onBack={handleScanBack} />}
-      {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
+      {hasAccess && view === 'results' && result && <ResultsScreen test={activeTest} yearLevel={yearLevel} result={result} onRetry={() => { setView('quiz'); }} onBack={() => setView(isSaved(activeTest) ? 'list' : 'builder')} />}
     </div>
   );
 }

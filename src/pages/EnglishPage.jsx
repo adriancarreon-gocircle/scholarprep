@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
-import { saveTestResult } from '../lib/progress';
+import { saveTestResult, updateTestResult } from '../lib/progress';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
 const CFG = {
@@ -709,13 +709,29 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onR
 }
 
 // ── Results Screen ────────────────────────────────────────────────────────────
-function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest }) {
+function ResultsScreen({ yearLevel, questions, selected, result, onRetry, onHome, onNewTest }) {
   const [disputes, setDisputes] = React.useState({}); // { [idx]: { letter, ownText? } }
+  const [appliedKeys, setAppliedKeys] = React.useState(new Set());
+  const [updating, setUpdating] = React.useState(false);
+  const [updated, setUpdated] = React.useState(false);
   const disputeCount = Object.keys(disputes).length;
   const adjustedCorrect = result.correct + disputeCount;
   const adjustedPct = Math.round((adjustedCorrect / result.total) * 100);
   const pct = adjustedPct;
   const msg = pct >= 80 ? 'Excellent work! 🌟' : pct >= 60 ? 'Good effort! 👍' : 'Keep practising! 💪';
+  const pendingCount = Object.keys(disputes).filter(k => !appliedKeys.has(k)).length;
+
+  const handleUpdateResults = async () => {
+    if (pendingCount === 0 || updating) return;
+    setUpdating(true);
+    const pendingFlags = {};
+    Object.keys(disputes).forEach(k => { if (!appliedKeys.has(k)) pendingFlags[k] = true; });
+    await updateTestResult('english', yearLevel, questions, selected, pendingFlags, result.sessionDate);
+    setAppliedKeys(prev => new Set([...prev, ...Object.keys(pendingFlags)]));
+    setUpdating(false);
+    setUpdated(true);
+    setTimeout(() => setUpdated(false), 2500);
+  };
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: 32 }}>
@@ -727,6 +743,23 @@ function ResultsScreen({ questions, selected, result, onRetry, onHome, onNewTest
           <div style={{ fontSize: 14, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {adjustedCorrect} correct</div>
           <div style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✗ {result.total - result.correct} incorrect</div>
         </div>
+
+        {/* Update results — appears once any answer has been disputed */}
+        {pendingCount > 0 && (
+          <button onClick={handleUpdateResults} disabled={updating} style={{
+            marginTop: 18, padding: '10px 24px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+            background: updating ? '#CBD5E1' : '#059669', color: '#fff', border: 'none',
+            cursor: updating ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+            boxShadow: updating ? 'none' : '0 4px 12px rgba(5,150,105,0.25)',
+          }}>
+            {updating ? 'Updating…' : `↻ Update results (${pendingCount} new correction${pendingCount > 1 ? 's' : ''})`}
+          </button>
+        )}
+        {pendingCount === 0 && updated && (
+          <div style={{ marginTop: 18, fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+            ✅ Results updated — your Progress page now reflects this correction.
+          </div>
+        )}
       </div>
 
       {/* Question type breakdown */}
@@ -864,11 +897,12 @@ export default function EnglishPage() {
     }).length;
     const total = qs.length;
     const score = Math.round((correct / total) * 100);
+    const sessionDate = new Date().toISOString();
     const questionsWithDisputes = qs.map((q, i) => scanDisputes[i] ? { ...q, correct: scanDisputes[i].letter, disputeOwnText: scanDisputes[i].ownText } : q);
-    await saveTestResult('english', yearLevel, correct, total, questionsWithDisputes, sel);
+    await saveTestResult('english', yearLevel, correct, total, questionsWithDisputes, sel, sessionDate);
     setQuestions(qs);
     setSelected(sel);
-    setResult({ correct, total, score, scanMeta: meta });
+    setResult({ correct, total, score, scanMeta: meta, sessionDate });
     setPhase('results');
   };
   const handleScanBack = () => { setPhase('quiz'); };
@@ -891,9 +925,10 @@ export default function EnglishPage() {
     const correct = questions.filter((q, i) => sel[i] === q.correct).length;
     const total = questions.length;
     const score = Math.round((correct / total) * 100);
-    await saveTestResult('english', yearLevel, correct, total, questions, sel);
+    const sessionDate = new Date().toISOString();
+    await saveTestResult('english', yearLevel, correct, total, questions, sel, sessionDate);
     setSelected(sel);
-    setResult({ correct, total, score });
+    setResult({ correct, total, score, sessionDate });
     setPhase('results');
   }, [questions, yearLevel]);
 
@@ -936,7 +971,7 @@ export default function EnglishPage() {
       {hasAccess && phase === 'loading' && <LoadingScreen />}
       {hasAccess && phase === 'quiz' && <QuizScreen questions={questions} timerSecs={timerSecs} reviewMode={reviewMode} yearLevel={yearLevel} onFinish={handleFinish} onRequestScan={handleRequestScan} onExit={handleExit} />}
       {hasAccess && phase === 'scan' && <AnswerSheetScanScreen yearLevel={yearLevel} questions={scanQuestions || questions} disputes={scanDisputes} onComplete={handleScanComplete} onBack={handleScanBack} />}
-      {hasAccess && phase === 'results' && <ResultsScreen questions={questions} selected={selected} result={result} onRetry={handleRetry} onHome={handleHome} onNewTest={handleNewTest} />}
+      {hasAccess && phase === 'results' && <ResultsScreen yearLevel={yearLevel} questions={questions} selected={selected} result={result} onRetry={handleRetry} onHome={handleHome} onNewTest={handleNewTest} />}
     </div>
   );
 }

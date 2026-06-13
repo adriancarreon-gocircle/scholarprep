@@ -233,14 +233,14 @@ export const migrateLocalToSupabase = async () => {
 
 // ── Save test result ──────────────────────────────────────────────────────────
 
-export const saveTestResult = async (subject, yearLevel, correct, total, questions, selected) => {
+export const saveTestResult = async (subject, yearLevel, correct, total, questions, selected, sessionDate) => {
   const session = {
     subject,
     yearLevel,
     correct,
     total,
     score: Math.round((correct / total) * 100),
-    date: new Date().toISOString(),
+    date: sessionDate || new Date().toISOString(),
     questions: questions || []
   };
 
@@ -290,6 +290,103 @@ export const saveTestResult = async (subject, yearLevel, correct, total, questio
   }
 
   return session;
+};
+
+// ── Update test result after disputes ────────────────────────────────────────
+// Applies score corrections for questions that were marked "correct" via the
+// Disagree-with-answer dispute panel AFTER the test was originally saved.
+// Only counts questions where the original selected answer was WRONG and a
+// dispute now marks it as correct (i.e. a net +1 to "correct" for that question).
+//
+// disputeFlags: { [questionIndex]: true } — indices (within `questions`) that
+// should now count as correct. Pass only NEWLY-resolved disputes (not ones
+// already applied in a previous Update Results click) to avoid double-counting.
+export const updateTestResult = async (subject, yearLevel, questions, originalSelected, disputeFlags, sessionDate) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user || !sessionDate) return null;
+
+    // Only questions that were originally WRONG and are now disputed-correct count as a delta
+    const flippedIndices = [];
+    (questions || []).forEach((q, i) => {
+      if (disputeFlags?.[i] && originalSelected?.[i] !== q.correct) flippedIndices.push(i);
+    });
+    if (flippedIndices.length === 0) return null;
+    const deltaCorrect = flippedIndices.length;
+
+    // 1. Update the progress_sessions row for this test
+    const { data: sessionRow } = await supabase
+      .from('progress_sessions')
+      .select('id, correct, total')
+      .eq('user_id', user.id)
+      .eq('subject', subject)
+      .eq('date', sessionDate)
+      .single();
+    if (sessionRow) {
+      const newCorrect = sessionRow.correct + deltaCorrect;
+      const newScore = sessionRow.total > 0 ? Math.round((newCorrect / sessionRow.total) * 100) : 0;
+      await supabase.from('progress_sessions').update({ correct: newCorrect, score: newScore }).eq('id', sessionRow.id);
+    }
+
+    // 2. Topic score deltas (topic_scores + topic_score_history)
+    const topicDelta = {};
+    flippedIndices.forEach(i => {
+      const topic = normaliseTopicKey(questions[i].topic);
+      if (!topic) return;
+      topicDelta[topic] = (topicDelta[topic] || 0) + 1;
+    });
+    for (const [topicKey, delta] of Object.entries(topicDelta)) {
+      const { data: ts } = await supabase
+        .from('topic_scores')
+        .select('id, correct, total')
+        .eq('user_id', user.id).eq('subject', subject).eq('topic_key', topicKey).single();
+      if (ts) {
+        await supabase.from('topic_scores')
+          .update({ correct: ts.correct + delta, updated_at: new Date().toISOString() })
+          .eq('id', ts.id);
+      }
+
+      const { data: tsh } = await supabase
+        .from('topic_score_history')
+        .select('id, correct, total')
+        .eq('user_id', user.id).eq('subject', subject).eq('topic_key', topicKey).eq('session_date', sessionDate).single();
+      if (tsh) {
+        const newCorrect = tsh.correct + delta;
+        const newPct = tsh.total > 0 ? Math.round((newCorrect / tsh.total) * 100) : 0;
+        await supabase.from('topic_score_history')
+          .update({ correct: newCorrect, score_pct: newPct })
+          .eq('id', tsh.id);
+      }
+    }
+
+    // 3. Question type score deltas (question_type_scores)
+    const qtDelta = {};
+    flippedIndices.forEach(i => {
+      const q = questions[i];
+      const topic = normaliseTopicKey(q.topic);
+      const qtype = normaliseQType(q.questionType, topic);
+      if (!topic || !qtype) return;
+      const key = `${topic}::${qtype}`;
+      if (!qtDelta[key]) qtDelta[key] = { topic, questionType: qtype, delta: 0 };
+      qtDelta[key].delta += 1;
+    });
+    for (const { topic, questionType, delta } of Object.values(qtDelta)) {
+      const { data: qts } = await supabase
+        .from('question_type_scores')
+        .select('id, correct, total')
+        .eq('user_id', user.id).eq('subject', subject).eq('topic_key', topic).eq('question_type', questionType).single();
+      if (qts) {
+        await supabase.from('question_type_scores')
+          .update({ correct: qts.correct + delta, updated_at: new Date().toISOString() })
+          .eq('id', qts.id);
+      }
+    }
+
+    return { appliedCount: deltaCorrect };
+  } catch (e) {
+    console.error('updateTestResult error:', e);
+    return null;
+  }
 };
 
 // ── Save writing result ───────────────────────────────────────────────────────
