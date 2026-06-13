@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
+import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
 const CFG = {
   label: 'English',
@@ -337,6 +338,69 @@ function DisputePanel({ question, onDispute, disputed, disputeText }) {
   );
 }
 
+// ── Camera Capture Modal ────────────────────────────────────────────────────
+// Uses getUserMedia so "Take photo" works in-browser on both phones and computers.
+function CameraCaptureModal({ onCapture, onClose, accentColor }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [camError, setCamError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'environment' }, audio: false })
+      .then(stream => {
+        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => { });
+        }
+        setReady(true);
+      })
+      .catch(() => setCamError('Could not access the camera. Please allow camera access, or use "Upload photo" instead.'));
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    onCapture(dataUrl);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#000', borderRadius: 20, overflow: 'hidden', maxWidth: 480, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'relative', background: '#0F172A', minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {camError ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#FCA5A5', fontSize: 13, fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{camError}</div>
+          ) : (
+            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 480, display: 'block', objectFit: 'contain' }} />
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 10, padding: 16, background: '#fff' }}>
+          <button onClick={onClose} style={{ padding: '12px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+          <button onClick={handleCapture} disabled={!ready || !!camError} style={{
+            flex: 1, padding: '12px 20px', borderRadius: 100, fontSize: 15, fontWeight: 700,
+            background: (!ready || camError) ? '#CBD5E1' : (accentColor || '#4338CA'), color: '#fff', border: 'none',
+            cursor: (!ready || camError) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+          }}>
+            📸 Capture photo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Answer Sheet Scan Screen ─────────────────────────────────────────────────
 function AnswerSheetScanScreen({ yearLevel, questions, disputes, onComplete, onBack }) {
   const [imagePreview, setImagePreview] = useState(null);
@@ -344,19 +408,33 @@ function AnswerSheetScanScreen({ yearLevel, questions, disputes, onComplete, onB
   const [imageMediaType, setImageMediaType] = useState('image/jpeg');
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setError('');
-    setImageMediaType(file.type || 'image/jpeg');
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      setImagePreview(result);
-      setImageBase64(result.split(',')[1]);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, base64, mediaType } = await compressImageFile(file);
+      setImagePreview(dataUrl);
+      setImageBase64(base64);
+      setImageMediaType(mediaType);
+    } catch {
+      setError('Could not read that image. Please try a different photo.');
+    }
+  };
+
+  const handleCameraCapture = async (rawDataUrl) => {
+    setShowCamera(false);
+    setError('');
+    try {
+      const { dataUrl, base64, mediaType } = await compressDataUrl(rawDataUrl);
+      setImagePreview(dataUrl);
+      setImageBase64(base64);
+      setImageMediaType(mediaType);
+    } catch {
+      setError('Could not process that photo. Please try again.');
+    }
   };
 
   const handleScan = async () => {
@@ -380,6 +458,9 @@ function AnswerSheetScanScreen({ yearLevel, questions, disputes, onComplete, onB
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>
+      {showCamera && (
+        <CameraCaptureModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} accentColor={CFG.color} />
+      )}
       <div style={{ marginBottom: 24, textAlign: 'center' }}>
         <div style={{ width: 56, height: 56, borderRadius: 16, background: CFG.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 16px' }}>📷</div>
         <h1 style={{ fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif", fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 }}>Scan your answer sheet</h1>
@@ -401,10 +482,9 @@ function AnswerSheetScanScreen({ yearLevel, questions, disputes, onComplete, onB
         )}
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <label style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: CFG.color, border: `1.5px solid ${CFG.color}30`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          <button onClick={() => setShowCamera(true)} style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: CFG.color, border: `1.5px solid ${CFG.color}30`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
             📷 Take photo
-            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} style={{ display: 'none' }} />
-          </label>
+          </button>
           <label style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: CFG.color, border: `1.5px solid ${CFG.color}30`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
             🖼️ Upload photo
             <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
