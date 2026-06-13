@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
+import { generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
 import { saveTestResult } from '../lib/progress';
 
 const CFG = {
@@ -207,10 +207,11 @@ function SetupScreen({ yearLevel, onStart }) {
       {/* Answer review */}
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 24, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Answer review</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           {[
             { key: 'each', icon: '💡', title: 'Review as I go', desc: 'See the correct answer and explanation after each question.' },
             { key: 'end', icon: '🏆', title: 'Exam mode', desc: 'See all answers and explanations at the end only.' },
+            { key: 'sheet', icon: '📝', title: 'Answer Sheet', desc: 'Use a printable bubble sheet — write your answers on paper, then photograph it to get marked.' },
           ].map(m => (
             <button key={m.key} onClick={() => setReviewMode(m.key)} style={{
               padding: '14px 16px', borderRadius: 12,
@@ -224,15 +225,39 @@ function SetupScreen({ yearLevel, onStart }) {
             </button>
           ))}
         </div>
+        {reviewMode === 'sheet' && (
+          <div style={{ marginTop: 14, padding: '12px 16px', background: effectiveCount > 60 ? '#FFF1F2' : '#FFF7ED', border: `1px solid ${effectiveCount > 60 ? '#FDA4AF' : '#FED7AA'}`, borderRadius: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: effectiveCount > 60 ? '#BE123C' : '#C2410C', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>📋 Answer Sheet mode — max 60 questions</div>
+            {effectiveCount > 60 ? (
+              <div style={{ fontSize: 12, color: '#BE123C', lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>
+                This test has {effectiveCount} questions, which is more than the 60-question sheet supports. Please reduce the number of questions to 60 or fewer to use Answer Sheet mode.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: '#9A3412', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', marginBottom: 8 }}>
+                  You'll write your answers (A, B, C, D) on a printed ScholarPrep answer sheet instead of tapping them on screen. At the end of the test, take a photo of your completed sheet and we'll mark it automatically. This test uses {effectiveCount} question{effectiveCount > 1 ? 's' : ''} — only fill in rows 1–{effectiveCount} on the sheet.
+                </div>
+                <a href="/scholarprep_answer_sheet.pdf" download target="_blank" rel="noopener noreferrer" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#C2410C',
+                  background: '#fff', border: '1.5px solid #FDBA74', borderRadius: 100, padding: '6px 14px',
+                  textDecoration: 'none', fontFamily: 'Inter, sans-serif',
+                }}>
+                  📄 Download printable answer sheet (PDF)
+                </a>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      <button onClick={handleStart} style={{
+      <button onClick={handleStart} disabled={reviewMode === 'sheet' && effectiveCount > 60} style={{
         width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
-        background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
-        boxShadow: '0 4px 20px rgba(67,56,202,0.3)', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
+        background: (reviewMode === 'sheet' && effectiveCount > 60) ? '#CBD5E1' : '#4338CA', color: '#fff', border: 'none',
+        cursor: (reviewMode === 'sheet' && effectiveCount > 60) ? 'not-allowed' : 'pointer',
+        boxShadow: (reviewMode === 'sheet' && effectiveCount > 60) ? 'none' : '0 4px 20px rgba(67,56,202,0.3)', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
       }}
-        onMouseEnter={e => e.target.style.background = '#3730A3'}
-        onMouseLeave={e => e.target.style.background = '#4338CA'}
+        onMouseEnter={e => { if (!(reviewMode === 'sheet' && effectiveCount > 60)) e.target.style.background = '#3730A3'; }}
+        onMouseLeave={e => { if (!(reviewMode === 'sheet' && effectiveCount > 60)) e.target.style.background = '#4338CA'; }}
       >
         Generate test →
       </button>
@@ -312,8 +337,104 @@ function DisputePanel({ question, onDispute, disputed, disputeText }) {
   );
 }
 
+// ── Answer Sheet Scan Screen ─────────────────────────────────────────────────
+function AnswerSheetScanScreen({ yearLevel, questions, disputes, onComplete, onBack }) {
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [imageMediaType, setImageMediaType] = useState('image/jpeg');
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setImageMediaType(file.type || 'image/jpeg');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      setImagePreview(result);
+      setImageBase64(result.split(',')[1]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleScan = async () => {
+    if (!imageBase64) return;
+    setScanning(true); setError('');
+    try {
+      const result = await scanAnswerSheet(imageBase64, imageMediaType, questions.length);
+      const answers = result?.answers || {};
+      const selected = {};
+      questions.forEach((q, i) => {
+        const ans = answers[String(i + 1)];
+        if (ans === 'A' || ans === 'B' || ans === 'C' || ans === 'D') selected[i] = ans;
+      });
+      const unanswered = questions.length - Object.keys(selected).length;
+      onComplete(selected, { confidence: result?.confidence, notes: result?.notes, unanswered });
+    } catch (e) {
+      setError(e.message || 'Failed to scan the answer sheet. Please try a clearer photo and try again.');
+    }
+    setScanning(false);
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>
+      <div style={{ marginBottom: 24, textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: CFG.lightBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 16px' }}>📷</div>
+        <h1 style={{ fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif", fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 }}>Scan your answer sheet</h1>
+        <div style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+          Take a clear, well-lit photo of your completed answer sheet (rows 1–{questions.length}), or upload one from your device.
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+        {imagePreview ? (
+          <div style={{ marginBottom: 16 }}>
+            <img src={imagePreview} alt="Answer sheet preview" style={{ width: '100%', borderRadius: 12, border: '1px solid #E5E7EB', display: 'block' }} />
+          </div>
+        ) : (
+          <div style={{ border: '2px dashed #E5E7EB', borderRadius: 12, padding: '40px 20px', textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>No photo selected yet</div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <label style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: CFG.color, border: `1.5px solid ${CFG.color}30`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            📷 Take photo
+            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} style={{ display: 'none' }} />
+          </label>
+          <label style={{ flex: 1, textAlign: 'center', padding: '12px 16px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F8F9FF', color: CFG.color, border: `1.5px solid ${CFG.color}30`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            🖼️ Upload photo
+            <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+          </label>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onBack} style={{ padding: '14px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#64748B', border: '1.5px solid #E5E7EB', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Back to test</button>
+        <button onClick={handleScan} disabled={!imageBase64 || scanning} style={{
+          flex: 1, padding: '14px 24px', borderRadius: 100, fontSize: 15, fontWeight: 700,
+          background: (!imageBase64 || scanning) ? '#CBD5E1' : '#4338CA', color: '#fff', border: 'none',
+          cursor: (!imageBase64 || scanning) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+          boxShadow: (!imageBase64 || scanning) ? 'none' : '0 4px 16px rgba(67,56,202,0.3)',
+        }}>
+          {scanning ? 'Scanning your sheet…' : '✓ Scan & get results'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Quiz Screen ───────────────────────────────────────────────────────────────
-function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onExit }) {
+function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onRequestScan, onExit }) {
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState({});
   const [revealed, setRevealed] = useState({});
@@ -353,11 +474,16 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
   };
 
   const handleFinish = useCallback(() => {
+    if (reviewMode === 'sheet') {
+      onRequestScan(localQuestions, disputes);
+      return;
+    }
     setFinished(true);
     onFinish(selected);
-  }, [selected, onFinish]);
+  }, [selected, onFinish, reviewMode, localQuestions, disputes, onRequestScan]);
 
   const handleSelect = (letter) => {
+    if (reviewMode === 'sheet') return;
     if (revealed[current]) return;
     setSelected(s => ({ ...s, [current]: letter }));
     if (reviewMode === 'each') setRevealed(r => ({ ...r, [current]: true }));
@@ -418,6 +544,16 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
         <div style={{ height: '100%', width: `${progress}%`, background: CFG.color, borderRadius: 3, transition: 'width 0.3s' }}></div>
       </div>
 
+      {/* Answer Sheet mode banner */}
+      {reviewMode === 'sheet' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 12, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>📝</span>
+          <div style={{ fontSize: 12, color: '#9A3412', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+            <strong>Answer Sheet mode:</strong> write your answer for Q{current + 1} (A, B, C or D) on row {current + 1} of your printed sheet. When you've answered every question, tap <strong>Finish &amp; scan sheet</strong>.
+          </div>
+        </div>
+      )}
+
       {/* Question card */}
       <div style={{ background: '#fff', borderRadius: 20, padding: 28, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 4px 16px rgba(67,56,202,0.06)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: q?.questionType ? 0 : 10 }}>
@@ -426,7 +562,7 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
               {q.topic} · {q.questionType}
             </div>
           ) : <div />}
-          {!selected[current] && !revealed[current] && (
+          {reviewMode !== 'sheet' && !selected[current] && !revealed[current] && (
             <button
               onClick={handleRefreshQuestion}
               disabled={refreshingIdx !== null}
@@ -441,8 +577,9 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
         <div style={{ fontSize: 15, fontWeight: 600, color: '#0F172A', lineHeight: 1.7, marginBottom: 20, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}>{q?.question}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {q && Object.entries(q.options).map(([letter, text]) => {
-            const isSelected = selected[current] === letter;
-            const isRevealed = revealed[current];
+            const isSheet = reviewMode === 'sheet';
+            const isSelected = !isSheet && selected[current] === letter;
+            const isRevealed = !isSheet && revealed[current];
             const isCorrect = q.correct === letter;
             let bg = '#F8F9FF', border = '1.5px solid rgba(67,56,202,0.1)', color = '#334155';
             if (isRevealed) {
@@ -452,7 +589,7 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
               bg = '#F5F3FF'; border = `1.5px solid ${CFG.color}`; color = CFG.color;
             }
             return (
-              <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, cursor: isRevealed ? 'default' : 'pointer', background: bg, border, color, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
+              <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, cursor: isSheet ? 'default' : isRevealed ? 'default' : 'pointer', background: bg, border, color, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
                 <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: isRevealed && isCorrect ? '#059669' : isRevealed && isSelected ? '#BE123C' : isSelected ? CFG.color : 'rgba(124,58,237,0.08)', color: (isRevealed && isCorrect) || (isRevealed && isSelected) || isSelected ? '#fff' : '#64748B' }}>{letter}</div>
                 <span style={{ fontSize: 14, fontWeight: 500 }}>{text}</span>
                 {isRevealed && isCorrect && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✓</span>}
@@ -461,15 +598,15 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
             );
           })}
         </div>
-        {revealed[current] && (
+        {reviewMode !== 'sheet' && revealed[current] && (
           <div style={{ marginTop: 16, padding: '14px 16px', background: '#EEF2FF', borderRadius: 12, fontSize: 13, color: '#4338CA', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', border: '1px solid rgba(67,56,202,0.12)' }}>
             <strong>💡 Explanation:</strong> {q?.explanation}
           </div>
         )}
-        {revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
+        {reviewMode !== 'sheet' && revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
           <DisputePanel question={q} disputed={disputes[current]?.letter} disputeText={disputes[current]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [current]: { letter, ownText } }))} />
         )}
-        {disputes[current] && (
+        {reviewMode !== 'sheet' && disputes[current] && (
           <DisputePanel question={q} disputed={disputes[current].letter} disputeText={disputes[current].ownText} onDispute={() => { }} />
         )}
       </div>
@@ -479,12 +616,12 @@ function QuizScreen({ questions, timerSecs, reviewMode, yearLevel, onFinish, onE
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)', cursor: current === 0 ? 'default' : 'pointer', opacity: current === 0 ? 0.4 : 1, fontFamily: 'Inter, sans-serif' }}>← Previous</button>
         <div style={{ display: 'flex', gap: 5 }}>
           {localQuestions.map((_, i) => (
-            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? CFG.color : (selected[i] && reviewMode !== 'end') ? (selected[i] === localQuestions[i].correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0', transition: 'background 0.2s' }}></div>
+            <div key={i} onClick={() => setCurrent(i)} style={{ width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', background: i === current ? CFG.color : reviewMode === 'sheet' ? '#E2E8F0' : (selected[i] && reviewMode !== 'end') ? (selected[i] === localQuestions[i].correct ? '#059669' : '#F43F5E') : selected[i] ? '#94A3B8' : '#E2E8F0', transition: 'background 0.2s' }}></div>
           ))}
         </div>
         {current < localQuestions.length - 1
           ? <button onClick={() => setCurrent(c => c + 1)} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600, background: CFG.color, color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Next →</button>
-          : <button onClick={handleFinish} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.3)' }}>Finish test ✓</button>
+          : <button onClick={handleFinish} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.3)' }}>{reviewMode === 'sheet' ? 'Finish & scan sheet 📷' : 'Finish test ✓'}</button>
         }
       </div>
     </div>
@@ -628,7 +765,33 @@ export default function EnglishPage() {
   // Reset on nav
   useEffect(() => {
     setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); setError('');
+    setScanQuestions(null); setScanDisputes({});
   }, [location.key]);
+
+  // ── Answer Sheet mode ──
+  const [scanQuestions, setScanQuestions] = useState(null);
+  const [scanDisputes, setScanDisputes] = useState({});
+  const handleRequestScan = (qs, disputes) => {
+    setScanQuestions(qs);
+    setScanDisputes(disputes || {});
+    setPhase('scan');
+  };
+  const handleScanComplete = async (sel, meta) => {
+    const qs = scanQuestions || questions;
+    const correct = qs.filter((q, i) => {
+      if (scanDisputes[i]) return true;
+      return sel[i] === q.correct;
+    }).length;
+    const total = qs.length;
+    const score = Math.round((correct / total) * 100);
+    const questionsWithDisputes = qs.map((q, i) => scanDisputes[i] ? { ...q, correct: scanDisputes[i].letter, disputeOwnText: scanDisputes[i].ownText } : q);
+    await saveTestResult('english', yearLevel, correct, total, questionsWithDisputes, sel);
+    setQuestions(qs);
+    setSelected(sel);
+    setResult({ correct, total, score, scanMeta: meta });
+    setPhase('results');
+  };
+  const handleScanBack = () => { setPhase('quiz'); };
 
   const handleStart = async (count, timer, mode, focusObj) => {
     setPhase('loading'); setError(''); setTimerSecs(timer); setReviewMode(mode);
@@ -655,9 +818,9 @@ export default function EnglishPage() {
   }, [questions, yearLevel]);
 
   const handleRetry = () => { setPhase('quiz'); setResult(null); setSelected({}); };
-  const handleNewTest = () => { setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); };
+  const handleNewTest = () => { setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); setScanQuestions(null); setScanDisputes({}); };
   const handleHome = () => navigate('/app');
-  const handleExit = () => { setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); };
+  const handleExit = () => { setPhase('setup'); setQuestions([]); setResult(null); setSelected({}); setScanQuestions(null); setScanDisputes({}); };
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
@@ -691,7 +854,8 @@ export default function EnglishPage() {
 
       {hasAccess && phase === 'setup' && <SetupScreen yearLevel={yearLevel} onStart={handleStart} />}
       {hasAccess && phase === 'loading' && <LoadingScreen />}
-      {hasAccess && phase === 'quiz' && <QuizScreen questions={questions} timerSecs={timerSecs} reviewMode={reviewMode} yearLevel={yearLevel} onFinish={handleFinish} onExit={handleExit} />}
+      {hasAccess && phase === 'quiz' && <QuizScreen questions={questions} timerSecs={timerSecs} reviewMode={reviewMode} yearLevel={yearLevel} onFinish={handleFinish} onRequestScan={handleRequestScan} onExit={handleExit} />}
+      {hasAccess && phase === 'scan' && <AnswerSheetScanScreen yearLevel={yearLevel} questions={scanQuestions || questions} disputes={scanDisputes} onComplete={handleScanComplete} onBack={handleScanBack} />}
       {hasAccess && phase === 'results' && <ResultsScreen questions={questions} selected={selected} result={result} onRetry={handleRetry} onHome={handleHome} onNewTest={handleNewTest} />}
     </div>
   );

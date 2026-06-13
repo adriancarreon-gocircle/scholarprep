@@ -1091,3 +1091,45 @@ Return ONLY this JSON with no other text:
   if (start === -1 || end === -1) throw new Error('Invalid response from AI');
   return JSON.parse(clean.slice(start, end + 1));
 };
+// ── Scan a filled-in bubble answer sheet (vision) ──────────────────────────────
+// Reads a photo/scan of the ScholarPrep printable answer sheet and returns the
+// shaded letter (A/B/C/D) for each question number 1..numQuestions.
+// Numbers beyond numQuestions on the sheet are ignored.
+export const scanAnswerSheet = async (base64Image, mediaType, numQuestions) => {
+  const system = `You are an exam answer sheet scanner. You read photos of multiple-choice bubble/answer sheets and identify which letter (A, B, C or D) has been marked, circled, ticked, or shaded for each question number. Always respond with ONLY valid JSON, no other text.`;
+
+  const user = `This photo shows a student's completed answer sheet. The sheet has numbered rows (1 to 60), each with four options A, B, C, D that the student marks by shading, circling, ticking, or writing over.
+
+This particular test only has ${numQuestions} questions, so only question numbers 1 to ${numQuestions} are relevant — IGNORE any marks on question numbers above ${numQuestions}.
+
+For each question from 1 to ${numQuestions}:
+- Identify which letter (A, B, C, or D) has been marked/shaded/circled
+- If a question has no clear mark, or multiple marks, or you cannot tell, use null
+- Marks can be: filled-in bubbles, circles around a letter, ticks/checks, crosses, or handwritten letters
+
+Return ONLY this JSON with no other text:
+{"answers":{"1":"A","2":"C","3":null,"4":"B", ... up to "${numQuestions}"},"confidence":"high|medium|low","notes":"any issues reading the sheet, or empty string"}`;
+
+  const response = await fetch('/api/claude-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64Image, mediaType, systemPrompt: system, userPrompt: user })
+  });
+
+  const rawText = await response.text();
+  if (!response.ok || !rawText.trim().startsWith('{')) {
+    throw new Error(
+      rawText.length < 200
+        ? rawText
+        : `Server error ${response.status}: image may be too large. Please use a smaller or compressed photo.`
+    );
+  }
+
+  const data = JSON.parse(rawText);
+  if (data.error) throw new Error(data.error);
+  const text = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('Could not read the answer sheet. Please try a clearer photo.');
+  return JSON.parse(text.slice(start, end + 1));
+};
