@@ -1050,7 +1050,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
           </div>
           <div style={{ background: '#fff', borderRadius: 20, padding: 22, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
             {/* Fresh question button — only before answering */}
-            {test.reviewMode !== 'sheet' && !selected[current] && !revealed[current] && (
+            {!selected[current] && !revealed[current] && test.reviewMode !== 'end' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
                 <button
                   onClick={handleRefreshQuestion}
@@ -1191,7 +1191,7 @@ function ResultsScreen({ test, yearLevel, result, onRetry, onBack }) {
           const qt = q.questionType || 'General';
           if (!qtMap[qt]) qtMap[qt] = { correct: 0, total: 0 };
           qtMap[qt].total++;
-          if (selected[i] === q.correct) qtMap[qt].correct++;
+          if (disputes?.[i] || selected[i] === q.correct) qtMap[qt].correct++;
         });
         const allQT = Object.entries(qtMap)
           .filter(([, v]) => v.total >= 1)

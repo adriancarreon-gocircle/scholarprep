@@ -741,7 +741,7 @@ function ResultsScreen({ yearLevel, questions, selected, result, onRetry, onHome
         <div style={{ fontSize: 14, color: '#64748B', marginTop: 6, fontFamily: 'Inter, sans-serif' }}>{adjustedCorrect} correct out of {result.total} questions · English{disputeCount > 0 ? ` (includes ${disputeCount} disputed)` : ''}</div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20 }}>
           <div style={{ fontSize: 14, color: '#059669', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {adjustedCorrect} correct</div>
-          <div style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✗ {result.total - result.correct} incorrect</div>
+          <div style={{ fontSize: 14, color: '#F43F5E', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✗ {result.total - adjustedCorrect} incorrect</div>
         </div>
 
         {/* Update results — appears once any answer has been disputed */}
@@ -769,7 +769,7 @@ function ResultsScreen({ yearLevel, questions, selected, result, onRetry, onHome
           const qt = q.questionType || q.topic || 'General';
           if (!qtMap[qt]) qtMap[qt] = { correct: 0, total: 0 };
           qtMap[qt].total++;
-          if (selected[i] === q.correct) qtMap[qt].correct++;
+          if (disputes?.[i] || selected[i] === q.correct) qtMap[qt].correct++;
         });
         const allQT = Object.entries(qtMap)
           .filter(([, v]) => v.total >= 1)
