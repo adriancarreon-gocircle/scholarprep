@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setLoading(false);
       // Trigger migration on sign in
       if (_event === 'SIGNED_IN' && session?.user) {
         migrateLocalToSupabase();

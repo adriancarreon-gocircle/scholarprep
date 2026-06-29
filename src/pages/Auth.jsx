@@ -317,17 +317,21 @@ export function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Supabase puts the recovery token in the URL hash — let the client process it
-  // by calling getSession, which reads the hash and establishes a session automatically
   useEffect(() => {
-    // onAuthStateChange fires PASSWORD_RECOVERY when the hash token is valid
+    // Only set ready when Supabase fires the PASSWORD_RECOVERY event.
+    // This fires when the user lands on this page via the reset email link.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true);
     });
-    // Also check if we already have a session (page refresh case)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
-    });
+    // Handle page-refresh: if the URL still has the recovery hash, Supabase
+    // will have already consumed it into a session — check for that case.
+    // Only treat it as ready if the session type is recovery (not a normal login).
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setReady(true);
+      });
+    }
     return () => subscription.unsubscribe();
   }, []);
 
