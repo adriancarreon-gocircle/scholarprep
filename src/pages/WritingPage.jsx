@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateWritingPrompt, assessWriting, generateIdealAnswer } from '../lib/ai';
+import { generateWritingPrompt, assessWriting, assessHandwritingPhoto, generateIdealAnswer } from '../lib/ai';
+import { compressImageFile } from '../lib/imageUtils';
 import { saveWritingResult } from '../lib/progress';
 
 const getBandColor = (pct) => {
@@ -324,6 +325,9 @@ export default function WritingPage() {
   const [showIdealDialog, setShowIdealDialog] = useState(false);
   const timerRef = useRef(null);
   const fileRef = useRef(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [imageMediaType, setImageMediaType] = useState('image/jpeg');
+  const [imageFileName, setImageFileName] = useState('');
 
   const handleGetPrompt = async () => {
     setLoading(true); setError('');
@@ -350,13 +354,20 @@ export default function WritingPage() {
   };
 
   const handleSubmit = async () => {
-    if (!response.trim() || response.trim().length < 20) {
-      setError('Please write at least a few sentences before submitting.');
+    if (!imageBase64 && (!response.trim() || response.trim().length < 20)) {
+      setError('Please write at least a few sentences, or upload a photo of your handwritten work.');
       return;
     }
     setPhase('assessing'); setError('');
     try {
-      const result = await assessWriting(response, prompt.prompt, type, yearLevel);
+      let result;
+      if (imageBase64) {
+        // Photo of handwritten work — use vision-based assessment
+        result = await assessHandwritingPhoto(imageBase64, imageMediaType, yearLevel, type);
+      } else {
+        // Typed response — use text-based assessment
+        result = await assessWriting(response, prompt.prompt, type, yearLevel);
+      }
       setFeedback(result);
       await saveWritingResult(yearLevel, type, result.totalScore, result.maxTotal, result);
       setPhase('feedback');
@@ -366,14 +377,33 @@ export default function WritingPage() {
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) setResponse(`[Handwritten response uploaded: ${file.name}]\n\n[Content will be assessed from the uploaded image.]`);
+    if (!file) return;
+    setError('');
+    try {
+      const { base64, mediaType } = await compressImageFile(file, 1800, 0.85);
+      setImageBase64(base64);
+      setImageMediaType(mediaType);
+      setImageFileName(file.name);
+      // Clear text response so the UI shows the photo mode
+      setResponse('');
+    } catch {
+      setError('Could not read that image. Please try a different photo.');
+    }
+  };
+
+  const handleClearImage = () => {
+    setImageBase64(null);
+    setImageFileName('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleReset = () => {
     setPhase('setup'); setPrompt(null); setFeedback(null);
     setResponse(''); setShowIdealDialog(false); setTimerOn(false);
+    setImageBase64(null); setImageFileName('');
+    if (fileRef.current) fileRef.current.value = '';
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
@@ -685,7 +715,7 @@ export default function WritingPage() {
             <textarea
               value={response}
               onChange={e => setResponse(e.target.value)}
-              placeholder="Start writing your response here..."
+              placeholder={imageBase64 ? "Optional: add typed notes to go with your photo..." : "Start writing your response here..."}
               style={{
                 width: '100%', minHeight: 280, padding: 20,
                 border: '1.5px solid rgba(67,56,202,0.12)', borderRadius: 16,
