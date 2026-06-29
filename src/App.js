@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import './styles/global.css';
 
 import Landing from './pages/Landing';
-import { LoginPage, SignupPage } from './pages/Auth';
+import { LoginPage, SignupPage, ForgotPasswordPage, ResetPasswordPage } from './pages/Auth';
 import AppLayout from './components/AppLayout';
 import Home from './pages/Home';
 import TestPage from './pages/TestPage';
@@ -19,7 +19,6 @@ import SupportPage from './pages/SupportPage';
 import HandwritingFeedbackPage from './pages/HandwritingFeedbackPage';
 import HelpPage from './pages/HelpPage';
 import EnglishPage from './pages/EnglishPage';
-import WelcomePage from './pages/WelcomePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -34,10 +33,11 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/subscribe" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
       <Route path="/pdf-generator" element={<PDFGeneratorPage />} />
       <Route path="/app" element={<ProtectedRoute><AppLayout><Home /></AppLayout></ProtectedRoute>} />
-      <Route path="/app/welcome" element={<ProtectedRoute><AppLayout><WelcomePage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/maths" element={<ProtectedRoute><AppLayout><TestPage subject="mathematics" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/reading" element={<ProtectedRoute><AppLayout><TestPage subject="reading" /></AppLayout></ProtectedRoute>} />
       <Route path="/app/general" element={<ProtectedRoute><AppLayout><TestPage subject="general" /></AppLayout></ProtectedRoute>} />

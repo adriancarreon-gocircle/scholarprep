@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { signIn, signUp } from '../lib/supabase';
+import { signIn, signUp, resetPasswordForEmail, updateUserPassword } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 const AuthLayout = ({ children, title, subtitle }) => (
@@ -88,7 +89,12 @@ export function LoginPage() {
             required={!demoMode} />
         </div>
         <div style={{ marginBottom: 28 }}>
-          <label style={labelStyle}>Password</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label style={labelStyle}>Password</label>
+            <Link to="/forgot-password" style={{ fontSize: 12, color: '#4338CA', fontWeight: 600, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
+              Forgot password?
+            </Link>
+          </div>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)}
             placeholder="••••••••" style={inputStyle}
             onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
@@ -224,6 +230,187 @@ export function SignupPage() {
         Already have an account?{' '}
         <Link to="/login" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
       </div>
+    </AuthLayout>
+  );
+}
+
+export function ForgotPasswordPage() {
+  const navigate = useNavigate();
+  const { demoMode } = useAuth();
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    if (demoMode) { setSent(true); setLoading(false); return; }
+    const { error } = await resetPasswordForEmail(email);
+    if (error) { setError(error.message); setLoading(false); }
+    else { setSent(true); setLoading(false); }
+  };
+
+  if (sent) {
+    return (
+      <AuthLayout title="Check your email" subtitle="Password reset link sent">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 72, height: 72, borderRadius: 20, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 20px' }}>📧</div>
+          <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
+            We've sent a password reset link to:
+          </p>
+          <div style={{ background: '#EEF2FF', borderRadius: 12, padding: '10px 16px', marginBottom: 20, fontSize: 15, fontWeight: 700, color: '#4338CA', fontFamily: 'Inter, sans-serif' }}>
+            {email}
+          </div>
+          <p style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.7, marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
+            Click the link in the email to reset your password. Check your spam folder if you don't see it within a minute.
+          </p>
+          <button onClick={() => navigate('/login')} style={{
+            width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700,
+            background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
+          }}>
+            Back to login
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  return (
+    <AuthLayout title="Reset your password" subtitle="Enter your email and we'll send you a link">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
+      )}
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 28 }}>
+          <label style={labelStyle}>Email address</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com" style={inputStyle}
+            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+            required autoFocus />
+        </div>
+        <button type="submit" disabled={loading} style={{
+          width: '100%', padding: 14, borderRadius: 100, fontSize: 16, fontWeight: 700,
+          background: loading ? '#6366F1' : '#4338CA', color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+          fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
+          opacity: loading ? 0.8 : 1,
+        }}>
+          {loading ? 'Sending...' : 'Send reset link →'}
+        </button>
+      </form>
+      <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
+        <Link to="/login" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>← Back to login</Link>
+      </div>
+    </AuthLayout>
+  );
+}
+
+export function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  // Supabase puts the recovery token in the URL hash — let the client process it
+  // by calling getSession, which reads the hash and establishes a session automatically
+  useEffect(() => {
+    // onAuthStateChange fires PASSWORD_RECOVERY when the hash token is valid
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setReady(true);
+    });
+    // Also check if we already have a session (page refresh case)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    setLoading(true);
+    const { error } = await updateUserPassword(password);
+    if (error) { setError(error.message); setLoading(false); }
+    else { setDone(true); setLoading(false); }
+  };
+
+  if (done) {
+    return (
+      <AuthLayout title="Password updated!" subtitle="You can now log in with your new password">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 72, height: 72, borderRadius: 20, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 20px' }}>✅</div>
+          <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
+            Your password has been changed successfully.
+          </p>
+          <button onClick={() => navigate('/login')} style={{
+            width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700,
+            background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
+          }}>
+            Log in →
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <AuthLayout title="Verifying link..." subtitle="Please wait a moment">
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
+          <p style={{ fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>
+            Verifying your reset link… if this takes more than a few seconds, try clicking the link in your email again.
+          </p>
+          <div style={{ marginTop: 20 }}>
+            <Link to="/forgot-password" style={{ fontSize: 14, color: '#4338CA', fontWeight: 600, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
+              Request a new reset link
+            </Link>
+          </div>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  return (
+    <AuthLayout title="Set new password" subtitle="Choose a strong password for your account">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
+      )}
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>New password</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            placeholder="At least 6 characters" style={inputStyle}
+            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+            required autoFocus />
+        </div>
+        <div style={{ marginBottom: 28 }}>
+          <label style={labelStyle}>Confirm new password</label>
+          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+            placeholder="Same password again" style={inputStyle}
+            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+            required />
+        </div>
+        <button type="submit" disabled={loading} style={{
+          width: '100%', padding: 14, borderRadius: 100, fontSize: 16, fontWeight: 700,
+          background: loading ? '#6366F1' : '#4338CA', color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+          fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
+          opacity: loading ? 0.8 : 1,
+        }}>
+          {loading ? 'Updating...' : 'Update password →'}
+        </button>
+      </form>
     </AuthLayout>
   );
 }
