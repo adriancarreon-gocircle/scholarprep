@@ -46,8 +46,12 @@ export const isSubscribed = (user) => {
   return user?.user_metadata?.subscribed === true;
 };
 
+export const isAdmin = (user) => {
+  return user?.user_metadata?.is_admin === true;
+};
+
 export const hasAccess = (user) => {
-  return isTrialActive(user) || isSubscribed(user);
+  return isAdmin(user) || isTrialActive(user) || isSubscribed(user);
 };
 
 export const getTrialDaysLeft = (user) => {
@@ -56,20 +60,4 @@ export const getTrialDaysLeft = (user) => {
   const now = new Date();
   const diffDays = (now - trialStart) / (1000 * 60 * 60 * 24);
   return Math.max(0, Math.ceil(7 - diffDays));
-};
-
-// ── Password reset helpers ────────────────────────────────────────────────────
-
-// Step 1: send the reset email (called from ForgotPasswordPage)
-export const resetPasswordForEmail = async (email) => {
-  return await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://scholarprep.com.au/reset-password',
-  });
-};
-
-// Step 2: set a new password after the user clicks the email link (called from ResetPasswordPage)
-// Supabase automatically establishes a session from the token in the URL hash,
-// so this just needs to update the authenticated user's password.
-export const updateUserPassword = async (newPassword) => {
-  return await supabase.auth.updateUser({ password: newPassword });
 };

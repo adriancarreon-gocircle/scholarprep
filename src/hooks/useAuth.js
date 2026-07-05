@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, hasAccess, getTrialDaysLeft, isSubscribed } from '../lib/supabase';
+import { supabase, hasAccess, getTrialDaysLeft, isSubscribed, isAdmin } from '../lib/supabase';
 import { migrateLocalToSupabase } from '../lib/progress';
 
 const AuthContext = createContext({});
@@ -46,8 +46,9 @@ export const AuthProvider = ({ children }) => {
     yearLevel,
     setYearLevel,
     hasAccess: user ? hasAccess(user) : false,
-    isSubscribed: user ? isSubscribed(user) : false,
-    trialDaysLeft: user ? getTrialDaysLeft(user) : 0,
+    isSubscribed: user ? (isAdmin(user) || isSubscribed(user)) : false,
+    isAdmin: user ? isAdmin(user) : false,
+    trialDaysLeft: user ? (isAdmin(user) ? 999 : getTrialDaysLeft(user)) : 0,
     demoMode: !process.env.REACT_APP_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL === 'https://your-project.supabase.co'
   };
 
