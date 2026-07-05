@@ -33,7 +33,7 @@ export const getUser = async () => {
   return user;
 };
 
-// Trial helpers.
+// Trial helpers
 export const isTrialActive = (user) => {
   if (!user?.user_metadata?.trial_start) return false;
   const trialStart = new Date(user.user_metadata.trial_start);
@@ -60,4 +60,18 @@ export const getTrialDaysLeft = (user) => {
   const now = new Date();
   const diffDays = (now - trialStart) / (1000 * 60 * 60 * 24);
   return Math.max(0, Math.ceil(7 - diffDays));
+};
+
+// ── Password reset helpers ────────────────────────────────────────────────────
+
+// Step 1: send the reset email (called from ForgotPasswordPage)
+export const resetPasswordForEmail = async (email) => {
+  return await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://scholarprep.com.au/reset-password',
+  });
+};
+
+// Step 2: set a new password after the user clicks the email link
+export const updateUserPassword = async (newPassword) => {
+  return await supabase.auth.updateUser({ password: newPassword });
 };
