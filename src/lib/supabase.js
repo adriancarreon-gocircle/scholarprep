@@ -33,7 +33,7 @@ export const getUser = async () => {
   return user;
 };
 
-// Trial helpers
+// Trial helpers.
 export const isTrialActive = (user) => {
   if (!user?.user_metadata?.trial_start) return false;
   const trialStart = new Date(user.user_metadata.trial_start);
