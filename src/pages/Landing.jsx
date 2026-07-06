@@ -163,7 +163,7 @@ export default function Landing() {
                 <span style={{ background: 'linear-gradient(135deg, #4338CA, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Australian student.</span>
               </h1>
               <p className="fade-3" style={{ fontSize: 18, lineHeight: 1.8, color: '#6B7280', marginBottom: 36, maxWidth: 560, fontFamily: 'Inter, sans-serif' }}>
-                Strengthen your child's Maths, English, Writing and reasoning skills — and prepare for ACER, AAST, Edutest, NAPLAN and selective entry high schools. Unlimited practice questions, detailed feedback analysis, with full simulated exams for Years 1 to 11.
+                Strengthen your child's Maths, English, Writing and reasoning skills — and prepare for ACER, AAST, Edutest, NAPLAN, HAST, ICAS and every state selective entry program including OC (NSW), SEHS & SEAL (VIC), ASET/GATE & PEAC (WA) and IGNITE (SA). Unlimited practice questions, detailed feedback analysis, with full simulated exams for Years 1 to 11.
               </p>
               {/* Desktop CTA — hidden on mobile */}
               <div className="fade-4 hero-desktop-cta" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
@@ -274,7 +274,7 @@ export default function Landing() {
       <div style={{ background: '#111827', padding: '16px 40px', display: 'flex', alignItems: 'center', gap: 20, overflowX: 'auto' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>Prepares you for</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {['ACER', 'AAST', 'Edutest', 'NAPLAN', 'Selective Entry'].map(t => (
+          {['ACER', 'AAST', 'Edutest', 'NAPLAN', 'OC (NSW)', 'SEHS (VIC)', 'SEAL (VIC)', 'ASET / GATE (WA)', 'PEAC (WA)', 'IGNITE (SA)', 'HAST', 'ICAS'].map(t => (
             <div key={t} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{t}</div>
           ))}
         </div>
@@ -304,7 +304,7 @@ export default function Landing() {
         <div style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9CA3AF', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>Selective entry prep for</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['Melbourne High', "Mac.Robertson Girls'", 'Suzanne Cory', 'North Sydney Boys', 'North Sydney Girls', 'James Ruse Agricultural', 'Normanhurst Boys'].map(s => (
+            {['Melbourne High', "Mac.Robertson Girls'", 'Suzanne Cory', 'Nossal High', 'Perth Modern', 'Glenunga International', 'North Sydney Boys', 'North Sydney Girls', 'James Ruse Agricultural', 'Normanhurst Boys'].map(s => (
               <div key={s} style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, color: '#4338CA', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{s}</div>
             ))}
           </div>
@@ -643,7 +643,7 @@ export default function Landing() {
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>per month · cancel anytime</div>
               <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', marginBottom: 24 }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
-                {['Unlimited tests & question bank', 'Full simulated timed exams', 'All 4 subjects · Years 1–11', 'Progress Report Dashboard', 'Writing feedback & scored criteria', 'Detailed progress tracking', 'ACER, AAST, Edutest & NAPLAN'].map(f => (
+                {['Unlimited tests & question bank', 'Full simulated timed exams', 'All 4 subjects · Years 1–11', 'Progress Report Dashboard', 'Writing feedback & scored criteria', 'Detailed progress tracking', 'ACER, AAST, Edutest, NAPLAN, OC, SEHS, SEAL, ASET/GATE, PEAC, IGNITE, HAST & ICAS'].map(f => (
                   <div key={f} style={{ display: 'flex', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif', alignItems: 'flex-start' }}>
                     <span style={{ color: '#A5B4FC', fontWeight: 700, flexShrink: 0 }}>✓</span>{f}
                   </div>
@@ -715,7 +715,7 @@ export default function Landing() {
           </div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.18)', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
-              ScholarPrep is an independent educational platform and is not affiliated with, endorsed by, or associated with ACARA, the NSW Department of Education, the Victorian Department of Education, or any government body. NAPLAN is a registered trademark of ACARA. ACER, AAST and Edutest are independent testing organisations. Selective entry programs are administered by state education departments. All practice questions on this platform are independently created and are not sourced from or based on official exam papers. ScholarPrep provides practice materials for educational purposes only and does not guarantee exam outcomes, scores, or placement results.
+              ScholarPrep is an independent educational platform and is not affiliated with, endorsed by, or associated with ACARA, the NSW Department of Education, the Victorian Department of Education, the WA Department of Education, the SA Department for Education, or any government body. NAPLAN is a registered trademark of ACARA. ACER, AAST, Edutest and ICAS Assessments (Janison) are independent testing organisations. HAST and ASET are tests developed by ACER. Selective entry and gifted programs (including OC, SEHS, SEAL, GATE, PEAC and IGNITE) are administered by state education departments and individual schools. All practice questions on this platform are independently created and are not sourced from or based on official exam papers. Exam structures, question counts and durations shown are approximate, based on publicly available information, and may change — always confirm details with the official testing body. ScholarPrep provides practice materials for educational purposes only and does not guarantee exam outcomes, scores, or placement results.
             </p>
           </div>
         </div>

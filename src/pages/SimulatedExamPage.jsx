@@ -73,6 +73,138 @@ const EXAM_CONFIGS = {
       { id: 'break3', name: 'Break', type: 'break', duration: 20 },
       { id: 'numeracy', name: 'Numeracy', type: 'mathematics', duration: 45, questions: 20, realQuestions: 36, icon: '🔢' },
     ]
+  },
+  aset: {
+    name: 'ASET / GATE (WA)',
+    fullName: 'Academic Selective Entrance Test — WA Gifted & Talented',
+    color: '#0EA5E9',
+    lightBg: '#F0F9FF',
+    icon: '🌊',
+    description: 'The WA entrance test for Gifted & Talented (GATE) selective programs, including Perth Modern School. Sat in Year 6 for Year 7 entry. Four equally weighted ACER components.',
+    sections: [
+      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 35, questions: 15, realQuestions: 35, icon: '📖', note: 'Fiction, non-fiction, poetry, diagrams and charts' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'writing', name: 'Communicating Ideas in Writing', type: 'writing', duration: 25, questions: 1, icon: '✏️', note: 'One open response to an image or statement prompt' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'quant', name: 'Quantitative Reasoning', type: 'mathematics', duration: 35, questions: 15, realQuestions: 35, icon: '🔢', note: 'Mathematical thinking, not curriculum recall' },
+      { id: 'break3', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'abstract', name: 'Abstract Reasoning', type: 'general', duration: 20, questions: 12, realQuestions: 35, icon: '🧩', note: 'Fast-paced — about 34 seconds per question in the real test' },
+    ]
+  },
+  peac: {
+    name: 'PEAC (WA)',
+    fullName: 'Primary Extension and Challenge — WA Year 4 Testing',
+    color: '#14B8A6',
+    lightBg: '#F0FDFA',
+    icon: '🌱',
+    description: 'WA\'s Year 4 gifted identification test for the PEAC program (Years 5–6). Two ACER-developed tests, 50 multiple-choice questions total, covering verbal, numerical and abstract reasoning.',
+    sections: [
+      { id: 'general1', name: 'Language & Reasoning', type: 'general', duration: 30, questions: 15, realQuestions: 30, icon: '🧠', note: 'Verbal comprehension, verbal reasoning and mathematical problem solving' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'general2', name: 'Relationships & Problem Solving', type: 'general', duration: 20, questions: 10, realQuestions: 20, icon: '🧩', note: 'Abstract reasoning — seeing patterns and relationships' },
+    ]
+  },
+  ignite: {
+    name: 'IGNITE (SA)',
+    fullName: 'IGNITE Program Entrance Test (ACER HAST) — South Australia',
+    color: '#E11D48',
+    lightBg: '#FFF1F2',
+    icon: '🔥',
+    description: 'Entry test for SA\'s IGNITE gifted programs at Glenunga International, Aberfoyle Park and The Heights. Uses the ACER HAST format, sat in Year 6 for Year 7 entry.',
+    sections: [
+      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 45, questions: 15, realQuestions: 35, icon: '📖' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'writing', name: 'Written Expression', type: 'writing', duration: 30, questions: 1, icon: '✏️' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'maths', name: 'Mathematical Reasoning', type: 'mathematics', duration: 40, questions: 15, realQuestions: 35, icon: '🔢' },
+      { id: 'break3', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'abstract', name: 'Abstract Reasoning', type: 'general', duration: 40, questions: 12, realQuestions: 30, icon: '🧩' },
+    ]
+  },
+  seal: {
+    name: 'SEAL (VIC)',
+    fullName: 'Select Entry Accelerated Learning — Victorian SEAL Schools',
+    color: '#A855F7',
+    lightBg: '#FAF5FF',
+    icon: '⚡',
+    description: 'Entrance exam for Victoria\'s ~39 accredited SEAL schools, administered by Edutest at most schools. Sat in Year 6 for accelerated Year 7 entry. Five components.',
+    sections: [
+      { id: 'verbal', name: 'Verbal Reasoning', type: 'general', duration: 30, questions: 15, realQuestions: 45, icon: '💬' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'numerical', name: 'Numerical Reasoning', type: 'mathematics', duration: 30, questions: 15, realQuestions: 35, icon: '🔢' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 30, questions: 15, realQuestions: 30, icon: '📖' },
+      { id: 'break3', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 30, questions: 15, realQuestions: 35, icon: '➗' },
+      { id: 'break4', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'writing', name: 'Written Expression', type: 'writing', duration: 15, questions: 1, icon: '✏️', note: 'Short written task — 15 minutes in the real exam' },
+    ]
+  },
+  sehs: {
+    name: 'SEHS (VIC)',
+    fullName: 'Victorian Selective Entry High Schools Exam (ACER)',
+    color: '#DC2626',
+    lightBg: '#FEF2F2',
+    icon: '🏛️',
+    description: 'The ACER exam for Melbourne High, Mac.Robertson Girls\', Nossal and Suzanne Cory. Sat in Year 8 for Year 9 entry. Four fast-paced reasoning papers plus writing.',
+    sections: [
+      { id: 'reading', name: 'Reading — Reasoning', type: 'reading', duration: 35, questions: 15, realQuestions: 50, icon: '📖' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'maths', name: 'Mathematical Reasoning', type: 'mathematics', duration: 30, questions: 15, realQuestions: 60, icon: '🔢', note: 'Very fast-paced — 60 questions in 30 minutes in the real exam' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'ga_verbal', name: 'General Ability — Verbal', type: 'general', duration: 30, questions: 15, realQuestions: 60, icon: '💬' },
+      { id: 'break3', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'ga_quant', name: 'General Ability — Quantitative', type: 'general', duration: 30, questions: 12, realQuestions: 50, icon: '🧩' },
+      { id: 'break4', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'writing', name: 'Writing', type: 'writing', duration: 30, questions: 1, icon: '✏️' },
+    ]
+  },
+  oc: {
+    name: 'OC (NSW)',
+    fullName: 'NSW Opportunity Class Placement Test',
+    color: '#2563EB',
+    lightBg: '#EFF6FF',
+    icon: '🎯',
+    description: 'NSW\'s computer-based test sat in Year 4 for Year 5 Opportunity Class placement. Three components, no writing section — about 100 minutes of testing.',
+    sections: [
+      { id: 'reading', name: 'Reading', type: 'reading', duration: 40, questions: 15, realQuestions: 33, icon: '📖', note: 'Real test: 33 answers across 14 multi-part questions' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'maths', name: 'Mathematical Reasoning', type: 'mathematics', duration: 40, questions: 15, realQuestions: 35, icon: '🔢', note: 'No calculator — mental maths and problem solving' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'thinking', name: 'Thinking Skills', type: 'general', duration: 30, questions: 12, realQuestions: 30, icon: '🧩', note: 'Critical thinking and problem solving' },
+    ]
+  },
+  hast: {
+    name: 'HAST',
+    fullName: 'Higher Ability Selection Test (ACER)',
+    color: '#D97706',
+    lightBg: '#FFFBEB',
+    icon: '🏆',
+    description: 'ACER\'s selective entry test used by 100+ schools across NSW, VIC, QLD, SA and WA — including Brisbane State High and many independent schools. Paper-based, four components.',
+    sections: [
+      { id: 'reading', name: 'Reading Comprehension', type: 'reading', duration: 40, questions: 12, realQuestions: 30, icon: '📖' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 15 },
+      { id: 'maths', name: 'Mathematical Reasoning', type: 'mathematics', duration: 40, questions: 12, realQuestions: 30, icon: '🔢' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 15 },
+      { id: 'abstract', name: 'Abstract Reasoning', type: 'general', duration: 30, questions: 12, realQuestions: 30, icon: '🧩' },
+      { id: 'break3', name: 'Short Break', type: 'break', duration: 15 },
+      { id: 'writing', name: 'Written Expression', type: 'writing', duration: 25, questions: 1, icon: '✏️', note: 'Creative or discursive task, human double-marked in the real test' },
+    ]
+  },
+  icas: {
+    name: 'ICAS',
+    fullName: 'International Competitions and Assessments for Schools',
+    color: '#DB2777',
+    lightBg: '#FDF2F8',
+    icon: '🌏',
+    description: 'The international academic competition for Years 2–12, run online each August–September. Subjects are sat separately — this simulation covers English, Mathematics and Writing.',
+    sections: [
+      { id: 'english', name: 'English', type: 'reading', duration: 45, questions: 15, realQuestions: 40, icon: '📖', note: 'Text comprehension, writer\'s craft, syntax and vocabulary' },
+      { id: 'break1', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'maths', name: 'Mathematics', type: 'mathematics', duration: 45, questions: 15, realQuestions: 40, icon: '🔢', note: 'No calculator — higher-order problem solving' },
+      { id: 'break2', name: 'Short Break', type: 'break', duration: 10 },
+      { id: 'writing', name: 'Writing', type: 'writing', duration: 30, questions: 1, icon: '✏️', note: 'Narrative or persuasive task' },
+    ]
   }
 };
 
