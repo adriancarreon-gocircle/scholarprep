@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [examsMenuOpen, setExamsMenuOpen] = useState(false);
+
+  const EXAM_LINKS = [
+    { slug: 'acer-selective', label: 'ACER Selective Entry', icon: '🎓' },
+    { slug: 'aast-scholarship', label: 'AAST Scholarship', icon: '📚' },
+    { slug: 'edutest-selective', label: 'Edutest', icon: '🏫' },
+    { slug: 'naplan', label: 'NAPLAN', icon: '📝' },
+    { slug: 'aset-gate-wa', label: 'ASET / GATE (WA)', icon: '🌊' },
+    { slug: 'peac-wa', label: 'PEAC (WA)', icon: '🌱' },
+    { slug: 'ignite-sa', label: 'IGNITE (SA)', icon: '🔥' },
+    { slug: 'seal-vic', label: 'SEAL (VIC)', icon: '⚡' },
+    { slug: 'sehs-vic', label: 'SEHS (VIC)', icon: '🏛️' },
+    { slug: 'oc-nsw', label: 'OC Test (NSW)', icon: '🎯' },
+    { slug: 'hast', label: 'HAST', icon: '🏆' },
+    { slug: 'icas', label: 'ICAS', icon: '🌏' },
+  ];
 
   // Progress dashboard mock data
   const topics = [
@@ -128,8 +144,48 @@ export default function Landing() {
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 900, color: '#111827', letterSpacing: -0.5 }}>
           Scholar<span style={{ color: '#4338CA' }}>Prep</span>
         </div>
-        <div className="nav-links-d" style={{ display: 'flex', gap: 32 }}>
-          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+        <div className="nav-links-d" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+          {['Features', 'Subjects', 'Exams', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setExamsMenuOpen(true)}
+            onMouseLeave={() => setExamsMenuOpen(false)}
+          >
+            <span className="nav-link" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              Exams
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ transform: examsMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                <path d="M1 1L5 5L9 1" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            {examsMenuOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                paddingTop: 14, zIndex: 200,
+              }}>
+                <div style={{
+                  background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.12)', padding: 12,
+                  display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2,
+                  width: 420,
+                }}>
+                  {EXAM_LINKS.map(e => (
+                    <Link key={e.slug} to={`/exams/${e.slug}`} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                      borderRadius: 10, textDecoration: 'none', color: '#374151',
+                      fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif',
+                      transition: 'background 0.12s',
+                    }}
+                      onMouseEnter={ev => ev.currentTarget.style.background = '#F8FAFC'}
+                      onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}
+                    >
+                      <span style={{ fontSize: 16 }}>{e.icon}</span>
+                      {e.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <a href="/support" className="nav-link">Support</a>
         </div>
         <div className="nav-cta-d" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -143,8 +199,18 @@ export default function Landing() {
       </nav>
 
       {menuOpen && (
-        <div style={{ position: 'fixed', top: 60, left: 0, right: 0, zIndex: 99, background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
+        <div style={{ position: 'fixed', top: 60, left: 0, right: 0, bottom: 0, zIndex: 99, background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)', overflowY: 'auto' }}>
+          {['Features', 'Subjects', 'Exams', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Exams we prepare you for</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {EXAM_LINKS.map(e => (
+                <Link key={e.slug} to={`/exams/${e.slug}`} onClick={() => setMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 0' }}>
+                  <span>{e.icon}</span>{e.label}
+                </Link>
+              ))}
+            </div>
+          </div>
           <button onClick={() => navigate('/signup')} className="cta-primary" style={{ justifyContent: 'center' }}>Start free trial</button>
         </div>
       )}
@@ -602,6 +668,35 @@ export default function Landing() {
                   {s.tags.map(t => <span key={t} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: s.bg, color: s.accent, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{t}</span>)}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── EXAMS WE PREPARE YOU FOR ── */}
+      <section id="exams" style={{ background: '#F9FAFB', padding: '96px 40px' }}>
+        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+            <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>Exams we prepare you for</div>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: -1, color: '#111827', lineHeight: 1.15, marginBottom: 16 }}>Every major selective &amp; scholarship exam in Australia.</h2>
+            <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 620, margin: '0 auto', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>Tap an exam to see its structure, timing and how ScholarPrep prepares your child for it.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            {EXAM_LINKS.map(e => (
+              <Link key={e.slug} to={`/exams/${e.slug}`} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px',
+                background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
+                textDecoration: 'none', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+              }}
+                onMouseEnter={ev => { ev.currentTarget.style.boxShadow = '0 8px 24px rgba(67,56,202,0.1)'; ev.currentTarget.style.borderColor = '#C7D2FE'; }}
+                onMouseLeave={ev => { ev.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; ev.currentTarget.style.borderColor = '#E5E7EB'; }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{e.icon}</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{e.label}</div>
+                  <div style={{ fontSize: 12, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>Preparation guide →</div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
