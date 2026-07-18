@@ -839,6 +839,7 @@ export default function Landing() {
                 <a href="#subjects" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Subjects</a>
                 <a href="#pricing" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Pricing</a>
                 <Link to="/pdf-generator" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>PDF Test Generator</Link>
+                <Link to="/blog" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Blog</Link>
                 <Link to="/signup" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Start Free Trial</Link>
               </div>
             </div>

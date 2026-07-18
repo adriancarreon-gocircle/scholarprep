@@ -26,6 +26,8 @@ const HelpPage = lazy(() => import('./pages/HelpPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const EnglishPage = lazy(() => import('./pages/EnglishPage'));
 const ExamLandingPage = lazy(() => import('./pages/ExamLandingPage'));
+const BlogPage = lazy(() => import('./pages/BlogPage'));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 
 function PageLoader() {
   return (
@@ -69,6 +71,8 @@ function AppRoutes() {
         <Route path="/app/help" element={<ProtectedRoute><AppLayout><HelpPage /></AppLayout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><AppLayout><ProfilePage /></AppLayout></ProtectedRoute>} />
         <Route path="/exams/:slug" element={<ExamLandingPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/blog/:slug" element={<BlogPostPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
