@@ -1,0 +1,12 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        { "type": "host", "value": "www.scholarprep.com.au" }
+      ],
+      "destination": "https://scholarprep.com.au/$1",
+      "permanent": true
+    }
+  ]
+}

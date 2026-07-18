@@ -42,6 +42,42 @@ export default function Landing() {
   return (
     <div style={{ fontFamily: "'Inter', sans-serif", background: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
       <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "EducationalOrganization",
+          "name": "ScholarPrep",
+          "url": "https://scholarprep.com.au",
+          "logo": "https://scholarprep.com.au/logo.png",
+          "description": "AI-powered exam preparation platform for Australian students, Years 1-11.",
+          "address": { "@type": "PostalAddress", "addressLocality": "Melbourne", "addressRegion": "VIC", "addressCountry": "AU" },
+          "sameAs": []
+        })}</script>
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What exams does ScholarPrep prepare students for?",
+              "acceptedAnswer": { "@type": "Answer", "text": "ScholarPrep prepares students for ACER, AAST, Edutest, NAPLAN, HAST, ICAS, and state selective programs including OC (NSW), SEHS and SEAL (VIC), ASET/GATE and PEAC (WA), and IGNITE (SA)." }
+            },
+            {
+              "@type": "Question",
+              "name": "What year levels does ScholarPrep support?",
+              "acceptedAnswer": { "@type": "Answer", "text": "ScholarPrep supports students from Year 1 to Year 11 across Maths, English, Reading, General Ability and Writing." }
+            },
+            {
+              "@type": "Question",
+              "name": "How much does ScholarPrep cost?",
+              "acceptedAnswer": { "@type": "Answer", "text": "ScholarPrep costs $9.99/month with a 7-day free trial and no credit card required to start. A pay-per-question PDF test generator is also available from 15 cents per question." }
+            },
+            {
+              "@type": "Question",
+              "name": "Does ScholarPrep offer full simulated exams?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ScholarPrep offers full timed simulated exams matching the real structure, sections, question counts and breaks of each supported exam." }
+            }
+          ]
+        })}</script>
         <title>ScholarPrep — Exam Prep for Australian Students | Years 1–11</title>
         <meta name="description" content="ScholarPrep — AI-powered exam prep for Australian students (Years 1–11). Practice for ACER, AAST, Edutest, NAPLAN, HAST, ICAS, OC (NSW), SEHS & SEAL (VIC), ASET/GATE & PEAC (WA), IGNITE (SA). Unlimited questions, full simulated exams, writing feedback. $9.99/month." />
         <meta property="og:title" content="ScholarPrep — Exam Prep for Australian Students | Years 1–11" />
@@ -785,27 +821,54 @@ export default function Landing() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ background: '#111827', borderTop: '1px solid rgba(255,255,255,0.05)', padding: '32px 40px' }}>
+      <footer style={{ background: '#111827', borderTop: '1px solid rgba(255,255,255,0.05)', padding: '56px 40px 32px' }}>
         <div style={{ maxWidth: 1160, margin: '0 auto' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-            <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: -0.5 }}>
-              Scholar<span style={{ color: '#818CF8' }}>Prep</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 32, marginBottom: 40 }}>
+            <div>
+              <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: -0.5, marginBottom: 12 }}>
+                Scholar<span style={{ color: '#818CF8' }}>Prep</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>
+                AI-powered exam prep for Australian students, Years 1–11.
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-              <a href="/support" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.target.style.color = '#818CF8'}
-                onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}>
-                💬 Contact Support
-              </a>
-              <a href="mailto:hello@scholarprep.com.au" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.target.style.color = '#818CF8'}
-                onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}>
-                hello@scholarprep.com.au
-              </a>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Product</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <a href="#features" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Features</a>
+                <a href="#subjects" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Subjects</a>
+                <a href="#pricing" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Pricing</a>
+                <Link to="/pdf-generator" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>PDF Test Generator</Link>
+                <Link to="/signup" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Start Free Trial</Link>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-              © 2026 ScholarPrep — a Go Circle Pty Ltd company.
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Popular Exams</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {EXAM_LINKS.slice(0, 5).map(e => (
+                  <Link key={e.slug} to={`/exams/${e.slug}`} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>{e.label}</Link>
+                ))}
+              </div>
             </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>More Exams</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {EXAM_LINKS.slice(5, 10).map(e => (
+                  <Link key={e.slug} to={`/exams/${e.slug}`} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>{e.label}</Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Support</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <Link to="/support" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>💬 Contact Support</Link>
+                <a href="mailto:hello@scholarprep.com.au" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>hello@scholarprep.com.au</a>
+                <Link to="/login" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Log In</Link>
+              </div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.25)', fontFamily: 'Inter, sans-serif', marginBottom: 20 }}>
+            © 2026 ScholarPrep — a Go Circle Pty Ltd company.
           </div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.18)', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
