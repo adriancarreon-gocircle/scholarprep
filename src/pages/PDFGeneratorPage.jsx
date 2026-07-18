@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import AppLayout from '../components/AppLayout';
 import { generatePDFQuestions } from '../lib/ai';
 import { useAuth } from '../hooks/useAuth';
@@ -84,6 +85,14 @@ export default function PDFGeneratorPage() {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>PDF Test Generator — Printable Exam-Style Tests | ScholarPrep</title>
+        <meta name="description" content="Generate a printable PDF practice test with answer key for Maths, Reading, General Ability or English. No subscription needed — just 15¢ per question." />
+        <meta property="og:title" content="PDF Test Generator | ScholarPrep" />
+        <meta property="og:description" content="Generate a printable PDF practice test with answer key. No subscription needed — just 15¢ per question." />
+        <meta property="og:url" content="https://scholarprep.com.au/pdf-generator" />
+        <link rel="canonical" href="https://scholarprep.com.au/pdf-generator" />
+      </Helmet>
       <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
 
         {/* Header */}

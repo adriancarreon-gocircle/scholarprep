@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -40,6 +41,14 @@ export default function Landing() {
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif", background: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
+      <Helmet>
+        <title>ScholarPrep — Exam Prep for Australian Students | Years 1–11</title>
+        <meta name="description" content="ScholarPrep — AI-powered exam prep for Australian students (Years 1–11). Practice for ACER, AAST, Edutest, NAPLAN, HAST, ICAS, OC (NSW), SEHS & SEAL (VIC), ASET/GATE & PEAC (WA), IGNITE (SA). Unlimited questions, full simulated exams, writing feedback. $9.99/month." />
+        <meta property="og:title" content="ScholarPrep — Exam Prep for Australian Students | Years 1–11" />
+        <meta property="og:description" content="Unlimited practice tests for ACER, Edutest, NAPLAN, HAST, ICAS, OC, SEHS, SEAL, ASET/GATE, PEAC & IGNITE. Full simulated exams, writing feedback, progress tracking." />
+        <meta property="og:url" content="https://scholarprep.com.au" />
+        <link rel="canonical" href="https://scholarprep.com.au" />
+      </Helmet>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');

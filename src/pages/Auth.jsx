@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import { signIn, signUp, resetPasswordForEmail, updateUserPassword } from '../lib/supabase';
@@ -70,52 +71,59 @@ export function LoginPage() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to continue practising">
-      {demoMode && (
-        <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
-          🎯 <strong>Demo mode:</strong> Click Log in to explore the app.
-        </div>
-      )}
-      {error && (
-        <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
-      )}
-      <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com" style={inputStyle}
-            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
-            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
-            required={!demoMode} />
-        </div>
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <label style={labelStyle}>Password</label>
-            <Link to="/forgot-password" style={{ fontSize: 12, color: '#4338CA', fontWeight: 600, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
-              Forgot password?
-            </Link>
+    <>
+      <Helmet>
+        <title>Log In | ScholarPrep</title>
+        <meta name="description" content="Log in to your ScholarPrep account to continue practising for ACER, NAPLAN, selective entry and scholarship exams." />
+        <link rel="canonical" href="https://scholarprep.com.au/login" />
+      </Helmet>
+      <AuthLayout title="Welcome back" subtitle="Log in to continue practising">
+        {demoMode && (
+          <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+            🎯 <strong>Demo mode:</strong> Click Log in to explore the app.
           </div>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-            placeholder="••••••••" style={inputStyle}
-            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
-            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
-            required={!demoMode} />
+        )}
+        {error && (
+          <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
+        )}
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+              required={!demoMode} />
+          </div>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label style={labelStyle}>Password</label>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: '#4338CA', fontWeight: 600, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
+                Forgot password?
+              </Link>
+            </div>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+              required={!demoMode} />
+          </div>
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: '14px', borderRadius: 100, fontSize: 16, fontWeight: 700,
+            background: loading ? '#6366F1' : '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
+            boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
+            opacity: loading ? 0.8 : 1,
+          }}>
+            {loading ? 'Logging in...' : 'Log in →'}
+          </button>
+        </form>
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
+          Don't have an account?{' '}
+          <Link to="/signup" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>Start free trial</Link>
         </div>
-        <button type="submit" disabled={loading} style={{
-          width: '100%', padding: '14px', borderRadius: 100, fontSize: 16, fontWeight: 700,
-          background: loading ? '#6366F1' : '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
-          boxShadow: '0 4px 16px rgba(67,56,202,0.3)',
-          opacity: loading ? 0.8 : 1,
-        }}>
-          {loading ? 'Logging in...' : 'Log in →'}
-        </button>
-      </form>
-      <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>
-        Don't have an account?{' '}
-        <Link to="/signup" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>Start free trial</Link>
-      </div>
-    </AuthLayout>
+      </AuthLayout>
+    </>
   );
 }
 
@@ -176,61 +184,71 @@ export function SignupPage() {
   }
 
   return (
-    <AuthLayout title="Start your free trial" subtitle="7 days free — no credit card required">
-      {demoMode && (
-        <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
-          🎯 <strong>Demo mode:</strong> Click Sign up to explore the full app.
+    <>
+      <Helmet>
+        <title>Start Your Free Trial | ScholarPrep</title>
+        <meta name="description" content="Start a 7-day free trial of ScholarPrep — unlimited practice for ACER, NAPLAN, selective entry and scholarship exams. No credit card required." />
+        <meta property="og:title" content="Start Your Free Trial | ScholarPrep" />
+        <meta property="og:description" content="7 days free — unlimited exam practice for Australian students Years 1–11. No credit card required." />
+        <meta property="og:url" content="https://scholarprep.com.au/signup" />
+        <link rel="canonical" href="https://scholarprep.com.au/signup" />
+      </Helmet>
+      <AuthLayout title="Start your free trial" subtitle="7 days free — no credit card required">
+        {demoMode && (
+          <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#059669', fontFamily: 'Inter, sans-serif' }}>
+            🎯 <strong>Demo mode:</strong> Click Sign up to explore the full app.
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
+          {['7 days free', 'All subjects', 'AI-powered'].map(b => (
+            <div key={b} style={{ background: '#EEF2FF', color: '#4338CA', padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {b}</div>
+          ))}
         </div>
-      )}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
-        {['7 days free', 'All subjects', 'AI-powered'].map(b => (
-          <div key={b} style={{ background: '#EEF2FF', color: '#4338CA', padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✓ {b}</div>
-        ))}
-      </div>
-      {error && (
-        <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
-      )}
-      <form onSubmit={handleSignup}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Your name</label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)}
-            placeholder="e.g. Sarah" style={inputStyle}
-            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
-            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
-            required={!demoMode} />
+        {error && (
+          <div style={{ background: '#FFF1F2', border: '1px solid #FDA4AF', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif' }}>{error}</div>
+        )}
+        <form onSubmit={handleSignup}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Your name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="e.g. Sarah" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+              required={!demoMode} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+              required={!demoMode} />
+          </div>
+          <div style={{ marginBottom: 28 }}>
+            <label style={labelStyle}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="At least 6 characters" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
+              required={!demoMode} />
+          </div>
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: 14, borderRadius: 100, fontSize: 16, fontWeight: 700,
+            background: loading ? '#6366F1' : '#F97316', color: '#fff', border: 'none', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
+            boxShadow: '0 4px 16px rgba(249,115,22,0.3)',
+            opacity: loading ? 0.8 : 1,
+          }}>
+            {loading ? 'Creating account...' : 'Start free trial →'}
+          </button>
+        </form>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+          By signing up you agree to our Terms of Service.<br />
+          Already have an account?{' '}
+          <Link to="/login" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com" style={inputStyle}
-            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
-            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
-            required={!demoMode} />
-        </div>
-        <div style={{ marginBottom: 28 }}>
-          <label style={labelStyle}>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-            placeholder="At least 6 characters" style={inputStyle}
-            onFocus={e => { e.target.style.borderColor = '#4338CA'; e.target.style.boxShadow = '0 0 0 3px rgba(67,56,202,0.08)'; }}
-            onBlur={e => { e.target.style.borderColor = 'rgba(67,56,202,0.15)'; e.target.style.boxShadow = 'none'; }}
-            required={!demoMode} />
-        </div>
-        <button type="submit" disabled={loading} style={{
-          width: '100%', padding: 14, borderRadius: 100, fontSize: 16, fontWeight: 700,
-          background: loading ? '#6366F1' : '#F97316', color: '#fff', border: 'none', cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif', transition: 'all 0.2s',
-          boxShadow: '0 4px 16px rgba(249,115,22,0.3)',
-          opacity: loading ? 0.8 : 1,
-        }}>
-          {loading ? 'Creating account...' : 'Start free trial →'}
-        </button>
-      </form>
-      <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-        By signing up you agree to our Terms of Service.<br />
-        Already have an account?{' '}
-        <Link to="/login" style={{ color: '#4338CA', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
-      </div>
-    </AuthLayout>
+      </AuthLayout>
+    </>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../hooks/useAuth';
 
 const INPUT_STYLE = {
@@ -28,6 +29,17 @@ const TOPICS = [
 export default function SupportPage() {
   const navigate = useNavigate();
   const { user } = useAuth() || {};
+
+  const helmet = (
+    <Helmet>
+      <title>Contact Support | ScholarPrep</title>
+      <meta name="description" content="Get in touch with the ScholarPrep team. We usually reply within 1–2 business days." />
+      <meta property="og:title" content="Contact Support | ScholarPrep" />
+      <meta property="og:description" content="Get in touch with the ScholarPrep team. We usually reply within 1–2 business days." />
+      <meta property="og:url" content="https://scholarprep.com.au/support" />
+      <link rel="canonical" href="https://scholarprep.com.au/support" />
+    </Helmet>
+  );
 
   const [form, setForm] = useState({
     name: user?.user_metadata?.name || '',
@@ -75,6 +87,7 @@ export default function SupportPage() {
   if (sent) {
     return (
       <div style={{ minHeight: '100vh', background: '#F5F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        {helmet}
         <div style={{ background: '#fff', borderRadius: 24, padding: 48, maxWidth: 480, width: '100%', textAlign: 'center', boxShadow: '0 4px 24px rgba(67,56,202,0.08)', border: '1px solid rgba(67,56,202,0.08)' }}>
           <div style={{ fontSize: 56, marginBottom: 20 }}>✉️</div>
           <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 12 }}>
@@ -104,6 +117,7 @@ export default function SupportPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
+      {helmet}
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid rgba(67,56,202,0.08)', padding: '20px 32px', display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💬</div>
