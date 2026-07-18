@@ -145,7 +145,7 @@ export default function Landing() {
           Scholar<span style={{ color: '#4338CA' }}>Prep</span>
         </div>
         <div className="nav-links-d" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-          {['Features', 'Subjects', 'Exams', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
           <div
             style={{ position: 'relative' }}
             onMouseEnter={() => setExamsMenuOpen(true)}
@@ -200,7 +200,7 @@ export default function Landing() {
 
       {menuOpen && (
         <div style={{ position: 'fixed', top: 60, left: 0, right: 0, bottom: 0, zIndex: 99, background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)', overflowY: 'auto' }}>
-          {['Features', 'Subjects', 'Exams', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
+          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Exams we prepare you for</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -336,15 +336,33 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── EXAMS BAR ── */}
-      <div style={{ background: '#111827', padding: '16px 40px', display: 'flex', alignItems: 'center', gap: 20, overflowX: 'auto' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>Prepares you for</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {['ACER', 'AAST', 'Edutest', 'NAPLAN', 'OC (NSW)', 'SEHS (VIC)', 'SEAL (VIC)', 'ASET / GATE (WA)', 'PEAC (WA)', 'IGNITE (SA)', 'HAST', 'ICAS'].map(t => (
-            <div key={t} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{t}</div>
-          ))}
+      <section id="exams" style={{ background: '#F9FAFB', padding: '96px 40px' }}>
+        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+            <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>Exams we prepare you for</div>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: -1, color: '#111827', lineHeight: 1.15, marginBottom: 16 }}>Every major selective &amp; scholarship exam in Australia.</h2>
+            <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 620, margin: '0 auto', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>Tap an exam to see its structure, timing and how ScholarPrep prepares your child for it.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            {EXAM_LINKS.map(e => (
+              <Link key={e.slug} to={`/exams/${e.slug}`} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px',
+                background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
+                textDecoration: 'none', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+              }}
+                onMouseEnter={ev => { ev.currentTarget.style.boxShadow = '0 8px 24px rgba(67,56,202,0.1)'; ev.currentTarget.style.borderColor = '#C7D2FE'; }}
+                onMouseLeave={ev => { ev.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; ev.currentTarget.style.borderColor = '#E5E7EB'; }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{e.icon}</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{e.label}</div>
+                  <div style={{ fontSize: 12, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>Preparation guide →</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* ── STATS ── */}
       <section style={{ background: '#fff', borderBottom: '1px solid #F3F4F6' }}>
@@ -674,34 +692,6 @@ export default function Landing() {
       </section>
 
       {/* ── EXAMS WE PREPARE YOU FOR ── */}
-      <section id="exams" style={{ background: '#F9FAFB', padding: '96px 40px' }}>
-        <div style={{ maxWidth: 1160, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4338CA', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>Exams we prepare you for</div>
-            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: -1, color: '#111827', lineHeight: 1.15, marginBottom: 16 }}>Every major selective &amp; scholarship exam in Australia.</h2>
-            <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 620, margin: '0 auto', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>Tap an exam to see its structure, timing and how ScholarPrep prepares your child for it.</p>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
-            {EXAM_LINKS.map(e => (
-              <Link key={e.slug} to={`/exams/${e.slug}`} style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px',
-                background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
-                textDecoration: 'none', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-              }}
-                onMouseEnter={ev => { ev.currentTarget.style.boxShadow = '0 8px 24px rgba(67,56,202,0.1)'; ev.currentTarget.style.borderColor = '#C7D2FE'; }}
-                onMouseLeave={ev => { ev.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; ev.currentTarget.style.borderColor = '#E5E7EB'; }}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{e.icon}</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{e.label}</div>
-                  <div style={{ fontSize: 12, color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}>Preparation guide →</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── PRICING ── */}
       <section id="pricing" style={{ background: '#F9FAFB', padding: '96px 40px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
