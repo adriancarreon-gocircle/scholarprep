@@ -10,11 +10,13 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
     "react-scripts": "5.0.1",
-    "stripe": "^22.1.0"
+    "stripe": "^22.1.0",
+    "react-helmet-async": "^2.0.5"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "postbuild": "react-snap"
   },
   "browserslist": {
     "production": [
@@ -25,5 +27,37 @@
     "development": [
       "last 1 chrome version"
     ]
+  },
+  "devDependencies": {
+    "react-snap": "^1.23.0"
+  },
+  "reactSnap": {
+    "include": [
+      "/",
+      "/login",
+      "/signup",
+      "/forgot-password",
+      "/support",
+      "/pdf-generator",
+      "/exams/acer-selective",
+      "/exams/aast-scholarship",
+      "/exams/edutest-selective",
+      "/exams/naplan",
+      "/exams/aset-gate-wa",
+      "/exams/peac-wa",
+      "/exams/ignite-sa",
+      "/exams/seal-vic",
+      "/exams/sehs-vic",
+      "/exams/oc-nsw",
+      "/exams/hast",
+      "/exams/icas"
+    ],
+    "skipThirdPartyRequests": true,
+    "headless": true,
+    "puppeteerArgs": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox"
+    ],
+    "inlineCss": true
   }
 }

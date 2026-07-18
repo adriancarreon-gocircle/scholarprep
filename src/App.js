@@ -1,4 +1,5 @@
 import React from 'react';
+import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import './styles/global.css';
@@ -20,6 +21,7 @@ import HandwritingFeedbackPage from './pages/HandwritingFeedbackPage';
 import HelpPage from './pages/HelpPage';
 import WelcomePage from './pages/WelcomePage';
 import EnglishPage from './pages/EnglishPage';
+import ExamLandingPage from './pages/ExamLandingPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading, demoMode } = useAuth();
@@ -52,6 +54,7 @@ function AppRoutes() {
       <Route path="/app/writing/photo-feedback" element={<ProtectedRoute><AppLayout><HandwritingFeedbackPage /></AppLayout></ProtectedRoute>} />
       <Route path="/app/help" element={<ProtectedRoute><AppLayout><HelpPage /></AppLayout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><AppLayout><ProfilePage /></AppLayout></ProtectedRoute>} />
+      <Route path="/exams/:slug" element={<ExamLandingPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -59,10 +62,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </HelmetProvider>
   );
 }
