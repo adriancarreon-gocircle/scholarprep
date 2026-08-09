@@ -23,17 +23,8 @@ export default async function handler(req, res) {
       const session = event.data.object;
       if (session.mode === 'subscription') {
         try {
-          const { createClient } = require('@supabase/supabase-js');
-
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
-          const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-          if (!supabaseUrl || !supabaseServiceKey) {
-            console.error('Missing Supabase env vars');
-            return res.json({ received: true, warning: 'Missing Supabase config' });
-          }
-
-          const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+          const supabaseAdmin = getSupabaseAdmin();
+          if (!supabaseAdmin) return res.json({ received: true, warning: 'Missing Supabase config' });
 
           const customerEmail =
             session.customer_details?.email ||
@@ -45,22 +36,20 @@ export default async function handler(req, res) {
           console.log('Webhook: processing subscription for:', customerEmail);
 
           if (customerEmail) {
-            const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-
-            if (!listError) {
-              const user = users.find(u => u.email === customerEmail);
-              if (user) {
-                await supabaseAdmin.auth.admin.updateUserById(user.id, {
-                  user_metadata: {
-                    ...user.user_metadata,
-                    subscribed: true,
-                    stripe_customer_id: session.customer,
-                    subscription_id: session.subscription,
-                    subscribed_at: new Date().toISOString()
-                  }
-                });
-                console.log('Successfully subscribed user:', customerEmail);
-              }
+            const user = await findUserByEmail(supabaseAdmin, customerEmail);
+            if (user) {
+              await supabaseAdmin.auth.admin.updateUserById(user.id, {
+                user_metadata: {
+                  ...user.user_metadata,
+                  subscribed: true,
+                  stripe_customer_id: session.customer,
+                  subscription_id: session.subscription,
+                  subscribed_at: new Date().toISOString()
+                }
+              });
+              console.log('Successfully subscribed user:', customerEmail);
+            } else {
+              console.warn('No matching Supabase user found for:', customerEmail);
             }
 
             await sendSubscriptionConfirmationEmail(customerEmail, customerName);
@@ -68,6 +57,89 @@ export default async function handler(req, res) {
         } catch (err) {
           console.error('Webhook processing error:', err.message);
         }
+      }
+    }
+
+    // ── Subscription cancelled / fully ended ──────────────────────────────────
+    // Fires when a subscription is deleted immediately, or when a
+    // cancel-at-period-end subscription actually reaches its end date.
+    if (event.type === 'customer.subscription.deleted') {
+      try {
+        const subscription = event.data.object;
+        const supabaseAdmin = getSupabaseAdmin();
+        if (!supabaseAdmin) return res.json({ received: true, warning: 'Missing Supabase config' });
+
+        const customerEmail = await getStripeCustomerEmail(stripe, subscription.customer);
+        console.log('Webhook: subscription deleted for:', customerEmail, subscription.id);
+
+        if (customerEmail) {
+          const user = await findUserByEmail(supabaseAdmin, customerEmail);
+          if (user) {
+            await supabaseAdmin.auth.admin.updateUserById(user.id, {
+              user_metadata: {
+                ...user.user_metadata,
+                subscribed: false,
+                subscription_id: null,
+                unsubscribed_at: new Date().toISOString()
+              }
+            });
+            console.log('Successfully unsubscribed user:', customerEmail);
+          } else {
+            console.warn('No matching Supabase user found for cancelled sub:', customerEmail);
+          }
+        }
+      } catch (err) {
+        console.error('Webhook processing error (subscription.deleted):', err.message);
+      }
+    }
+
+    // ── Subscription updated ──────────────────────────────────────────────────
+    // Fires on status changes, plan changes, and cancel-at-period-end being
+    // toggled. We only act when the status itself has moved to a non-active
+    // state, to avoid overwriting subscribed:true on every minor update.
+    if (event.type === 'customer.subscription.updated') {
+      try {
+        const subscription = event.data.object;
+        const inactiveStatuses = ['canceled', 'unpaid', 'incomplete_expired', 'past_due'];
+
+        if (inactiveStatuses.includes(subscription.status)) {
+          const supabaseAdmin = getSupabaseAdmin();
+          if (!supabaseAdmin) return res.json({ received: true, warning: 'Missing Supabase config' });
+
+          const customerEmail = await getStripeCustomerEmail(stripe, subscription.customer);
+          console.log('Webhook: subscription status changed to', subscription.status, 'for:', customerEmail);
+
+          if (customerEmail) {
+            const user = await findUserByEmail(supabaseAdmin, customerEmail);
+            if (user) {
+              await supabaseAdmin.auth.admin.updateUserById(user.id, {
+                user_metadata: {
+                  ...user.user_metadata,
+                  subscribed: false,
+                  subscription_status: subscription.status,
+                  unsubscribed_at: new Date().toISOString()
+                }
+              });
+              console.log('Marked user unsubscribed due to status:', subscription.status, customerEmail);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Webhook processing error (subscription.updated):', err.message);
+      }
+    }
+
+    // ── Renewal payment failed ────────────────────────────────────────────────
+    // Doesn't immediately revoke access (Stripe/your dunning settings decide
+    // that via subscription.updated going past_due/unpaid) — this just logs
+    // and emails so you have visibility when a renewal charge is declined.
+    if (event.type === 'invoice.payment_failed') {
+      try {
+        const invoice = event.data.object;
+        const customerEmail = invoice.customer_email || await getStripeCustomerEmail(stripe, invoice.customer);
+        console.warn('Webhook: payment failed for:', customerEmail, 'invoice:', invoice.id);
+      } catch (err) {
+        console.error('Webhook processing error (invoice.payment_failed):', err.message);
       }
     }
 
@@ -126,6 +198,28 @@ export default async function handler(req, res) {
   }
 }
 
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+function getSupabaseAdmin() {
+  const { createClient } = require('@supabase/supabase-js');
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('Missing Supabase env vars');
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+async function findUserByEmail(supabaseAdmin, email) {
+  const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+  if (error) {
+    console.error('listUsers error:', error.message);
+    return null;
+  }
+  return users.find(u => u.email === email) || null;
+}
+
 // ── Send subscription confirmation email via Brevo ───────────────────────────
 async function sendSubscriptionConfirmationEmail(email, name) {
   try {
@@ -179,14 +273,14 @@ async function sendSubscriptionConfirmationEmail(email, name) {
 
     <!-- CTA Button -->
     <div style="text-align: center; margin: 36px 0;">
-      <a href="https://www.scholarprep.com.au/app" style="background: #4338CA; color: #ffffff; padding: 16px 40px; border-radius: 100px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-block; font-family: 'Inter', Arial, sans-serif; letter-spacing: -0.2px;">
+      <a href="https://scholarprep.com.au/app" style="background: #4338CA; color: #ffffff; padding: 16px 40px; border-radius: 100px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-block; font-family: 'Inter', Arial, sans-serif; letter-spacing: -0.2px;">
         Start practising now →
       </a>
     </div>
 
     <p style="font-size: 14px; color: #6B7280; line-height: 1.7; margin: 0; font-family: 'Inter', Arial, sans-serif;">
       You can manage or cancel your subscription anytime from your
-      <a href="https://www.scholarprep.com.au/profile" style="color: #4338CA; text-decoration: none; font-weight: 600;">Account page</a>.
+      <a href="https://scholarprep.com.au/profile" style="color: #4338CA; text-decoration: none; font-weight: 600;">Account page</a>.
     </p>
   </div>
 
@@ -195,7 +289,7 @@ async function sendSubscriptionConfirmationEmail(email, name) {
     <div style="font-size: 12px; color: #9CA3AF; line-height: 1.6; font-family: 'Inter', Arial, sans-serif;">
       © 2026 ScholarPrep — a Go Circle Pty Ltd company<br/>
       Built for Australian primary and secondary school families<br/>
-      <a href="https://www.scholarprep.com.au" style="color: #4338CA; text-decoration: none;">www.scholarprep.com.au</a>
+      <a href="https://scholarprep.com.au" style="color: #4338CA; text-decoration: none;">scholarprep.com.au</a>
     </div>
   </div>
 
