@@ -90,7 +90,8 @@ export default function AdminDashboardPage() {
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, color: '#0F172A' }}>Admin Dashboard</div>
           <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>User activity & signups</div>
         </div>
-        <button onClick={() => navigate('/app')} style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer' }}>← Back to app</button>
+        <button onClick={() => navigate('/admin/paper-builder')} style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer' }}>📄 Paper Builder</button>
+        <button onClick={() => navigate('/app')} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer' }}>← Back to app</button>
       </div>
 
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '32px 24px' }}>
