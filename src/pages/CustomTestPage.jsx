@@ -8,7 +8,7 @@ import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
 // ── Question Bank ─────────────────────────────────────────────────────────────
 
-const QUESTION_BANK = {
+export const QUESTION_BANK = {
   mathematics: {
     label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF',
     topics: [
@@ -1301,7 +1301,7 @@ const CREATOR_SUBJECTS = [
   { key: 'general', label: 'General Ability', icon: '🧩', color: '#F97316' },
 ];
 
-async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel, imageBase64, imageMediaType) {
+export async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel, imageBase64, imageMediaType) {
   const hasImage = !!imageBase64;
   const system = `You are an expert Australian exam question writer for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 

@@ -29,6 +29,7 @@ const ExamLandingPage = lazy(() => import('./pages/ExamLandingPage'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminPaperBuilderPage = lazy(() => import('./pages/AdminPaperBuilderPage'));
 const PracticePapersPage = lazy(() => import('./pages/PracticePapersPage'));
 const PracticePaperSuccessPage = lazy(() => import('./pages/PracticePaperSuccessPage'));
 
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/blog/:slug" element={<BlogPostPage />} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
+        <Route path="/admin/paper-builder" element={<ProtectedRoute><AdminPaperBuilderPage /></ProtectedRoute>} />
         <Route path="/practice-papers" element={<PracticePapersPage />} />
         <Route path="/practice-papers/success" element={<PracticePaperSuccessPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
