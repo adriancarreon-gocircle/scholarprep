@@ -21,6 +21,41 @@ export default async function handler(req, res) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
+
+      // ── One-time practice paper purchase ────────────────────────────────────
+      if (session.mode === 'payment' && (session.metadata?.productType === 'practice-paper' || session.metadata?.productType === 'practice-paper-bundle')) {
+        try {
+          const { getLevelServer, getPaperServer } = require('./_practicePapersServer');
+          const supabaseAdmin = getSupabaseAdmin();
+          const customerEmail = session.customer_details?.email || session.customer_email;
+          const { levelSlug, paperId } = session.metadata;
+
+          let papersToSend = [];
+          if (session.metadata.productType === 'practice-paper-bundle') {
+            const level = getLevelServer(levelSlug);
+            papersToSend = (level?.papers || []).filter(p => p.available);
+          } else {
+            const paper = getPaperServer(levelSlug, paperId);
+            if (paper) papersToSend = [paper];
+          }
+
+          if (customerEmail && supabaseAdmin && papersToSend.length > 0) {
+            const downloads = [];
+            for (const paper of papersToSend) {
+              const { data, error: signError } = await supabaseAdmin.storage
+                .from('practice-papers')
+                .createSignedUrl(paper.file, 60 * 60 * 24 * 7); // 7 days
+              if (!signError && data) downloads.push({ title: `${paper.title} (${paper.examStyle})`, url: data.signedUrl });
+            }
+            await sendPracticePaperEmail(customerEmail, downloads);
+            console.log('Sent practice paper email to:', customerEmail, 'papers:', downloads.length);
+          }
+        } catch (err) {
+          console.error('Practice paper webhook error:', err.message);
+        }
+        return res.json({ received: true });
+      }
+
       if (session.mode === 'subscription') {
         try {
           const supabaseAdmin = getSupabaseAdmin();
@@ -187,6 +222,58 @@ export default async function handler(req, res) {
         cancel_url: cancelUrl || `${req.headers.origin}/pdf-generator`,
       });
 
+    } else if (type === 'practice-paper') {
+      const { levelSlug, paperId } = req.body;
+      const { getPaperServer } = require('./_practicePapersServer');
+      const paper = getPaperServer(levelSlug, paperId);
+      if (!paper || !paper.available) return res.status(400).json({ error: 'Paper not available' });
+
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'aud',
+            unit_amount: Math.round(paper.price * 100),
+            product_data: {
+              name: `ScholarPrep Practice Paper — ${paper.title} (Level ${levelSlug})`,
+              description: `${paper.examStyle} · ${paper.questionCount} questions · Printable PDF with answer key`,
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: { productType: 'practice-paper', levelSlug, paperId: paper.id },
+        ...(userEmail && { customer_email: userEmail }),
+        success_url: successUrl || `${req.headers.origin}/practice-papers/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${req.headers.origin}/practice-papers`,
+      });
+
+    } else if (type === 'practice-paper-bundle') {
+      const { levelSlug } = req.body;
+      const { getLevelServer } = require('./_practicePapersServer');
+      const level = getLevelServer(levelSlug);
+      if (!level) return res.status(400).json({ error: 'Level not found' });
+
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'aud',
+            unit_amount: Math.round(level.bundlePrice * 100),
+            product_data: {
+              name: `ScholarPrep Practice Paper Bundle — Level ${levelSlug} (5 papers)`,
+              description: `All 5 papers · Printable PDFs with answer keys`,
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: { productType: 'practice-paper-bundle', levelSlug },
+        ...(userEmail && { customer_email: userEmail }),
+        success_url: successUrl || `${req.headers.origin}/practice-papers/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${req.headers.origin}/practice-papers`,
+      });
+
     } else {
       return res.status(400).json({ error: 'Invalid checkout type' });
     }
@@ -306,6 +393,59 @@ async function sendSubscriptionConfirmationEmail(email, name) {
     }
   } catch (err) {
     console.error('Failed to send confirmation email:', err.message);
+  }
+}
+
+// ── Send practice paper download email via Brevo ──────────────────────────────
+async function sendPracticePaperEmail(email, downloads) {
+  try {
+    const linksHtml = downloads.map(d => `
+      <div style="margin-bottom: 10px;">
+        <a href="${d.url}" style="display: inline-block; background: #4338CA; color: #fff; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 700; text-decoration: none; font-family: 'Inter', Arial, sans-serif;">
+          📄 Download ${d.title}
+        </a>
+      </div>
+    `).join('');
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': process.env.BREVO_API_KEY },
+      body: JSON.stringify({
+        sender: { name: 'ScholarPrep', email: 'hello@scholarprep.com.au' },
+        to: [{ email }],
+        subject: 'Your ScholarPrep practice papers are ready!',
+        htmlContent: `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F7FF;">
+  <div style="background: #3730A3; padding: 32px 40px; text-align: center;">
+    <div style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 28px; font-weight: 900; color: #fff;">
+      Scholar<span style="color: #A5B4FC;">Prep</span>
+    </div>
+  </div>
+  <div style="padding: 40px; background: #fff; margin: 24px; border-radius: 16px; border: 1px solid rgba(67,56,202,0.08);">
+    <h1 style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 14px;">
+      Your practice papers are ready 📘
+    </h1>
+    <p style="font-size: 15px; color: #6B7280; line-height: 1.7; margin: 0 0 24px; font-family: 'Inter', Arial, sans-serif;">
+      Thanks for your purchase! Click below to download your PDF${downloads.length > 1 ? 's' : ''}. Links are valid for 7 days.
+    </p>
+    ${linksHtml}
+    <p style="font-size: 13px; color: #94A3B8; line-height: 1.7; margin: 24px 0 0; font-family: 'Inter', Arial, sans-serif;">
+      Trouble downloading? Just reply to this email or visit our <a href="https://scholarprep.com.au/support" style="color: #4338CA;">support page</a>.
+    </p>
+  </div>
+  <div style="padding: 20px 24px; text-align: center;">
+    <div style="font-size: 12px; color: #9CA3AF; font-family: 'Inter', Arial, sans-serif;">
+      © 2026 ScholarPrep — a Go Circle Pty Ltd company<br/>
+      <a href="https://scholarprep.com.au" style="color: #4338CA; text-decoration: none;">scholarprep.com.au</a>
+    </div>
+  </div>
+</div>
+        `
+      })
+    });
+    if (!response.ok) console.error('Brevo email error:', await response.text());
+  } catch (err) {
+    console.error('Failed to send practice paper email:', err.message);
   }
 }
 
