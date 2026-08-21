@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
-import { getCustomTemplates } from '../lib/progress';
+import { getCustomTemplates, savePaperTest, getPaperTests, deletePaperTest } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate } from './CustomTestPage';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
@@ -110,9 +110,67 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
   return { questions: allQs, passageGroups: groups };
 }
 
+// ── Saved papers list ────────────────────────────────────────────────────────
+
+function SavedPapersList({ papers, loading, onOpen, onDelete, onCreateNew }) {
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this saved paper? This can\'t be undone.')) return;
+    setDeletingId(id);
+    await onDelete(id);
+    setDeletingId(null);
+  };
+
+  return (
+    <div style={{ maxWidth: 740, margin: '0 auto', padding: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>Saved papers</h2>
+          <p style={{ fontSize: 14, color: '#64748B', margin: '4px 0 0', fontFamily: 'Inter, sans-serif' }}>Open a saved paper to view, edit, or reprint it — or start a new one.</p>
+        </div>
+        <button onClick={onCreateNew} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>+ New Paper</button>
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', flexDirection: 'column', gap: 14 }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #EEF2FF', borderTop: '3px solid #4338CA', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {!loading && papers.length === 0 && (
+        <div style={{ background: '#fff', borderRadius: 20, padding: 40, textAlign: 'center', border: '1px solid rgba(67,56,202,0.08)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🗞️</div>
+          <div style={{ fontSize: 15, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>No saved papers yet. Build one and hit Save to keep it here.</div>
+        </div>
+      )}
+
+      {!loading && papers.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {papers.map(p => (
+            <div key={p.id} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid rgba(67,56,202,0.08)', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{p.title || 'Untitled Paper'}</div>
+                <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+                  Year {p.yearLevel} · {p.questionCount} question{p.questionCount !== 1 ? 's' : ''} · updated {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('en-AU') : '—'}
+                </div>
+              </div>
+              <button onClick={() => onOpen(p)} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>Open</button>
+              <button onClick={() => handleDelete(p.id)} disabled={deletingId === p.id} style={{ padding: '8px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#fff', color: '#F43F5E', border: '1.5px solid #FECDD3', cursor: deletingId === p.id ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+                {deletingId === p.id ? '…' : '🗑'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Builder screen ──────────────────────────────────────────────────────────
 
-function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTitle, setPaperTitle, selection, setSelection, passages, setPassages, questionsPerPassage, setQuestionsPerPassage, onGenerate, error }) {
+function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTitle, setPaperTitle, selection, setSelection, passages, setPassages, questionsPerPassage, setQuestionsPerPassage, onGenerate, onBackToList, error }) {
   const [expandedSubjects, setExpandedSubjects] = useState({});
   const [expandedTopics, setExpandedTopics] = useState({});
   const [expandedQTypes, setExpandedQTypes] = useState({});
@@ -135,10 +193,15 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
 
   return (
     <div style={{ maxWidth: 740, margin: '0 auto', padding: 32 }}>
-      <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>Build a paper test</h2>
-      <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
-        Same subjects and custom questions as the student Custom Test builder. Pick your mix, then review and regenerate individual questions before producing the printable PDF.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>Build a paper test</h2>
+          <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
+            Same subjects and custom questions as the student Custom Test builder. Pick your mix, then review and regenerate individual questions before saving or producing the printable PDF.
+          </p>
+        </div>
+        <button onClick={onBackToList} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>← Saved papers</button>
+      </div>
 
       <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginBottom: 14, border: '1px solid rgba(67,56,202,0.08)' }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -298,7 +361,7 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
 
 // ── Review + regenerate screen ──────────────────────────────────────────────
 
-function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, onBack, onQuestionsChange, onDownload, downloading }) {
+function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, isSaved, onBack, backLabel, onQuestionsChange, onDownload, downloading, onSave, saving, justSaved }) {
   const [regeneratingIdx, setRegeneratingIdx] = useState(null);
   let readingSeen = 0; // tracks position within the reading section as we render, to know which passage group we're in
 
@@ -325,10 +388,10 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
         <div>
           <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>Review questions</h2>
           <p style={{ fontSize: 14, color: '#64748B', margin: '4px 0 0', fontFamily: 'Inter, sans-serif' }}>
-            {paperTitle || 'Untitled paper'} · Year {yearLevel} · {questions.length} questions. Check each answer, regenerate any question that looks repeated, then generate the PDF.
+            {paperTitle || 'Untitled paper'} · Year {yearLevel} · {questions.length} questions. Check each answer, regenerate any question that looks repeated, then save and/or generate the PDF.
           </p>
         </div>
-        <button onClick={onBack} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>← Edit selection</button>
+        <button onClick={onBack} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>{backLabel}</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '20px 0' }}>
@@ -353,57 +416,71 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
           }
           return (
             <React.Fragment key={i}>
-            {passageBlock}
-            <div style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ background: subj.color, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i + 1}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: subj.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {subj.label}{q.questionType ? ` · ${q.questionType}` : ''}
+              {passageBlock}
+              <div style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ background: subj.color, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: subj.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {subj.label}{q.questionType ? ` · ${q.questionType}` : ''}
+                    </div>
+                    <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: q.explanation ? 8 : 0 }}>
+                      {Object.entries(q.options || {}).map(([key, val]) => (
+                        <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
+                          {key}. {val}
+                        </div>
+                      ))}
+                    </div>
+                    {q.explanation && <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>💡 {q.explanation}</div>}
                   </div>
-                  <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: q.explanation ? 8 : 0 }}>
-                    {Object.entries(q.options || {}).map(([key, val]) => (
-                      <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
-                        {key}. {val}
-                      </div>
-                    ))}
-                  </div>
-                  {q.explanation && <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>💡 {q.explanation}</div>}
+                  <button
+                    onClick={() => handleRegenerate(i)}
+                    disabled={!canRegenerate || regeneratingIdx !== null}
+                    title={canRegenerate ? 'Regenerate this question' : "Reading questions share a passage and can't be regenerated individually"}
+                    style={{
+                      flexShrink: 0, padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif',
+                      border: `1.5px solid ${canRegenerate ? subj.color : '#E5E7EB'}`, background: '#fff',
+                      color: canRegenerate ? subj.color : '#C7CDD6',
+                      cursor: !canRegenerate || regeneratingIdx !== null ? 'not-allowed' : 'pointer',
+                      opacity: regeneratingIdx !== null && !isRegenerating ? 0.5 : 1,
+                    }}
+                  >
+                    {isRegenerating ? '⏳' : '🔄'} {isRegenerating ? 'Regenerating…' : 'Regenerate'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleRegenerate(i)}
-                  disabled={!canRegenerate || regeneratingIdx !== null}
-                  title={canRegenerate ? 'Regenerate this question' : "Reading questions share a passage and can't be regenerated individually"}
-                  style={{
-                    flexShrink: 0, padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif',
-                    border: `1.5px solid ${canRegenerate ? subj.color : '#E5E7EB'}`, background: '#fff',
-                    color: canRegenerate ? subj.color : '#C7CDD6',
-                    cursor: !canRegenerate || regeneratingIdx !== null ? 'not-allowed' : 'pointer',
-                    opacity: regeneratingIdx !== null && !isRegenerating ? 0.5 : 1,
-                  }}
-                >
-                  {isRegenerating ? '⏳' : '🔄'} {isRegenerating ? 'Regenerating…' : 'Regenerate'}
-                </button>
               </div>
-            </div>
             </React.Fragment>
           );
         })}
       </div>
 
-      <button
-        onClick={onDownload}
-        disabled={downloading}
-        style={{
-          width: '100%', padding: '16px', borderRadius: 100, fontSize: 16, fontWeight: 700, border: 'none',
-          background: downloading ? '#E5E7EB' : '#F97316', color: downloading ? '#9CA3AF' : '#fff',
-          cursor: downloading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
-          boxShadow: downloading ? 'none' : '0 4px 16px rgba(249,115,22,0.35)',
-        }}
-      >
-        {downloading ? 'Preparing PDF…' : '📄 Generate PDF Paper Test →'}
-      </button>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          style={{
+            flex: '1 1 220px', padding: '16px', borderRadius: 100, fontSize: 16, fontWeight: 700, border: 'none',
+            background: saving ? '#E5E7EB' : '#4338CA', color: saving ? '#9CA3AF' : '#fff',
+            cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+            boxShadow: saving ? 'none' : '0 4px 16px rgba(67,56,202,0.3)',
+          }}
+        >
+          {saving ? 'Saving…' : justSaved ? '✓ Saved' : isSaved ? '💾 Update saved paper' : '💾 Save paper'}
+        </button>
+        <button
+          onClick={onDownload}
+          disabled={downloading}
+          style={{
+            flex: '1 1 220px', padding: '16px', borderRadius: 100, fontSize: 16, fontWeight: 700, border: 'none',
+            background: downloading ? '#E5E7EB' : '#F97316', color: downloading ? '#9CA3AF' : '#fff',
+            cursor: downloading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+            boxShadow: downloading ? 'none' : '0 4px 16px rgba(249,115,22,0.35)',
+          }}
+        >
+          {downloading ? 'Preparing PDF…' : '📄 Generate PDF Paper Test →'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -539,8 +616,9 @@ export default function AdminPaperBuilderPage() {
   const { isAdmin, loading, yearLevel: accountYearLevel } = useAuth();
   const navigate = useNavigate();
 
-  const [view, setView] = useState('builder');
+  const [view, setView] = useState('list');
   const [customTemplates, setCustomTemplates] = useState([]);
+  const [savedPapers, setSavedPapers] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [selection, setSelection] = useState({});
@@ -556,12 +634,55 @@ export default function AdminPaperBuilderPage() {
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
 
+  const [currentPaperId, setCurrentPaperId] = useState(null);
+  const [cameFromBuilder, setCameFromBuilder] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+
   useEffect(() => {
-    getCustomTemplates().then(setCustomTemplates).catch(() => setCustomTemplates([])).finally(() => setDataLoading(false));
+    Promise.all([
+      getCustomTemplates().catch(() => []),
+      getPaperTests().catch(() => []),
+    ]).then(([templates, papers]) => {
+      setCustomTemplates(templates);
+      setSavedPapers(papers);
+      setDataLoading(false);
+    });
   }, []);
 
   if (loading) return null;
   if (!isAdmin) return <Navigate to="/app" replace />;
+
+  const resetForNewPaper = () => {
+    setSelection({});
+    setPassages(2);
+    setQuestionsPerPassage(5);
+    setYearLevel(accountYearLevel || 5);
+    setPaperTitle('');
+    setQuestions([]);
+    setPassageGroups([]);
+    setCurrentPaperId(null);
+    setError('');
+    setView('builder');
+  };
+
+  const handleOpenPaper = (paper) => {
+    setCurrentPaperId(paper.id);
+    setPaperTitle(paper.title || '');
+    setYearLevel(paper.yearLevel || accountYearLevel || 5);
+    setQuestions(paper.questions || []);
+    setPassageGroups(paper.passageGroups || []);
+    setGenQuestionsPerPassage(paper.questionsPerPassage || 5);
+    setCameFromBuilder(false);
+    setJustSaved(false);
+    setView('review');
+  };
+
+  const handleDeletePaper = async (id) => {
+    await deletePaperTest(id);
+    setSavedPapers(prev => prev.filter(p => p.id !== id));
+    if (currentPaperId === id) { setCurrentPaperId(null); setView('list'); }
+  };
 
   const handleGenerate = async () => {
     setError('');
@@ -571,6 +692,8 @@ export default function AdminPaperBuilderPage() {
       setQuestions(qs);
       setPassageGroups(pg);
       setGenQuestionsPerPassage(questionsPerPassage);
+      setCameFromBuilder(true);
+      setJustSaved(false);
       setView('review');
     } catch (e) {
       setError('Failed to generate questions. Please try again.');
@@ -585,6 +708,39 @@ export default function AdminPaperBuilderPage() {
     } finally {
       setTimeout(() => setDownloading(false), 800);
     }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await savePaperTest({
+        id: currentPaperId,
+        title: paperTitle,
+        yearLevel,
+        questions,
+        passageGroups,
+        questionsPerPassage: genQuestionsPerPassage,
+      });
+      setCurrentPaperId(saved.id);
+      setSavedPapers(prev => {
+        const entry = {
+          id: saved.id,
+          title: paperTitle?.trim() || 'Untitled Paper',
+          yearLevel,
+          questionCount: questions.length,
+          updatedAt: new Date().toISOString(),
+        };
+        const idx = prev.findIndex(p => p.id === saved.id);
+        if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
+        return [entry, ...prev];
+      });
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2500);
+    } catch (e) {
+      setError('Failed to save the paper. Please try again.');
+    }
+    setSaving(false);
   };
 
   return (
@@ -605,6 +761,16 @@ export default function AdminPaperBuilderPage() {
         </div>
       )}
 
+      {!dataLoading && view === 'list' && (
+        <SavedPapersList
+          papers={savedPapers}
+          loading={false}
+          onOpen={handleOpenPaper}
+          onDelete={handleDeletePaper}
+          onCreateNew={resetForNewPaper}
+        />
+      )}
+
       {!dataLoading && view === 'builder' && (
         <PaperBuilderScreen
           customTemplates={customTemplates}
@@ -614,6 +780,7 @@ export default function AdminPaperBuilderPage() {
           passages={passages} setPassages={setPassages}
           questionsPerPassage={questionsPerPassage} setQuestionsPerPassage={setQuestionsPerPassage}
           onGenerate={handleGenerate}
+          onBackToList={() => setView('list')}
           error={error}
         />
       )}
@@ -635,10 +802,15 @@ export default function AdminPaperBuilderPage() {
           questionsPerPassage={genQuestionsPerPassage}
           yearLevel={yearLevel}
           paperTitle={paperTitle}
-          onBack={() => setView('builder')}
+          isSaved={!!currentPaperId}
+          backLabel={cameFromBuilder ? '← Edit selection' : '← Saved papers'}
+          onBack={() => setView(cameFromBuilder ? 'builder' : 'list')}
           onQuestionsChange={setQuestions}
           onDownload={handleDownload}
           downloading={downloading}
+          onSave={handleSave}
+          saving={saving}
+          justSaved={justSaved}
         />
       )}
     </div>

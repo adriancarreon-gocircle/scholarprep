@@ -922,3 +922,82 @@ export const deleteCustomTemplate = async (id) => {
     localStorage.setItem('sp_custom_templates', JSON.stringify(stored.filter(t => t.id !== id)));
   } catch { }
 };
+
+// ── Admin Paper Tests (saved printable papers — Admin Paper Builder) ─────────
+// Same insert-vs-update-by-id shape as saveCustomTemplate. Admin-only feature,
+// so no localStorage fallback — without a real Supabase user there is nothing
+// meaningful to save or load.
+export const savePaperTest = async (paper) => {
+  const row = {
+    title: paper.title?.trim() || 'Untitled Paper',
+    year_level: paper.yearLevel,
+    questions: paper.questions,
+    passage_groups: paper.passageGroups || [],
+    questions_per_passage: paper.questionsPerPassage || null,
+    question_count: (paper.questions || []).length,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const user = await getCurrentUser();
+    if (!user) return paper;
+    if (paper.id) {
+      // Update existing
+      await supabase.from('admin_paper_tests')
+        .update(row)
+        .eq('id', paper.id)
+        .eq('user_id', user.id);
+    } else {
+      // Insert new
+      const { data } = await supabase.from('admin_paper_tests')
+        .insert({ ...row, user_id: user.id })
+        .select('id, created_at')
+        .single();
+      if (data?.id) { paper.id = data.id; paper.createdAt = data.created_at; }
+    }
+  } catch (e) {
+    console.error('savePaperTest error:', e);
+  }
+
+  return paper;
+};
+
+// Load all saved paper tests for the current user
+export const getPaperTests = async () => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('admin_paper_tests')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map(row => ({
+      id: row.id,
+      title: row.title,
+      yearLevel: row.year_level,
+      questions: row.questions,
+      passageGroups: row.passage_groups || [],
+      questionsPerPassage: row.questions_per_passage,
+      questionCount: row.question_count,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  } catch (e) {
+    console.error('getPaperTests error:', e);
+    return [];
+  }
+};
+
+// Delete a saved paper test
+export const deletePaperTest = async (id) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return;
+    await supabase.from('admin_paper_tests').delete()
+      .eq('id', id).eq('user_id', user.id);
+  } catch (e) {
+    console.error('deletePaperTest error:', e);
+  }
+};
