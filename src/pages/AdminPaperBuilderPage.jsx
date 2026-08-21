@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
-import { getCustomTemplates, savePaperTest, getPaperTests, deletePaperTest } from '../lib/progress';
-import { QUESTION_BANK, generateFromTemplate } from './CustomTestPage';
+import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest } from '../lib/progress';
+import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator } from './CustomTestPage';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
 // Mirrors the Custom Test builder (same QUESTION_BANK, same subject → topic →
@@ -112,7 +112,7 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
 
 // ── Saved papers list ────────────────────────────────────────────────────────
 
-function SavedPapersList({ papers, loading, onOpen, onDelete, onCreateNew }) {
+function SavedPapersList({ papers, loading, onOpen, onDelete, onCreateNew, onOpenCreator }) {
   const [deletingId, setDeletingId] = useState(null);
 
   const handleDelete = async (id) => {
@@ -129,7 +129,10 @@ function SavedPapersList({ papers, loading, onOpen, onDelete, onCreateNew }) {
           <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>Saved papers</h2>
           <p style={{ fontSize: 14, color: '#64748B', margin: '4px 0 0', fontFamily: 'Inter, sans-serif' }}>Open a saved paper to view, edit, or reprint it — or start a new one.</p>
         </div>
-        <button onClick={onCreateNew} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>+ New Paper</button>
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button onClick={onOpenCreator} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✨ Question Creator</button>
+          <button onClick={onCreateNew} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Paper</button>
+        </div>
       </div>
 
       {loading && (
@@ -397,7 +400,10 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '20px 0' }}>
         {questions.map((q, i) => {
           const subj = QUESTION_BANK[q._subj] || QUESTION_BANK.mathematics;
-          const canRegenerate = q._subj !== 'reading';
+          // Only block regenerate for reading questions that actually share a generated
+          // passage (passageGroups.length > 0) — standalone reading-tagged questions
+          // launched from the Question Creator have no passage and can regenerate fine.
+          const canRegenerate = !(q._subj === 'reading' && passageGroups && passageGroups.length > 0);
           const isRegenerating = regeneratingIdx === i;
           let passageBlock = null;
           if (q._subj === 'reading') {
@@ -684,6 +690,28 @@ export default function AdminPaperBuilderPage() {
     if (currentPaperId === id) { setCurrentPaperId(null); setView('list'); }
   };
 
+  // ── Custom Question Creator (same component/behaviour as Custom Test page) ──
+  const handleSaveTemplate = async (tmpl) => {
+    const saved = await saveCustomTemplate(tmpl);
+    setCustomTemplates(prev => {
+      const idx = prev.findIndex(t => t.id === saved.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
+      return [saved, ...prev];
+    });
+    return saved;
+  };
+
+  const handleLaunchFromCreator = (qs, label) => {
+    setQuestions(qs.map(q => ({ ...q, _subj: q.topic || 'mathematics' })));
+    setPassageGroups([]);
+    setGenQuestionsPerPassage(5);
+    setPaperTitle(label);
+    setCurrentPaperId(null);
+    setCameFromBuilder(false);
+    setJustSaved(false);
+    setView('review');
+  };
+
   const handleGenerate = async () => {
     setError('');
     setView('generating');
@@ -768,6 +796,17 @@ export default function AdminPaperBuilderPage() {
           onOpen={handleOpenPaper}
           onDelete={handleDeletePaper}
           onCreateNew={resetForNewPaper}
+          onOpenCreator={() => setView('creator')}
+        />
+      )}
+
+      {!dataLoading && view === 'creator' && (
+        <CustomQuestionCreator
+          yearLevel={yearLevel}
+          onBack={() => setView('list')}
+          onSaveTemplate={handleSaveTemplate}
+          onLaunch={handleLaunchFromCreator}
+          launchLabel="▶ Review & print"
         />
       )}
 

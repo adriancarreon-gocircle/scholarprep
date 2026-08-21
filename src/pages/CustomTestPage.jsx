@@ -1378,7 +1378,7 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
   });
 }
 
-function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) {
+export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch, launchLabel = '▶ Start test' }) {
   const [inputMode, setInputMode] = useState('text');
   const [example, setExample] = useState('');
   const [imageBase64, setImageBase64] = useState(null);
@@ -1667,7 +1667,7 @@ function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch }) 
             <button onClick={() => { setPhase('input'); setSavedName(''); }} style={{ flex: 1, padding: 13, borderRadius: 12, border: '2px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Edit</button>
             <button onClick={async () => { setError(''); setLoading(true); setPhase('generating'); try { const result = await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, inputMode === 'image' ? imageBase64 : null, inputMode === 'image' ? imageMediaType : null); setTemplate(result.template || ''); setQuestions(result.questions || []); setSavedName(''); setPhase('preview'); } catch (e) { setError(e.message); setPhase('preview'); } setLoading(false); }} disabled={loading} style={{ flex: 1, padding: 13, borderRadius: 12, border: `2px solid ${subjectColor}`, background: '#fff', color: subjectColor, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>🔄 {loading ? 'Regenerating…' : 'Regenerate'}</button>
             <button onClick={() => onLaunch(questions, tmplName.trim() || qType.trim() || 'Custom Questions')} style={{ flex: 2, padding: 13, borderRadius: 12, border: 'none', background: subjectColor, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: `0 4px 14px ${subjectColor}40` }}>
-              ▶ Start test ({questions.length} questions)
+              {launchLabel} ({questions.length} questions)
             </button>
           </div>
         </div>
