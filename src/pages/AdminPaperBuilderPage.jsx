@@ -402,7 +402,7 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
 
 // ── Review + regenerate screen ──────────────────────────────────────────────
 
-function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, onTitleChange, isSaved, onEditSelection, onBackToList, onQuestionsChange, onDownload, downloading, onSave, saving, justSaved }) {
+function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, onTitleChange, isSaved, hasSelection, onRegenerateAll, onEditSelection, onBackToList, onQuestionsChange, onDownload, downloading, onSave, saving, justSaved }) {
   const [regeneratingIdx, setRegeneratingIdx] = useState(null);
   // Tracks every variant already shown at each question index this session,
   // so repeated Regenerate clicks on the same question don't cycle back
@@ -444,11 +444,19 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
             Year {yearLevel} · {questions.length} questions. Check each answer, regenerate any question that looks repeated, then save and/or generate the PDF.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+          {hasSelection && (
+            <button onClick={onRegenerateAll} title="Keep the same subjects/topics/question-types, but generate a brand new set of questions" style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>🔁 New question set (same selection)</button>
+          )}
           <button onClick={onEditSelection} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✏️ Edit selection</button>
           <button onClick={onBackToList} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Saved papers</button>
         </div>
       </div>
+      {!hasSelection && (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '10px 16px', marginBottom: 12, fontSize: 13, color: '#92400E', fontFamily: 'Inter, sans-serif' }}>
+          ℹ️ This paper was saved before selection-editing existed, so its original subject/topic picks weren't stored — "Edit selection" will open blank. Pick your mix there and generate once, and going forward this paper (and every paper saved from now on) will remember its selection, including for a one-click "New question set" like the button above.
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '20px 0' }}>
         {questions.map((q, i) => {
@@ -921,6 +929,8 @@ export default function AdminPaperBuilderPage() {
           paperTitle={paperTitle}
           onTitleChange={setPaperTitle}
           isSaved={!!currentPaperId}
+          hasSelection={Object.keys(selection || {}).length > 0}
+          onRegenerateAll={handleGenerate}
           onEditSelection={handleEditSelection}
           onBackToList={() => setView('list')}
           onQuestionsChange={setQuestions}
