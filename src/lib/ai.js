@@ -31,6 +31,116 @@ async function chunkGenerate(generateFn, yearLevel, totalCount, focus) {
 
 const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondary school';
 
+// ── Randomness + anti-repetition helpers ───────────────────────────────────────
+// The model is a poor source of randomness on its own — asked for "a random name"
+// or "a random 3-digit sum" many times, it converges on a small set of favourites
+// instead of sampling uniformly across the real space. These helpers move the
+// randomness into JS (genuinely uniform) and hand the model concrete material to
+// anchor on, plus a short list of recently-used questions to explicitly avoid —
+// both dramatically widen the effective variety versus prompt instructions alone.
+
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const pickN = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, Math.min(n, arr.length));
+
+const NAME_POOL = [
+  'Mei', 'Jayden', 'Amara', 'Kai', 'Priya', 'Lachlan', 'Zara', 'Tobias', 'Isla', 'Ravi',
+  'Freya', 'Marcus', 'Aaliyah', 'Ethan', 'Sione', 'Chloe', 'Dimitri', 'Neha', 'Oscar', 'Yasmin',
+  'Hugo', 'Kiri', 'Elijah', 'Anika', 'Finn', 'Layla', 'Cormac', 'Grace', 'Wiremu', 'Sofia',
+];
+const OBJECT_POOL = [
+  'bus tickets', 'paint tins', 'garden stakes', 'library cards', 'fishing lures', 'jigsaw pieces',
+  'guitar strings', 'seedling trays', 'chess pieces', 'stamps', 'marbles', 'recipe cards',
+  'bike helmets', 'compost bags', 'raffle tickets', 'bolts', 'kite string', 'lanyards',
+];
+const SETTING_POOL = [
+  'a school canteen', 'a community garden', 'a bike repair shop', 'a local market', 'a boat shed',
+  'a wildlife shelter', 'a pottery studio', 'a scout camp', 'a train station kiosk', 'a skate park',
+  'a farmers co-op', 'a recycling depot', 'a surf club', 'a museum gift shop', 'a food truck',
+];
+
+// Compact signature for a question — used both to build the "avoid repeating
+// these" negative list in a prompt, and to compare candidates against recent
+// history. Deliberately short (first ~12 normalised words) to keep prompt cost low.
+export function fingerprintQuestion(q) {
+  if (!q) return '';
+  const text = (q.question || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').slice(0, 12).join(' ');
+  return `${q.questionType || q.topic || ''}::${text}`;
+}
+
+// Built fresh on every call and inserted into the prompt — always on, not
+// gated behind any special "regenerate" mode, so ordinary batch generation
+// gets the same anti-attractor treatment as a single-question regenerate.
+function buildFreshnessBlock(recentFingerprints) {
+  const names = pickN(NAME_POOL, 3);
+  const objects = pickN(OBJECT_POOL, 3);
+  const settings = pickN(SETTING_POOL, 2);
+  const seedNumbers = Array.from({ length: 4 }, () => randInt(7, 987));
+  let block = `\nVARIETY ANCHOR — use this randomly-drawn material to steer your specific choices for THIS call, so results don't default to the same handful of "typical" examples every time:
+- Names to prefer (or similarly varied Australian names): ${names.join(', ')}
+- Objects/items to consider: ${objects.join(', ')}
+- Setting/context to consider: ${settings.join(', ')}
+- Numeric seed values — let these (or numbers of similar size/shape) influence numbers you choose, instead of defaulting to round numbers like 2, 5, 10, 20, 50, 100: ${seedNumbers.join(', ')}
+- You don't need to use all of these in every question — they exist to break default patterns, not to be forced in.`;
+  if (recentFingerprints && recentFingerprints.length > 0) {
+    const list = recentFingerprints.slice(-20);
+    block += `\n\nAVOID REPEATING — these questions were already used recently (same test, or a recent regenerate). Do NOT generate anything with the same numbers, wording, or scenario as any of these:\n${list.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
+  }
+  return block;
+}
+
+// Reassign which letter (A-D) holds which option, purely at random, so the
+// correct answer's position carries no learnable pattern across a printed
+// paper or a batch of questions. Also remaps visual.answerFrames in lockstep
+// (used by picture-pattern general-ability questions) so the frame shown for
+// each letter still matches that letter's actual option.
+function shuffleOptions(q) {
+  if (!q || !q.options) return q;
+  const letters = ['A', 'B', 'C', 'D'];
+  if (letters.some(l => !(l in q.options))) return q; // malformed — leave untouched
+  const shuffled = pickN(letters, 4);
+  const mapping = {}; // oldLetter -> newLetter
+  letters.forEach((oldL, i) => { mapping[oldL] = shuffled[i]; });
+  const newOptions = {};
+  letters.forEach(oldL => { newOptions[mapping[oldL]] = q.options[oldL]; });
+  const result = { ...q, options: newOptions, correct: mapping[q.correct] || q.correct };
+  if (q.visual && q.visual.answerFrames) {
+    const newFrames = {};
+    letters.forEach(oldL => { if (q.visual.answerFrames[oldL] !== undefined) newFrames[mapping[oldL]] = q.visual.answerFrames[oldL]; });
+    result.visual = { ...q.visual, answerFrames: newFrames };
+  }
+  return result;
+}
+
+// If the correct answer is noticeably longer than every distractor — the
+// classic "longest option is the giveaway" tell — trim it back down towards
+// the pack. Guards against the model padding the correct answer with
+// unnecessary explanatory detail, regardless of how well it follows the
+// word-budget instructions in the prompt.
+function clampCorrectAnswerLength(q) {
+  if (!q || !q.options || !q.correct || !(q.correct in q.options)) return q;
+  const entries = Object.entries(q.options);
+  if (entries.length !== 4) return q;
+  const lengths = entries.map(([k, v]) => ({ k, words: String(v).trim().split(/\s+/).filter(Boolean).length }));
+  const correctLen = lengths.find(l => l.k === q.correct)?.words || 0;
+  const otherLens = lengths.filter(l => l.k !== q.correct).map(l => l.words);
+  if (otherLens.length === 0) return q;
+  const maxOther = Math.max(...otherLens);
+  if (correctLen > maxOther + 4 && typeof q.options[q.correct] === 'string') {
+    const opts = { ...q.options };
+    const words = opts[q.correct].trim().split(/\s+/);
+    opts[q.correct] = words.slice(0, maxOther + 2).join(' ');
+    return { ...q, options: opts };
+  }
+  return q;
+}
+
+// Applied to every generated question before it reaches the app — kills
+// position bias and length bias regardless of what the model produced.
+export function finalizeQuestion(q) {
+  return shuffleOptions(clampCorrectAnswerLength(q));
+}
+
 // ── Maths question blueprint by year level ────────────────────────────────────
 
 const getMathsBlueprint = (yearLevel) => {
@@ -233,19 +343,138 @@ ${yearLevel >= 9 ? `Advanced (Year 9-11):
 - Probability (e.g. "A bag has 3 red and 5 blue balls. What is the probability of picking red?")` : ''}`;
 };
 
+// ── Deterministic local generators (no API call) ──────────────────────────────
+// For the handful of purely mechanical maths types (adding/subtracting/
+// multiplying/dividing digits) an LLM adds nothing — the operands are what
+// matter, and JS can draw them genuinely uniformly, guarantee a correct
+// answer, and build distractors from real student error patterns, all with
+// zero latency, zero token cost, and zero repetition risk. Opt-in only: a
+// caller passes localTypeKey to generateMathsQuestions to use this path;
+// omitting it (the default) keeps the exact AI-generated behaviour above.
+
+const digitBandForYear = (yearLevel) => {
+  if (yearLevel <= 2) return 1;   // ones / low tens
+  if (yearLevel <= 4) return 3;   // hundreds
+  if (yearLevel <= 6) return 4;   // thousands
+  return 5;                       // secondary — bigger numbers, same mechanics
+};
+
+const randDigitNumber = (digits) => digits <= 1 ? randInt(1, 9) : randInt(Math.pow(10, digits - 1), Math.pow(10, digits) - 1);
+
+// Builds A-D options from a correct value and a set of plausible wrong
+// candidates (student error patterns) — tops up with small jitters if fewer
+// than 3 distinct wrongs survive. Correct is always placed at 'A'; position
+// gets randomised afterwards by finalizeQuestion's shuffleOptions, so this
+// never introduces a position bias despite the fixed placeholder here.
+function buildNumericOptions(correctValue, wrongCandidates) {
+  const uniqueWrongs = [...new Set(wrongCandidates.map(w => Math.round(w)).filter(w => w !== correctValue && w >= 0))];
+  let guard = 0;
+  while (uniqueWrongs.length < 3 && guard < 20) {
+    guard++;
+    const jitter = correctValue + pick([-11, -9, -2, 2, 9, 11, 20, -20]);
+    if (jitter >= 0 && jitter !== correctValue && !uniqueWrongs.includes(jitter)) uniqueWrongs.push(jitter);
+  }
+  const wrongs = pickN(uniqueWrongs, 3);
+  return { A: String(correctValue), B: String(wrongs[0]), C: String(wrongs[1]), D: String(wrongs[2]) };
+}
+
+function localAddition(yearLevel) {
+  const digits = digitBandForYear(yearLevel);
+  const a = randDigitNumber(digits);
+  const b = randDigitNumber(Math.max(1, digits - randInt(0, 1)));
+  const correct = a + b;
+  const wrongs = [correct + randInt(1, 9), correct - randInt(1, 9), correct - 10 * randInt(1, 2), Math.abs(a - b)];
+  return { question: `${a} + ${b} = ?`, options: buildNumericOptions(correct, wrongs), correct: 'A', explanation: `${a} + ${b} = ${correct}.`, topic: 'addition', questionType: 'Adding Digits', visual: null };
+}
+
+function localSubtraction(yearLevel) {
+  const digits = digitBandForYear(yearLevel);
+  let a = randDigitNumber(digits);
+  let b = randDigitNumber(Math.max(1, digits - randInt(0, 1)));
+  if (b > a) { const t = a; a = b; b = t; }
+  const correct = a - b;
+  const wrongs = [correct + randInt(1, 9), correct - randInt(1, 9), a + b, correct + 10 * randInt(1, 2)];
+  return { question: `${a} - ${b} = ?`, options: buildNumericOptions(correct, wrongs), correct: 'A', explanation: `${a} - ${b} = ${correct}.`, topic: 'subtraction', questionType: 'Subtracting Digits', visual: null };
+}
+
+function localMultiplication(yearLevel) {
+  let a, b;
+  if (yearLevel <= 4) { a = randInt(2, 12); b = randInt(2, 12); }
+  else if (yearLevel <= 6) { a = randInt(11, 99); b = randInt(2, 9); }
+  else { a = randInt(11, 99); b = randInt(11, 99); }
+  const correct = a * b;
+  const wrongs = [a * (b + 1), a * (b > 1 ? b - 1 : 1), correct + a, correct - b];
+  return { question: `${a} x ${b} = ?`, options: buildNumericOptions(correct, wrongs), correct: 'A', explanation: `${a} x ${b} = ${correct}.`, topic: 'multiplication', questionType: 'Multiplying Digits', visual: null };
+}
+
+function localDivision(yearLevel) {
+  const divisor = yearLevel <= 4 ? randInt(2, 10) : randInt(2, 12);
+  const quotient = yearLevel <= 4 ? randInt(2, 12) : randInt(11, 99);
+  const withRemainder = yearLevel >= 3 && Math.random() < 0.4;
+  if (withRemainder) {
+    const remainder = randInt(1, divisor - 1);
+    const dividend = divisor * quotient + remainder;
+    const wrongs = [remainder + 1, Math.max(0, remainder - 1), divisor - remainder, quotient];
+    return {
+      question: `Divide ${dividend} by ${divisor}. What is the remainder?`,
+      options: buildNumericOptions(remainder, wrongs), correct: 'A',
+      explanation: `${dividend} ÷ ${divisor} = ${quotient} remainder ${remainder} (${divisor} x ${quotient} = ${divisor * quotient}, and ${dividend} - ${divisor * quotient} = ${remainder}).`,
+      topic: 'division', questionType: 'Dividing Digits', visual: null,
+    };
+  }
+  const dividend = divisor * quotient;
+  const wrongs = [quotient + 1, Math.max(0, quotient - 1), quotient + divisor, Math.max(0, quotient - divisor)];
+  return { question: `${dividend} ÷ ${divisor} = ?`, options: buildNumericOptions(quotient, wrongs), correct: 'A', explanation: `${dividend} ÷ ${divisor} = ${quotient}.`, topic: 'division', questionType: 'Dividing Digits', visual: null };
+}
+
+// Registry key = `${topicKey}.${questionTypeKey}` from QUESTION_BANK (CustomTestPage.jsx)
+// — e.g. topic "addition" + question type "adddigits" → "addition.adddigits".
+const LOCAL_MATHS_GENERATORS = {
+  'addition.adddigits': localAddition,
+  'subtraction.subdigits': localSubtraction,
+  'multiplication.multdigits': localMultiplication,
+  'division.divdigits': localDivision,
+};
+
+// Callers use this to check whether a given topic/question-type selection has
+// a deterministic local generator, without needing to know the registry keys.
+export function matchLocalMathsType(topicKey, questionTypeKey) {
+  const key = `${topicKey}.${questionTypeKey}`;
+  return LOCAL_MATHS_GENERATORS[key] ? key : null;
+}
+
+function generateMathsQuestionsLocal(localTypeKey, count, yearLevel) {
+  const gen = LOCAL_MATHS_GENERATORS[localTypeKey];
+  if (!gen) return null; // unrecognised key — caller falls back to the AI path
+  const seen = new Set();
+  const out = [];
+  let guard = 0;
+  while (out.length < count && guard < count * 20) {
+    guard++;
+    const q = finalizeQuestion(gen(yearLevel));
+    if (seen.has(q.question)) continue; // exact operand repeat within this batch — redraw
+    seen.add(q.question);
+    out.push(q);
+  }
+  return out;
+}
+
 // ── Generate Maths Questions ──────────────────────────────────────────────────
 
-export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus) => {
+export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = [], localTypeKey = null) => {
+  if (localTypeKey) {
+    const local = generateMathsQuestionsLocal(localTypeKey, count, yearLevel);
+    if (local) return local;
+    // Unrecognised key — fall through to the AI path below rather than failing.
+  }
   const blueprint = getMathsBlueprint(yearLevel);
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
-  const refreshBoost = count === 1
-    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT numbers, names, objects and scenarios from any typical question on this topic\n- Vary the context: if typical questions use apples/money/distance, use something unexpected like tiles/paint/tickets\n- Vary the operation structure: if typical questions add, try a missing-value or comparison format\n- The question must feel meaningfully different from a standard version of this topic\n- Do NOT use 2, 4, 5, 10, 100 as the main numbers — choose unusual values like 7, 13, 47, 126, 384`
-    : '';
+  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong to the specified topic(s) only. Returning questions on any other topic is a failure. Every question's "topic" field must match the topic it was generated for.${refreshBoost}`
-    : refreshBoost;
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong to the specified topic(s) only. Returning questions on any other topic is a failure. Every question's "topic" field must match the topic it was generated for.${freshnessBlock}`
+    : freshnessBlock;
 
   const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
 ${focusInstruction}
@@ -341,7 +570,7 @@ For questions with visuals, replace null with the visual object. For questions w
 
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
-  return parsed.questions;
+  return (parsed.questions || []).map(finalizeQuestion);
 };
 
 // ── Generate Reading Questions ────────────────────────────────────────────────
@@ -359,7 +588,7 @@ const READING_THEMES = [
   'Arts (e.g. music, painting, dance, theatre, a famous artist or performer)',
 ];
 
-export const generateReadingQuestions = async (yearLevel, count, themeOverride) => {
+export const generateReadingQuestions = async (yearLevel, count, themeOverride, recentSeeds = []) => {
   const theme = themeOverride
     ? READING_THEMES.find(t => t.startsWith(themeOverride)) || themeOverride
     : READING_THEMES[Math.floor(Math.random() * READING_THEMES.length)];
@@ -489,7 +718,11 @@ export const generateReadingQuestions = async (yearLevel, count, themeOverride) 
 
   const themeKey = Object.keys(SEEDS_BY_THEME).find(k => theme.startsWith(k)) || 'Fiction / Narrative';
   const seedPool = SEEDS_BY_THEME[themeKey];
-  const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
+  // Avoid a seed the caller says was recently used (e.g. an earlier passage in
+  // the same test) — falls back to the full pool if every seed for this theme
+  // has recently been used, rather than ever throwing.
+  const availableSeeds = seedPool.filter(s => !recentSeeds.includes(s));
+  const seed = pick(availableSeeds.length > 0 ? availableSeeds : seedPool);
 
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create reading comprehension passages and questions in the exact style of these exams. Always respond with ONLY valid JSON, no other text.`;
   const user = `Generate a reading comprehension test for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
@@ -538,36 +771,25 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   const parsed = JSON.parse(raw);
 
   if (parsed.questions) {
-    parsed.questions = parsed.questions.map(q => {
-      const opts = { ...q.options };
-      const entries = Object.entries(opts);
-      const lengths = entries.map(([k, v]) => ({ k, words: v.trim().split(/\s+/).length }));
-      const correctLen = lengths.find(l => l.k === q.correct)?.words || 0;
-      const otherLens = lengths.filter(l => l.k !== q.correct).map(l => l.words);
-      const maxOther = Math.max(...otherLens);
-      if (correctLen > maxOther + 4) {
-        const words = opts[q.correct].trim().split(/\s+/);
-        opts[q.correct] = words.slice(0, maxOther + 2).join(' ');
-      }
-      return { ...q, options: opts };
-    });
+    parsed.questions = parsed.questions.map(finalizeQuestion);
   }
+  // Let the caller track which seed was used (e.g. to exclude it from the next
+  // passage in the same test via recentSeeds) without needing to re-derive it.
+  parsed._seedUsed = seed;
 
   return parsed;
 };
 
 // ── Generate General Ability Questions ────────────────────────────────────────
 
-export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus) => {
+export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = []) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
 
-  const refreshBoost = count === 1
-    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT content from a typical question on this topic\n- Vary the pattern values, analogy words, sequence numbers or logic scenario entirely\n- Avoid obvious or common examples — choose unexpected content\n- The question must feel clearly different from a standard version of this topic`
-    : '';
+  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic. Do NOT generate any other topic. Match the exact quantities specified. Forbidden topics listed above must not appear even once.\n${refreshBoost}`
-    : refreshBoost;
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic. Do NOT generate any other topic. Match the exact quantities specified. Forbidden topics listed above must not appear even once.\n${freshnessBlock}`
+    : freshnessBlock;
 
   const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
 ${focusInstruction}
@@ -657,21 +879,19 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"o
 
 For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
   const raw = await callClaude(system, user);
-  return JSON.parse(raw).questions;
+  return (JSON.parse(raw).questions || []).map(finalizeQuestion);
 };
 
 // ── Generate English Questions ────────────────────────────────────────────────
 
-export const generateEnglishQuestions = async (yearLevel, count, questionTypeFocus) => {
+export const generateEnglishQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = []) => {
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} English exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate grammar, spelling, punctuation and language questions that closely match these exams. Always respond with ONLY valid JSON, no other text.`;
 
-  const refreshBoost = count === 1
-    ? `\nFRESH QUESTION RULES — this is a replacement question:\n- Use completely DIFFERENT words, sentences and examples from typical questions on this topic\n- Vary the sentence context entirely: different subject, tense, setting and vocabulary\n- Do NOT use common example words like "cat", "dog", "happy", "quickly", "run", "big"\n- The question must feel clearly distinct from a standard version of this topic`
-    : '';
+  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
 
   const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic and skill. Do NOT generate any other topic or skill. Forbidden topics listed above must not appear even once.${refreshBoost}`
-    : refreshBoost;
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic and skill. Do NOT generate any other topic or skill. Forbidden topics listed above must not appear even once.${freshnessBlock}`
+    : freshnessBlock;
 
   const user = `Generate ${count} English multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
 ${focusInstruction}
@@ -758,7 +978,7 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"Question text here. For
 
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
-  return parsed.questions;
+  return (parsed.questions || []).map(finalizeQuestion);
 };
 
 // ── Writing ───────────────────────────────────────────────────────────────────
@@ -1047,7 +1267,7 @@ export const generatePDFQuestions = async (subject, count, yearLevel) => {
 // ── Generate a fresh variant of an existing question ──────────────────────────
 // Keeps the exact question format/structure but changes numbers/values/words.
 // Used by the "Get a fresh question" button in quiz screens.
-export const generateFreshVariant = async (originalQuestion, subject, yearLevel) => {
+export const generateFreshVariant = async (originalQuestion, subject, yearLevel, recentFingerprints = []) => {
   const subjectLabel = {
     mathematics: 'mathematics',
     english: 'English language',
@@ -1065,6 +1285,12 @@ export const generateFreshVariant = async (originalQuestion, subject, yearLevel)
   const qType = originalQuestion.questionType || '';
   const qCorrect = originalQuestion.correct || 'A';
 
+  // Always avoid the exact question being replaced, on top of whatever
+  // history the caller passes in — so repeated clicks on the same slot don't
+  // cycle back through a small set of favourites once the caller starts
+  // threading its own accumulated history through.
+  const freshnessBlock = buildFreshnessBlock([fingerprintQuestion(originalQuestion), ...recentFingerprints]);
+
   const user = `I have an existing exam question. Generate ONE fresh variant that keeps EXACTLY the same question format and sentence structure, but changes the specific values (numbers, names, objects, words).
 
 ORIGINAL QUESTION: "${originalQuestion.question}"
@@ -1080,6 +1306,7 @@ STRICT RULES:
 5. Do NOT use any of the same numbers or key words from the original
 6. All 4 options must be plausible, only one correct
 7. The correct answer letter (A/B/C/D) should vary — do not always use the same letter as original
+${freshnessBlock}
 
 Return ONLY this JSON with no other text:
 {"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"B","explanation":"brief explanation","topic":"${qTopic}","questionType":"${qType}","visual":null}`;
@@ -1089,7 +1316,7 @@ Return ONLY this JSON with no other text:
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('Invalid response from AI');
-  return JSON.parse(clean.slice(start, end + 1));
+  return finalizeQuestion(JSON.parse(clean.slice(start, end + 1)));
 };
 // ── Scan a filled-in bubble answer sheet (vision) ──────────────────────────────
 // Reads a photo/scan of the ScholarPrep printable answer sheet and returns the

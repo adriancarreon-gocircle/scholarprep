@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet } from '../lib/ai';
-import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests } from '../lib/progress';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
+import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
@@ -717,6 +717,34 @@ function AnswerSheetScanScreen({ questions, onComplete, onBack }) {
   );
 }
 
+// Phase 2 — try the shared pool before generating live. Any shortfall is
+// filled by a live AI/local call (identical to today's behaviour), and the
+// freshly-generated top-up is contributed back to the pool for next time.
+// Scoped to mathematics for now — same pattern can be extended to
+// english/general later. Never blocks the test on the pool: every pool call
+// is best-effort and empty results just mean 100% live generation, same as
+// before this existed.
+async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey) {
+  const bucketQtk = qtk === '_topic' ? null : qtk;
+  const pooled = await getPooledQuestions('mathematics', tk, bucketQtk, yearLevel, count);
+  if (pooled.length >= count) {
+    // Got enough from the pool — top the bucket up in the background if it's
+    // running low, so it doesn't run dry next time this exact bucket is hit.
+    getPoolBucketDepth('mathematics', tk, bucketQtk, yearLevel).then(depth => {
+      if (depth < 30) {
+        generateMathsQuestions(yearLevel, 10, focusStr, seenFp, localKey)
+          .then(fresh => refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, fresh))
+          .catch(() => { });
+      }
+    }).catch(() => { });
+    return pooled.slice(0, count);
+  }
+  const needed = count - pooled.length;
+  const live = await generateMathsQuestions(yearLevel, needed, focusStr, seenFp, localKey);
+  refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, live).catch(() => { });
+  return [...pooled, ...live];
+}
+
 function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan, onExit }) {
   const [questions, setQuestions] = useState([]);
   const [passageGroups, setPassageGroups] = useState([]);
@@ -734,6 +762,11 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
   const [refreshingIdx, setRefreshingIdx] = useState(null);
   const [disputes, setDisputes] = useState({});
   const finishedRef = useRef(false);
+  // Tracks every variant already shown at each question index this session,
+  // so repeated Regenerate clicks on the same question don't cycle back
+  // through a small set of favourites — each call sees the full history, not
+  // just the immediately-previous version.
+  const regenHistoryRef = useRef({});
 
   useEffect(() => { const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500); return () => clearInterval(t); }, []);
   useEffect(() => { generateAllQuestions(); }, []);
@@ -743,12 +776,18 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
     try {
       const allQs = [];
       const groups = [];
+      // Accumulated across the whole generation run so later calls avoid
+      // repeating anything already generated earlier in this same test —
+      // per-call anti-repeat instructions alone can't see across calls.
+      const seenFp = [];
+      const usedSeeds = [];
       const { selection, passages, questionsPerPassage } = test;
       for (const [sk, topicSel] of Object.entries(selection)) {
         if (sk === 'reading') {
           setLoadingMsg('Generating reading passages');
           for (let i = 0; i < passages; i++) {
-            const data = await generateReadingQuestions(yearLevel, questionsPerPassage);
+            const data = await generateReadingQuestions(yearLevel, questionsPerPassage, undefined, usedSeeds);
+            if (data._seedUsed) usedSeeds.push(data._seedUsed);
             groups.push(data);
           }
           allQs.push(...groups.flatMap(g => g.questions.map(q => ({ ...q, _subj: 'reading' }))));
@@ -779,7 +818,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Every question MUST test this exact skill.${englishExclusionClause}`
                   : null;
               if (!focusStr) continue;
-              const genQs = await generateEnglishQuestions(yearLevel, count, focusStr);
+              const genQs = await generateEnglishQuestions(yearLevel, count, focusStr, seenFp);
+              seenFp.push(...genQs.map(fingerprintQuestion));
               allQs.push(...genQs.slice(0, count).map(q => ({
                 ...q, _subj: 'english',
                 topic: tk,
@@ -812,7 +852,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                 : qtObj
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${gaExclusionClause}`
                   : null;
-              const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr);
+              const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr, seenFp);
+              seenFp.push(...genQs.map(fingerprintQuestion));
               allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk })));
             }
           }
@@ -886,7 +927,9 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                 : qtObj2
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj2?.label} — ${qtObj2.label}". Example: ${qtObj2.examples?.[0] || ''}${mathsExclusionClause}`
                   : null;
-              const genQs2 = await generateMathsQuestions(yearLevel, count, focusStr2);
+              const localKey = matchLocalMathsType(tk, qtk);
+              const genQs2 = await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr2, seenFp, localKey);
+              seenFp.push(...genQs2.map(fingerprintQuestion));
               allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk })));
             }
           }
@@ -945,9 +988,13 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
       const q = (localQuestions.length > 0 ? localQuestions : questions)[current];
       const qSubjForRefresh = q?._subj || test.subject || 'mathematics';
       if (qSubjForRefresh === 'reading') { setRefreshingIdx(null); return; } // reading passages can't single-refresh
-      // Pass the full original question — AI keeps format, only changes values
-      const newQ = await generateFreshVariant(q, qSubjForRefresh, yearLevel);
+      // Pass the full original question — AI keeps format, only changes values.
+      // Also pass every variant already seen at this index, so repeated clicks
+      // don't cycle back through a handful of favourites.
+      const history = regenHistoryRef.current[current] || [];
+      const newQ = await generateFreshVariant(q, qSubjForRefresh, yearLevel, history);
       if (newQ) {
+        regenHistoryRef.current[current] = [...history, fingerprintQuestion(newQ)];
         const replacement = { ...newQ, _subj: qSubjForRefresh, topic: q?.topic || newQ.topic, questionType: q?.questionType || newQ.questionType };
         setLocalQuestions(prev => {
           const updated = prev.length > 0 ? [...prev] : [...questions];

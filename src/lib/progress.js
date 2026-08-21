@@ -935,6 +935,8 @@ export const savePaperTest = async (paper) => {
     passage_groups: paper.passageGroups || [],
     questions_per_passage: paper.questionsPerPassage || null,
     question_count: (paper.questions || []).length,
+    selection: paper.selection || {},
+    passages: paper.passages || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -980,6 +982,8 @@ export const getPaperTests = async () => {
       questions: row.questions,
       passageGroups: row.passage_groups || [],
       questionsPerPassage: row.questions_per_passage,
+      selection: row.selection || {},
+      passages: row.passages,
       questionCount: row.question_count,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -999,5 +1003,65 @@ export const deletePaperTest = async (id) => {
       .eq('id', id).eq('user_id', user.id);
   } catch (e) {
     console.error('deletePaperTest error:', e);
+  }
+};
+
+// ── Shared question pool (Phase 2 — cross-user reuse of generated questions) ──
+// Reads go straight through Supabase (RLS allows any authenticated user to
+// select from question_pool). Writes are NOT done from the client at all —
+// question_pool has no client write policy, so refillPoolBucket always goes
+// through the /api/pool-refill serverless endpoint, which validates the
+// batch and inserts with the service-role key. Every function here is
+// best-effort: a failure just means the caller falls back to (or stays on)
+// live AI generation for that request, never a broken test.
+
+// Fetch up to `count` pooled questions for one bucket. Pulls a window of
+// candidates and shuffles client-side (simpler and plenty fast at the pool
+// depths this app runs at — no need for a server-side random ordering).
+export const getPooledQuestions = async (subject, topicKey, questionTypeKey, yearLevel, count) => {
+  try {
+    let query = supabase.from('question_pool').select('id, question')
+      .eq('subject', subject).eq('topic_key', topicKey).eq('year_level', yearLevel);
+    query = questionTypeKey ? query.eq('question_type_key', questionTypeKey) : query.is('question_type_key', null);
+    const { data, error } = await query.limit(200);
+    if (error || !data || data.length === 0) return [];
+    const shuffled = [...data].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count).map(row => ({ ...row.question, _poolId: row.id }));
+  } catch (e) {
+    console.error('getPooledQuestions error:', e);
+    return [];
+  }
+};
+
+// How many questions are currently sitting in one bucket — used to decide
+// whether it's worth topping the pool up in the background.
+export const getPoolBucketDepth = async (subject, topicKey, questionTypeKey, yearLevel) => {
+  try {
+    let query = supabase.from('question_pool').select('id', { count: 'exact', head: true })
+      .eq('subject', subject).eq('topic_key', topicKey).eq('year_level', yearLevel);
+    query = questionTypeKey ? query.eq('question_type_key', questionTypeKey) : query.is('question_type_key', null);
+    const { count } = await query;
+    return count || 0;
+  } catch (e) {
+    return 0;
+  }
+};
+
+// Contribute freshly AI/locally-generated questions to a bucket, via the
+// server-mediated endpoint. Fire-and-forget by design — the caller should
+// never await this before showing the user their test; it's purely to help
+// the NEXT person who hits this bucket.
+export const refillPoolBucket = async (subject, topicKey, questionTypeKey, yearLevel, questions) => {
+  try {
+    if (!questions || questions.length === 0) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return; // not logged in — skip silently, generation itself is unaffected
+    await fetch('/api/pool-refill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authToken: session.access_token, subject, topicKey, questionTypeKey, yearLevel, questions }),
+    });
+  } catch (e) {
+    console.error('refillPoolBucket error:', e);
   }
 };

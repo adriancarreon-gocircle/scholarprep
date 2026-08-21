@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant } from '../lib/ai';
-import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest } from '../lib/progress';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
+import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator } from './CustomTestPage';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
@@ -22,11 +22,42 @@ const YEAR_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const btnStyle = { width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const smallBtnStyle = { width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
+// Phase 2 — try the shared pool before generating live. Any shortfall is
+// filled by a live AI/local call (identical to today's behaviour), and the
+// freshly-generated top-up is contributed back to the pool for next time.
+// Scoped to mathematics for now — same pattern can be extended to
+// english/general later. Never blocks the paper on the pool: every pool call
+// is best-effort and empty results just mean 100% live generation, same as
+// before this existed.
+async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey) {
+  const bucketQtk = qtk === '_topic' ? null : qtk;
+  const pooled = await getPooledQuestions('mathematics', tk, bucketQtk, yearLevel, count);
+  if (pooled.length >= count) {
+    getPoolBucketDepth('mathematics', tk, bucketQtk, yearLevel).then(depth => {
+      if (depth < 30) {
+        generateMathsQuestions(yearLevel, 10, focusStr, seenFp, localKey)
+          .then(fresh => refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, fresh))
+          .catch(() => { });
+      }
+    }).catch(() => { });
+    return pooled.slice(0, count);
+  }
+  const needed = count - pooled.length;
+  const live = await generateMathsQuestions(yearLevel, needed, focusStr, seenFp, localKey);
+  refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, live).catch(() => { });
+  return [...pooled, ...live];
+}
+
 // ── Question generation (adapted from CustomTestPage's QuizScreen.generateAllQuestions) ──
 
 async function generateAllPaperQuestions(selection, passages, questionsPerPassage, yearLevel, customTemplates, setMsg) {
   const allQs = [];
   const groups = [];
+  // Accumulated across the whole paper so later calls avoid repeating
+  // anything already generated earlier in this same paper — per-call
+  // anti-repeat instructions alone can't see across separate calls.
+  const seenFp = [];
+  const usedSeeds = [];
 
   for (const sk of Object.keys(QUESTION_BANK)) {
     const topicSel = selection[sk];
@@ -35,7 +66,8 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
     if (sk === 'reading') {
       setMsg('Generating reading passages');
       for (let i = 0; i < passages; i++) {
-        const data = await generateReadingQuestions(yearLevel, questionsPerPassage);
+        const data = await generateReadingQuestions(yearLevel, questionsPerPassage, undefined, usedSeeds);
+        if (data._seedUsed) usedSeeds.push(data._seedUsed);
         groups.push(data);
       }
       allQs.push(...groups.flatMap(g => g.questions.map(q => ({ ...q, _subj: 'reading' }))));
@@ -101,7 +133,13 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
             ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${exclusionClause}`
             : null;
         if (!focusStr) continue;
-        const genQs = await generator(yearLevel, count, focusStr);
+        // Mathematics goes through the shared pool first (Phase 2); english/
+        // general go straight to the AI generator (pooling not extended to
+        // them yet — see the note in the delivered summary).
+        const genQs = sk === 'mathematics'
+          ? await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, matchLocalMathsType(tk, qtk))
+          : await generator(yearLevel, count, focusStr, seenFp);
+        seenFp.push(...genQs.map(fingerprintQuestion));
         allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: sk, topic: tk, questionType: q.questionType || qtObj?.label || tObj?.label || tk })));
       }
     }
@@ -364,8 +402,12 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
 
 // ── Review + regenerate screen ──────────────────────────────────────────────
 
-function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, isSaved, onBack, backLabel, onQuestionsChange, onDownload, downloading, onSave, saving, justSaved }) {
+function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel, paperTitle, onTitleChange, isSaved, onEditSelection, onBackToList, onQuestionsChange, onDownload, downloading, onSave, saving, justSaved }) {
   const [regeneratingIdx, setRegeneratingIdx] = useState(null);
+  // Tracks every variant already shown at each question index this session,
+  // so repeated Regenerate clicks on the same question don't cycle back
+  // through a small set of favourites.
+  const regenHistoryRef = useRef({});
   let readingSeen = 0; // tracks position within the reading section as we render, to know which passage group we're in
 
   const handleRegenerate = async (idx) => {
@@ -374,8 +416,10 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
     try {
       const q = questions[idx];
       const subj = q._subj || 'mathematics';
-      const newQ = await generateFreshVariant(q, subj, yearLevel);
+      const history = regenHistoryRef.current[idx] || [];
+      const newQ = await generateFreshVariant(q, subj, yearLevel, history);
       if (newQ) {
+        regenHistoryRef.current[idx] = [...history, fingerprintQuestion(newQ)];
         const replacement = { ...newQ, _subj: subj, topic: q.topic || newQ.topic, questionType: q.questionType || newQ.questionType };
         const updated = [...questions];
         updated[idx] = replacement;
@@ -387,14 +431,23 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
 
   return (
     <div style={{ maxWidth: 820, margin: '0 auto', padding: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>Review questions</h2>
-          <p style={{ fontSize: 14, color: '#64748B', margin: '4px 0 0', fontFamily: 'Inter, sans-serif' }}>
-            {paperTitle || 'Untitled paper'} · Year {yearLevel} · {questions.length} questions. Check each answer, regenerate any question that looks repeated, then save and/or generate the PDF.
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>Review questions</h2>
+          <input
+            value={paperTitle}
+            onChange={e => onTitleChange(e.target.value)}
+            placeholder="Untitled paper"
+            style={{ display: 'block', width: '100%', maxWidth: 380, boxSizing: 'border-box', border: '1.5px solid #E5E7EB', borderRadius: 10, padding: '8px 12px', fontSize: 14, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif', outline: 'none', marginBottom: 6 }}
+          />
+          <p style={{ fontSize: 14, color: '#64748B', margin: 0, fontFamily: 'Inter, sans-serif' }}>
+            Year {yearLevel} · {questions.length} questions. Check each answer, regenerate any question that looks repeated, then save and/or generate the PDF.
           </p>
         </div>
-        <button onClick={onBack} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>{backLabel}</button>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={onEditSelection} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#EEF2FF', color: '#4338CA', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✏️ Edit selection</button>
+          <button onClick={onBackToList} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>📁 Saved papers</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '20px 0' }}>
@@ -641,7 +694,6 @@ export default function AdminPaperBuilderPage() {
   const [downloading, setDownloading] = useState(false);
 
   const [currentPaperId, setCurrentPaperId] = useState(null);
-  const [cameFromBuilder, setCameFromBuilder] = useState(true);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -679,7 +731,12 @@ export default function AdminPaperBuilderPage() {
     setQuestions(paper.questions || []);
     setPassageGroups(paper.passageGroups || []);
     setGenQuestionsPerPassage(paper.questionsPerPassage || 5);
-    setCameFromBuilder(false);
+    // Restore the builder selection too — so "Edit selection" from an older
+    // saved paper (before this field existed) just opens an empty picker
+    // instead of crashing, and a paper saved since can be re-picked exactly.
+    setSelection(paper.selection || {});
+    setPassages(paper.passages || 2);
+    setQuestionsPerPassage(paper.questionsPerPassage || 5);
     setJustSaved(false);
     setView('review');
   };
@@ -707,7 +764,9 @@ export default function AdminPaperBuilderPage() {
     setGenQuestionsPerPassage(5);
     setPaperTitle(label);
     setCurrentPaperId(null);
-    setCameFromBuilder(false);
+    // Not built from a subject/topic selection, so "Edit selection" should
+    // open an empty picker rather than whatever was left over in state.
+    setSelection({});
     setJustSaved(false);
     setView('review');
   };
@@ -720,13 +779,21 @@ export default function AdminPaperBuilderPage() {
       setQuestions(qs);
       setPassageGroups(pg);
       setGenQuestionsPerPassage(questionsPerPassage);
-      setCameFromBuilder(true);
       setJustSaved(false);
       setView('review');
     } catch (e) {
       setError('Failed to generate questions. Please try again.');
       setView('builder');
     }
+  };
+
+  // Jump back into the builder with the current selection pre-filled — used
+  // to re-pick subjects/topics/question-types for a paper already in review
+  // (new or previously saved). currentPaperId is left untouched, so hitting
+  // Generate then Save updates the same saved paper instead of creating a new one.
+  const handleEditSelection = () => {
+    setError('');
+    setView('builder');
   };
 
   const handleDownload = () => {
@@ -749,14 +816,25 @@ export default function AdminPaperBuilderPage() {
         questions,
         passageGroups,
         questionsPerPassage: genQuestionsPerPassage,
+        selection,
+        passages,
       });
       setCurrentPaperId(saved.id);
       setSavedPapers(prev => {
+        // Keep the full paper data on the cached list entry (not just the
+        // summary fields) so re-opening it later in this session — without a
+        // page refresh — has everything handleOpenPaper needs, selection included.
         const entry = {
           id: saved.id,
           title: paperTitle?.trim() || 'Untitled Paper',
           yearLevel,
+          questions,
+          passageGroups,
+          questionsPerPassage: genQuestionsPerPassage,
+          selection,
+          passages,
           questionCount: questions.length,
+          createdAt: saved.createdAt,
           updatedAt: new Date().toISOString(),
         };
         const idx = prev.findIndex(p => p.id === saved.id);
@@ -841,9 +919,10 @@ export default function AdminPaperBuilderPage() {
           questionsPerPassage={genQuestionsPerPassage}
           yearLevel={yearLevel}
           paperTitle={paperTitle}
+          onTitleChange={setPaperTitle}
           isSaved={!!currentPaperId}
-          backLabel={cameFromBuilder ? '← Edit selection' : '← Saved papers'}
-          onBack={() => setView(cameFromBuilder ? 'builder' : 'list')}
+          onEditSelection={handleEditSelection}
+          onBackToList={() => setView('list')}
           onQuestionsChange={setQuestions}
           onDownload={handleDownload}
           downloading={downloading}
