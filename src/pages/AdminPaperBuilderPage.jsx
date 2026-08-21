@@ -50,13 +50,17 @@ async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr
 
 // ── Question generation (adapted from CustomTestPage's QuizScreen.generateAllQuestions) ──
 
-async function generateAllPaperQuestions(selection, passages, questionsPerPassage, yearLevel, customTemplates, setMsg) {
+async function generateAllPaperQuestions(selection, passages, questionsPerPassage, yearLevel, customTemplates, setMsg, options = {}) {
+  const { bypassPool = false, seedFingerprints = [] } = options;
   const allQs = [];
   const groups = [];
   // Accumulated across the whole paper so later calls avoid repeating
   // anything already generated earlier in this same paper — per-call
-  // anti-repeat instructions alone can't see across separate calls.
-  const seenFp = [];
+  // anti-repeat instructions alone can't see across separate calls. Seeded
+  // with the CURRENTLY-DISPLAYED questions when this is a "give me a fresh
+  // set" regenerate, so live generation actively avoids repeating what's
+  // already on screen too, not just avoiding duplicates within the new batch.
+  const seenFp = [...seedFingerprints];
   const usedSeeds = [];
 
   for (const sk of Object.keys(QUESTION_BANK)) {
@@ -133,12 +137,24 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
             ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${exclusionClause}`
             : null;
         if (!focusStr) continue;
-        // Mathematics goes through the shared pool first (Phase 2); english/
-        // general go straight to the AI generator (pooling not extended to
-        // them yet — see the note in the delivered summary).
+        // Mathematics goes through the shared pool first (Phase 2), UNLESS
+        // this is a "give me a fresh set" regenerate (bypassPool) — a pool
+        // bucket that's only ever been seeded by THIS paper can otherwise
+        // just re-serve the exact same questions back, which defeats the
+        // purpose of asking for something new. English/general go straight
+        // to the AI generator either way (pooling not extended to them yet).
+        const localKey = matchLocalMathsType(tk, qtk);
         const genQs = sk === 'mathematics'
-          ? await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, matchLocalMathsType(tk, qtk))
+          ? (bypassPool
+            ? await generateMathsQuestions(yearLevel, count, focusStr, seenFp, localKey)
+            : await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey))
           : await generator(yearLevel, count, focusStr, seenFp);
+        // Still contribute freshly-generated maths questions back to the
+        // pool even when bypassing it for THIS request — future users still
+        // benefit, this paper just doesn't get served stale content itself.
+        if (sk === 'mathematics' && bypassPool) {
+          refillPoolBucket('mathematics', tk, qtk === '_topic' ? null : qtk, yearLevel, genQs).catch(() => { });
+        }
         seenFp.push(...genQs.map(fingerprintQuestion));
         allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: sk, topic: tk, questionType: q.questionType || qtObj?.label || tObj?.label || tk })));
       }
@@ -795,6 +811,37 @@ export default function AdminPaperBuilderPage() {
     }
   };
 
+  // "New question set (same selection)" — regenerate everything using the
+  // exact same subjects/topics/question-types, but guarantee a genuinely
+  // different set of questions from what's currently on screen. Unlike the
+  // initial Generate (which is happy to serve from the shared pool for
+  // cost/speed), this bypasses the pool for maths and seeds the anti-repeat
+  // history with the current questions, since the whole point of clicking
+  // this is "give me something different from what I'm looking at now".
+  const handleRegenerateAll = async () => {
+    setError('');
+    setView('generating');
+    try {
+      const seedFingerprints = questions.map(fingerprintQuestion);
+      const { questions: qs, passageGroups: pg } = await generateAllPaperQuestions(
+        selection, passages, questionsPerPassage, yearLevel, customTemplates, setGeneratingMsg,
+        { bypassPool: true, seedFingerprints }
+      );
+      setQuestions(qs);
+      setPassageGroups(pg);
+      setGenQuestionsPerPassage(questionsPerPassage);
+      setJustSaved(false);
+      setView('review');
+    } catch (e) {
+      // ReviewScreen doesn't render the error banner (only the builder does),
+      // so on failure fall back to the builder — same as the initial
+      // Generate — where the message is actually visible and the selection
+      // is still there to just hit Generate again.
+      setError('Failed to generate questions. Please try again.');
+      setView('builder');
+    }
+  };
+
   // Jump back into the builder with the current selection pre-filled — used
   // to re-pick subjects/topics/question-types for a paper already in review
   // (new or previously saved). currentPaperId is left untouched, so hitting
@@ -930,7 +977,7 @@ export default function AdminPaperBuilderPage() {
           onTitleChange={setPaperTitle}
           isSaved={!!currentPaperId}
           hasSelection={Object.keys(selection || {}).length > 0}
-          onRegenerateAll={handleGenerate}
+          onRegenerateAll={handleRegenerateAll}
           onEditSelection={handleEditSelection}
           onBackToList={() => setView('list')}
           onQuestionsChange={setQuestions}
