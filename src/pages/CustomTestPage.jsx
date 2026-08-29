@@ -1607,6 +1607,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
         exampleQuestion: example.trim() || '(from image)',
         templateDescription: template,
         passage: passage || null,
+        isAsIs: inputMode === 'image' && mode === 'asis',
         questions: previewQ ? [previewQ] : [],
       };
       const saved = await onSaveTemplate(tmpl);
@@ -1626,7 +1627,9 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
         id: currentTmplId, name: tmplName.trim(), subject,
         questionType: qType.trim() || null,
         exampleQuestion: example.trim() || '(from image)',
-        templateDescription: template, passage: passage || null, questions,
+        templateDescription: template, passage: passage || null,
+        isAsIs: inputMode === 'image' && mode === 'asis',
+        questions,
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);

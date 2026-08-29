@@ -831,6 +831,7 @@ export const saveCustomTemplate = async (template) => {
     example_question: template.exampleQuestion,
     template_description: template.templateDescription || null,
     passage: template.passage || null,
+    is_as_is: template.isAsIs || false,
     questions: template.questions,
     question_count: template.questions.length,
     updated_at: new Date().toISOString(),
@@ -891,6 +892,7 @@ export const getCustomTemplates = async () => {
           exampleQuestion: row.example_question,
           templateDescription: row.template_description,
           passage: row.passage || null,
+          isAsIs: row.is_as_is || false,
           questions: row.questions,
           createdAt: row.created_at,
         }));

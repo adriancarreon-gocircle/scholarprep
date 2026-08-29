@@ -48,6 +48,34 @@ async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr
   return [...pooled, ...live];
 }
 
+// Groups a subject's reading-tagged questions into passage groups for display
+// and print. Prefers each question's explicit _passageGroupIdx tag (set by
+// generateAllPaperQuestions below, for both AI-generated passages and As-Is
+// custom reading-comprehension templates — so the two can be mixed in one
+// paper and each keeps its own real question count instead of assuming every
+// passage has the same number of questions). Falls back to the older
+// fixed-size positional split for papers saved before that tag existed, so
+// old saved papers still render correctly.
+function groupReadingQuestions(items, passageGroups, questionsPerPassage) {
+  const allTagged = items.length > 0 && items.every(q => q._passageGroupIdx != null);
+  if (allTagged) {
+    const byGroup = new Map();
+    const order = [];
+    items.forEach(q => {
+      const gi = q._passageGroupIdx;
+      if (!byGroup.has(gi)) { byGroup.set(gi, []); order.push(gi); }
+      byGroup.get(gi).push(q);
+    });
+    return order.map(gi => ({ passage: passageGroups?.[gi]?.passage || null, questions: byGroup.get(gi) }));
+  }
+  const perPassage = questionsPerPassage || 5;
+  const out = [];
+  for (let g = 0; g * perPassage < items.length; g++) {
+    out.push({ passage: passageGroups?.[g]?.passage || null, questions: items.slice(g * perPassage, (g + 1) * perPassage) });
+  }
+  return out;
+}
+
 // ── Question generation (adapted from CustomTestPage's QuizScreen.generateAllQuestions) ──
 
 async function generateAllPaperQuestions(selection, passages, questionsPerPassage, yearLevel, customTemplates, setMsg, options = {}) {
@@ -72,9 +100,10 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
       for (let i = 0; i < passages; i++) {
         const data = await generateReadingQuestions(yearLevel, questionsPerPassage, undefined, usedSeeds);
         if (data._seedUsed) usedSeeds.push(data._seedUsed);
+        const groupIdx = groups.length;
         groups.push(data);
+        allQs.push(...data.questions.map(q => ({ ...q, _subj: 'reading', _passageGroupIdx: groupIdx })));
       }
-      allQs.push(...groups.flatMap(g => g.questions.map(q => ({ ...q, _subj: 'reading' }))));
       continue;
     }
 
@@ -85,10 +114,29 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
         const tmpl = customTemplates?.find(t => t.id === tmplId);
         if (!tmpl) continue;
         const tmplSubj = (tmpl.subject && tmpl.subject !== 'custom') ? tmpl.subject : 'mathematics';
-        const saved = (tmpl.questions || []).map(q => ({ ...q, _subj: q._subj && q._subj !== 'custom' ? q._subj : tmplSubj }));
-        if (saved.length >= count) {
-          const shuffled = [...saved].sort(() => Math.random() - 0.5);
-          allQs.push(...shuffled.slice(0, count));
+        // A template with a saved passage is an atomic reading-comprehension
+        // unit — tag it "reading" regardless of what subject it was saved
+        // under, and never split/pad/reorder it: every question comes along,
+        // in original order, every time, with its passage carried through.
+        const hasPassage = !!tmpl.passage;
+        const effSubj = hasPassage ? 'reading' : tmplSubj;
+        const saved = (tmpl.questions || []).map(q => ({
+          ...q, _subj: effSubj, _asIs: true,
+          topic: q.topic || effSubj, questionType: q.questionType || tmpl.questionType || 'Custom',
+        }));
+
+        if (hasPassage) {
+          const groupIdx = groups.length;
+          groups.push({ passage: tmpl.passage, questions: saved });
+          allQs.push(...saved.map(q => ({ ...q, _passageGroupIdx: groupIdx })));
+          continue;
+        }
+
+        if (tmpl.isAsIs || saved.length >= count) {
+          // As-Is (no passage) or already enough saved — take up to `count`
+          // in original order; As-Is never shuffles or invents more.
+          const ordered = tmpl.isAsIs ? saved : [...saved].sort(() => Math.random() - 0.5);
+          allQs.push(...ordered.slice(0, count));
         } else {
           allQs.push(...saved);
           const needed = count - saved.length;
@@ -307,18 +355,49 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
                       {(customTemplates || []).map(tmpl => {
                         const selKey = '_custom_' + tmpl.id;
                         const count = selection['custom']?.[selKey] || 0;
+                        const naturalCount = (tmpl.questions || []).length;
+                        const hasPassage = !!tmpl.passage;
+                        const isAsIs = !!tmpl.isAsIs;
+                        const subjLabel = hasPassage
+                          ? '📖 Reading passage'
+                          : (tmpl.subject ? tmpl.subject.charAt(0).toUpperCase() + tmpl.subject.slice(1) : 'Custom');
+                        const metaLabel = hasPassage
+                          ? `${naturalCount} question${naturalCount !== 1 ? 's' : ''} · as-is`
+                          : (isAsIs ? `as-is · up to ${naturalCount} question${naturalCount !== 1 ? 's' : ''}` : (tmpl.questionType ? tmpl.questionType : null));
+
+                        if (hasPassage) {
+                          const checked = count > 0;
+                          return (
+                            <div key={tmpl.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 20px', borderBottom: '1px solid #F8FAFC', background: checked ? '#F5F3FF' : '#fff' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>{tmpl.name}</div>
+                                <div style={{ fontSize: 11, color: '#7C3AED', fontFamily: 'Inter, sans-serif' }}>{subjLabel} · {metaLabel}</div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 2 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = checked ? 0 : naturalCount; return s; })}
+                                  style={{ width: 18, height: 18, accentColor: '#7C3AED', cursor: 'pointer' }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const max = isAsIs ? Math.max(naturalCount, 1) : 999;
                         return (
                           <div key={tmpl.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 20px', borderBottom: '1px solid #F8FAFC', background: count > 0 ? '#F5F3FF' : '#fff' }}>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>{tmpl.name}</div>
                               <div style={{ fontSize: 11, color: '#7C3AED', fontFamily: 'Inter, sans-serif' }}>
-                                {tmpl.subject ? tmpl.subject.charAt(0).toUpperCase() + tmpl.subject.slice(1) : 'Custom'}{tmpl.questionType ? ` · ${tmpl.questionType}` : ''}
+                                {subjLabel}{metaLabel ? ` · ${metaLabel}` : ''}
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
                               <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = Math.max(0, (s.custom[selKey] || 0) - 1); return s; })} style={smallBtnStyle}>-</button>
                               <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#7C3AED' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
-                              <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = (s.custom[selKey] || 0) + 1; return s; })} style={smallBtnStyle}>+</button>
+                              <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = Math.min(max, (s.custom[selKey] || 0) + 1); return s; })} style={smallBtnStyle}>+</button>
                             </div>
                           </div>
                         );
@@ -424,7 +503,14 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
   // so repeated Regenerate clicks on the same question don't cycle back
   // through a small set of favourites.
   const regenHistoryRef = useRef({});
-  let readingSeen = 0; // tracks position within the reading section as we render, to know which passage group we're in
+  // Precompute passage grouping once per render — maps each reading question
+  // (by object reference) to its passage and whether it's the first question
+  // of that passage, so mixed group sizes (AI passages + As-Is custom
+  // passages with a different question count) each display correctly.
+  const readingItems = questions.filter(q => q._subj === 'reading');
+  const readingGroupsResolved = groupReadingQuestions(readingItems, passageGroups, questionsPerPassage);
+  const passageInfoByQ = new Map();
+  readingGroupsResolved.forEach(g => { g.questions.forEach((q, i) => passageInfoByQ.set(q, { passage: g.passage, isFirst: i === 0 })); });
 
   const handleRegenerate = async (idx) => {
     if (regeneratingIdx !== null) return;
@@ -477,25 +563,23 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '20px 0' }}>
         {questions.map((q, i) => {
           const subj = QUESTION_BANK[q._subj] || QUESTION_BANK.mathematics;
-          // Only block regenerate for reading questions that actually share a generated
-          // passage (passageGroups.length > 0) — standalone reading-tagged questions
-          // launched from the Question Creator have no passage and can regenerate fine.
-          const canRegenerate = !(q._subj === 'reading' && passageGroups && passageGroups.length > 0);
+          // Block regenerate for anything As-Is (never invent a replacement
+          // for content that's meant to stay exactly as extracted) and for
+          // reading questions that share a passage (regenerating one would
+          // orphan it from the passage it belongs to).
+          const canRegenerate = !q._asIs && !(q._subj === 'reading' && passageGroups && passageGroups.length > 0);
           const isRegenerating = regeneratingIdx === i;
           let passageBlock = null;
           if (q._subj === 'reading') {
-            const groupIdx = Math.floor(readingSeen / (questionsPerPassage || 5));
-            const isFirstOfGroup = readingSeen % (questionsPerPassage || 5) === 0;
-            const passage = passageGroups?.[groupIdx]?.passage;
-            if (isFirstOfGroup && passage) {
+            const info = passageInfoByQ.get(q);
+            if (info?.isFirst && info.passage) {
               passageBlock = (
                 <div style={{ background: '#F0FDF4', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 12, padding: '14px 18px', marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>📖 {passage.title}</div>
-                  <div style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{passage.text}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>📖 {info.passage.title}</div>
+                  <div style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{info.passage.text}</div>
                 </div>
               );
             }
-            readingSeen += 1;
           }
           return (
             <React.Fragment key={i}>
@@ -520,7 +604,7 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
                   <button
                     onClick={() => handleRegenerate(i)}
                     disabled={!canRegenerate || regeneratingIdx !== null}
-                    title={canRegenerate ? 'Regenerate this question' : "Reading questions share a passage and can't be regenerated individually"}
+                    title={canRegenerate ? 'Regenerate this question' : (q._asIs ? "This is an As-Is custom question and won't be changed" : "Reading questions share a passage and can't be regenerated individually")}
                     style={{
                       flexShrink: 0, padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif',
                       border: `1.5px solid ${canRegenerate ? subj.color : '#E5E7EB'}`, background: '#fff',
@@ -593,21 +677,17 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
   const questionsHtml = sections.map(section => {
     let itemsHtml;
     if (section.subj === 'reading') {
-      const perPassage = questionsPerPassage || 5;
-      const groupsHtml = [];
-      for (let g = 0; g * perPassage < section.items.length; g++) {
-        const groupItems = section.items.slice(g * perPassage, (g + 1) * perPassage);
-        const passage = passageGroups?.[g]?.passage;
-        const passageHtml = passage
-          ? `<div class="passage"><h2>${passage.title}</h2><p>${(passage.text || '').replace(/\n\n/g, '</p><p>')}</p></div>`
+      const readingGroups = groupReadingQuestions(section.items, passageGroups, questionsPerPassage);
+      itemsHtml = readingGroups.map(g => {
+        const passageHtml = g.passage
+          ? `<div class="passage"><h2>${g.passage.title}</h2><p>${(g.passage.text || '').replace(/\n\n/g, '</p><p>')}</p></div>`
           : '';
-        const groupQsHtml = groupItems.map(q => {
+        const groupQsHtml = g.questions.map(q => {
           counter += 1;
           return `<div class="question"><p class="q-text">${counter}. ${q.question}</p><div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div></div>`;
         }).join('');
-        groupsHtml.push(passageHtml + groupQsHtml);
-      }
-      itemsHtml = groupsHtml.join('');
+        return passageHtml + groupQsHtml;
+      }).join('');
     } else {
       itemsHtml = section.items.map(q => {
         counter += 1;
