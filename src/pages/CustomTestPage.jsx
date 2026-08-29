@@ -6,6 +6,13 @@ import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplate
 import QuestionVisual, { PatternFrame, AnswerCell } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
+// Object.entries() on an options/answerFrames object follows insertion
+// order, which can be scrambled (e.g. D, B, A, C) since the correct-answer
+// position is randomized by shuffling which letter maps to which choice.
+// Always render choices in fixed A, B, C, D reading order regardless of the
+// object's own key order.
+export const sortedEntries = (obj) => Object.entries(obj || {}).sort((a, b) => a[0].localeCompare(b[0]));
+
 // ── Question Bank ─────────────────────────────────────────────────────────────
 
 export const QUESTION_BANK = {
@@ -528,7 +535,7 @@ function DisputePanel({ question, onDispute, disputed, disputeText }) {
         <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 14px', border: '1px solid #FDE68A' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>⚑ Which answer do you think is correct?</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-            {Object.entries(question.options).map(([letter, text]) => (
+            {sortedEntries(question.options).map(([letter, text]) => (
               <button key={letter} onClick={() => setPicked(letter)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: picked === letter ? '#059669' : '#fff', color: picked === letter ? '#fff' : '#374151', border: `1.5px solid ${picked === letter ? '#059669' : '#E5E7EB'}`, fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}>
                 {letter}. {text}
               </button>
@@ -1138,7 +1145,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
             {q.visual && <QuestionVisual visual={q.visual} />}
             <div style={{ fontSize: 15, fontWeight: 500, color: '#0F172A', lineHeight: 1.7, marginBottom: 16, fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-line' }}>{q.question}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(q.options).map(([letter, text]) => {
+              {sortedEntries(q.options).map(([letter, text]) => {
                 const isSheet = test.reviewMode === 'sheet';
                 const isSel = !isSheet && selected[current] === letter;
                 const isRev = !isSheet && revealed[current];
@@ -1791,7 +1798,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                   <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 14, fontWeight: 500 }}>{previewQ.question}</div>
                   {previewQ.visual?.answerFrames ? (
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {Object.entries(previewQ.visual.answerFrames).map(([letter, frame]) => (
+                      {sortedEntries(previewQ.visual.answerFrames).map(([letter, frame]) => (
                         <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                           <AnswerCell visual={previewQ.visual} val={frame} size={48} correct={previewQ.correct === letter} revealed color={subjectColor} />
                           <span style={{ fontSize: 11, fontWeight: 700, color: previewQ.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
@@ -1800,7 +1807,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                     </div>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 12 }}>
-                      {Object.entries(previewQ.options || {}).map(([key, val]) => (
+                      {sortedEntries(previewQ.options || {}).map(([key, val]) => (
                         <div key={key} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, fontFamily: 'Inter, sans-serif', background: key === previewQ.correct ? '#DCFCE7' : '#F8FAFC', color: key === previewQ.correct ? '#166534' : '#374151', fontWeight: key === previewQ.correct ? 700 : 400, border: `1px solid ${key === previewQ.correct ? '#86EFAC' : '#E5E7EB'}` }}>
                           {key}. {val}
                         </div>
@@ -1861,7 +1868,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
 
                 {q.visual?.answerFrames ? (
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
+                    {sortedEntries(q.visual.answerFrames).map(([letter, frame]) => (
                       <button key={letter} onClick={() => setConfirmedAnswers(a => ({ ...a, [i]: letter }))} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, border: 'none', cursor: 'pointer', padding: 6, borderRadius: 10, background: confirmedAnswers[i] === letter ? '#EEF2FF' : 'transparent' }}>
                         <AnswerCell visual={q.visual} val={frame} size={56} selected={confirmedAnswers[i] === letter} color={subjectColor} />
                         <span style={{ fontSize: 11, fontWeight: 700, color: confirmedAnswers[i] === letter ? subjectColor : '#64748B', fontFamily: 'Inter, sans-serif' }}>{letter}{confirmedAnswers[i] === letter ? ' ✓' : ''}</span>
@@ -1870,7 +1877,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {Object.entries(q.options || {}).map(([letter, text]) => (
+                    {sortedEntries(q.options || {}).map(([letter, text]) => (
                       <button key={letter} onClick={() => setConfirmedAnswers(a => ({ ...a, [i]: letter }))} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, textAlign: 'left', cursor: 'pointer', background: confirmedAnswers[i] === letter ? '#EEF2FF' : '#F8FAFC', border: `1.5px solid ${confirmedAnswers[i] === letter ? subjectColor : '#E5E7EB'}`, color: confirmedAnswers[i] === letter ? subjectColor : '#374151', fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
                         <span style={{ fontWeight: 700 }}>{letter}.</span> {text} {confirmedAnswers[i] === letter && <span style={{ marginLeft: 'auto' }}>✓</span>}
                       </button>
@@ -1930,7 +1937,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                     <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
                     {q.visual?.answerFrames ? (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
+                        {sortedEntries(q.visual.answerFrames).map(([letter, frame]) => (
                           <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <AnswerCell visual={q.visual} val={frame} size={44} correct={q.correct === letter} revealed color={subjectColor} />
                             <span style={{ fontSize: 10, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
@@ -1939,7 +1946,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                       </div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
-                        {Object.entries(q.options || {}).map(([key, val]) => (
+                        {sortedEntries(q.options || {}).map(([key, val]) => (
                           <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
                             {key}. {val}
                           </div>

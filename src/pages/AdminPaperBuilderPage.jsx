@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
 import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
-import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator } from './CustomTestPage';
+import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator, sortedEntries } from './CustomTestPage';
 import QuestionVisual, { AnswerCell, renderPatternVisualSvgString, renderAnswerCellSvgString } from '../components/QuestionVisual';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
@@ -596,7 +596,7 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
                     <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
                     {q.visual?.answerFrames ? (
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: q.explanation ? 8 : 0 }}>
-                        {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
+                        {sortedEntries(q.visual.answerFrames).map(([letter, frame]) => (
                           <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <AnswerCell visual={q.visual} val={frame} size={48} correct={q.correct === letter} revealed color={subj.color} />
                             <span style={{ fontSize: 11, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
@@ -605,7 +605,7 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
                       </div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: q.explanation ? 8 : 0 }}>
-                        {Object.entries(q.options || {}).map(([key, val]) => (
+                        {sortedEntries(q.options || {}).map(([key, val]) => (
                           <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
                             {key}. {val}
                           </div>
@@ -693,8 +693,8 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
   const questionBlockHtml = (q, num) => {
     const visualHtml = q.visual ? renderPatternVisualSvgString(q.visual) : '';
     const optionsHtml = q.visual?.answerFrames
-      ? `<div class="answer-frames">${Object.entries(q.visual.answerFrames).map(([l, val]) => `<div class="answer-frame"><span class="answer-frame-letter">${l}</span>${renderAnswerCellSvgString(q.visual, val, 46)}</div>`).join('')}</div>`
-      : `<div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div>`;
+      ? `<div class="answer-frames">${sortedEntries(q.visual.answerFrames).map(([l, val]) => `<div class="answer-frame"><span class="answer-frame-letter">${l}</span>${renderAnswerCellSvgString(q.visual, val, 46)}</div>`).join('')}</div>`
+      : `<div class="options">${sortedEntries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div>`;
     return `<div class="question"><p class="q-text">${num}. ${q.question}</p>${visualHtml}${optionsHtml}</div>`;
   };
 

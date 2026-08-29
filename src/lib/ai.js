@@ -101,12 +101,21 @@ function shuffleOptions(q) {
   const shuffled = pickN(letters, 4);
   const mapping = {}; // oldLetter -> newLetter
   letters.forEach((oldL, i) => { mapping[oldL] = shuffled[i]; });
+  const reverseMapping = {}; // newLetter -> oldLetter
+  letters.forEach(oldL => { reverseMapping[mapping[oldL]] = oldL; });
+  // Insert keys in fixed A,B,C,D order (not shuffle order) so that any code
+  // relying on Object.entries/Object.keys enumeration order — printed papers,
+  // on-screen option lists — always displays choices sequentially, even
+  // though which choice is "correct" is genuinely randomized.
   const newOptions = {};
-  letters.forEach(oldL => { newOptions[mapping[oldL]] = q.options[oldL]; });
+  letters.forEach(newL => { newOptions[newL] = q.options[reverseMapping[newL]]; });
   const result = { ...q, options: newOptions, correct: mapping[q.correct] || q.correct };
   if (q.visual && q.visual.answerFrames) {
     const newFrames = {};
-    letters.forEach(oldL => { if (q.visual.answerFrames[oldL] !== undefined) newFrames[mapping[oldL]] = q.visual.answerFrames[oldL]; });
+    letters.forEach(newL => {
+      const oldL = reverseMapping[newL];
+      if (q.visual.answerFrames[oldL] !== undefined) newFrames[newL] = q.visual.answerFrames[oldL];
+    });
     result.visual = { ...q.visual, answerFrames: newFrames };
   }
   return result;
