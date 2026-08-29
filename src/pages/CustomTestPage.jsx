@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion } from '../lib/ai';
 import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
-import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
+import QuestionVisual, { PatternFrame, AnswerCell } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
 // ── Question Bank ─────────────────────────────────────────────────────────────
@@ -87,7 +87,20 @@ export const QUESTION_BANK = {
     label: 'General Ability', icon: '🧩', color: '#F97316', lightBg: '#FFF7ED',
     topics: [
       { key: 'patterns', label: 'Number Patterns', questionTypes: [{ key: 'countby', label: 'Count On / Back Sequences', examples: ['Count on by ones: 525, 526, 527, ___?', 'Count on by tens: 717, 727, 737, ___?'] }, { key: 'missingnum', label: 'Fill in Missing Numbers (Equal steps)', examples: ['436, 438, ___, 442, ___, 446'] }, { key: 'doubtriple', label: 'Doubling / Tripling Patterns', examples: ['Fill in: 1, 2, 4, 8, 16, ___', '3, 6, 12, 24, ___?'] }, { key: 'mixedpattern', label: 'Mixed Addition & Subtraction Patterns', examples: ['Fill in: 2, 4, 3, 5, 4, 6, ___'] }] },
-      { key: 'picturepatterns', label: 'Picture Patterns', questionTypes: [{ key: 'shaperotate', label: 'Rotation / Direction Patterns', examples: ['Arrow pointing right, down, right, down — what comes next?'] }, { key: 'shapefill', label: 'Fill / Shading Patterns', examples: ['Hollow triangle, half-filled, solid — what comes next?'] }, { key: 'shapecount', label: 'Count Patterns', examples: ['1 circle, 2 circles, 3 circles — what comes next?'] }, { key: 'shapealt', label: 'Alternating Shape Patterns', examples: ['Triangle, circle, triangle, circle — what comes next?'] }, { key: 'shapematrix', label: 'Shape Matrix (Odd One Out)', examples: ['Which box does not fit the pattern?'] }] },
+      {
+        key: 'picturepatterns', label: 'Picture Patterns', questionTypes: [
+          { key: 'seqrepeat', label: 'Repeating Shape Sequence', examples: ['Square, triangle, circle, square, ___? — a repeating unit of 3 shapes'] },
+          { key: 'seq3dsolids', label: 'Repeating 3D Solids Sequence', examples: ['Cuboid, cylinder, cone, cuboid, ___? — a repeating unit of 3 solids'] },
+          { key: 'growingcount', label: 'Growing / Count Patterns', examples: ['1 square, 2 squares, 3 squares, 4 squares, ___? — how many come next'] },
+          { key: 'shaperotate', label: 'Rotation Around a Shape', examples: ['Three symbols sit at corners of a hexagon and rotate two corners clockwise each frame — where do they sit next?'] },
+          { key: 'quadrantrotate', label: 'Quadrant Rotation', examples: ['A 2x2 grid where one small design rotates 90° in each quadrant — what belongs in the missing quadrant?'] },
+          { key: 'attributecycle', label: 'Attribute Cycling (Fill / Marker / Count)', examples: ['A hexagon whose fill alternates black/white while an X and a dot swap corners each frame — what comes next?'] },
+          { key: 'nesting', label: 'Nesting Progression', examples: ['A solid triangle, then an outline, then two nested outlines, then three — what comes next?'] },
+          { key: 'pathrotate', label: 'Path-Direction Rotation', examples: ['A bent arrow rotates 90° clockwise each frame — which direction does it point next?'] },
+          { key: 'glyphrotate', label: 'Glyph Rotation / Reflection', examples: ['A single marked rectangle rotates or mirrors each frame — what does it look like next?'] },
+          { key: 'shapematrix', label: 'Shape Matrix (Odd One Out)', examples: ['Which box does not fit the pattern?'] },
+        ]
+      },
       { key: 'verbal', label: 'Verbal Reasoning', questionTypes: [{ key: 'analogies', label: 'Word Analogies', examples: ['Hot is to cold as day is to ___?'] }, { key: 'oddoneout', label: 'Odd One Out', examples: ['Find the odd word: apple, orange, banana, hammer, grape'] }, { key: 'synonyms', label: 'Synonyms', examples: ['What is a synonym for "happy"?'] }, { key: 'antonyms', label: 'Antonyms', examples: ['What is an antonym for "cold"?'] }, { key: 'letters', label: 'Letter Patterns', examples: ['A, C, E, G, ___?'] }] },
       { key: 'logic', label: 'Logic & Reasoning', questionTypes: [{ key: 'deduction', label: 'Draw Conclusions', examples: ['All boys in the park play soccer. Half also play ping pong. What can we conclude?'] }, { key: 'findinfo', label: 'Find Information in Text', examples: ['Car A is 4m long. Car B is 2.5m. Car C is 1m longer than A. Which is longest?'] }, { key: 'ordering', label: 'Order Steps / Instructions', examples: ['Order the steps to make tea: Boil water, Pour into cup, Stir, Add milk, Drink'] }, { key: 'coding', label: 'Coding & Decoding', examples: ['If A=1, B=2, C=3 etc, what is the code for 10, 14, 13, 5, 6?'] }] },
     ]
@@ -1138,7 +1151,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                   <button key={letter} onClick={() => handleSelect(letter)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: answerFrame ? '8px 14px' : '11px 14px', borderRadius: 10, cursor: isSheet ? 'default' : isRev ? 'default' : 'pointer', background: bg, border: bdr, color: clr, textAlign: 'left', transition: 'all 0.15s', fontFamily: 'Inter, sans-serif' }}>
                     <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (isRev && isCorr) ? '#059669' : (isRev && isSel) ? '#BE123C' : isSel ? qColor : 'rgba(67,56,202,0.08)', color: (isRev && isCorr) || (isRev && isSel) || isSel ? '#fff' : '#64748B' }}>{letter}</div>
                     {answerFrame
-                      ? <PatternFrame frame={answerFrame} size={52} selected={isSel} correct={isCorr} revealed={isRev} color={qColor} />
+                      ? <AnswerCell visual={q.visual} val={answerFrame} size={52} selected={isSel} correct={isCorr} revealed={isRev} color={qColor} />
                       : <span style={{ fontSize: 14 }}>{text}</span>
                     }
                     {isRev && isCorr && <span style={{ marginLeft: 'auto' }}>✓</span>}
@@ -1780,7 +1793,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                       {Object.entries(previewQ.visual.answerFrames).map(([letter, frame]) => (
                         <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                          <PatternFrame frame={frame} size={48} correct={previewQ.correct === letter} revealed color={subjectColor} />
+                          <AnswerCell visual={previewQ.visual} val={frame} size={48} correct={previewQ.correct === letter} revealed color={subjectColor} />
                           <span style={{ fontSize: 11, fontWeight: 700, color: previewQ.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
                         </div>
                       ))}
@@ -1850,7 +1863,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
                       <button key={letter} onClick={() => setConfirmedAnswers(a => ({ ...a, [i]: letter }))} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, border: 'none', cursor: 'pointer', padding: 6, borderRadius: 10, background: confirmedAnswers[i] === letter ? '#EEF2FF' : 'transparent' }}>
-                        <PatternFrame frame={frame} size={56} selected={confirmedAnswers[i] === letter} color={subjectColor} />
+                        <AnswerCell visual={q.visual} val={frame} size={56} selected={confirmedAnswers[i] === letter} color={subjectColor} />
                         <span style={{ fontSize: 11, fontWeight: 700, color: confirmedAnswers[i] === letter ? subjectColor : '#64748B', fontFamily: 'Inter, sans-serif' }}>{letter}{confirmedAnswers[i] === letter ? ' ✓' : ''}</span>
                       </button>
                     ))}
@@ -1919,7 +1932,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
                           <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            <PatternFrame frame={frame} size={44} correct={q.correct === letter} revealed color={subjectColor} />
+                            <AnswerCell visual={q.visual} val={frame} size={44} correct={q.correct === letter} revealed color={subjectColor} />
                             <span style={{ fontSize: 10, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
                           </div>
                         ))}

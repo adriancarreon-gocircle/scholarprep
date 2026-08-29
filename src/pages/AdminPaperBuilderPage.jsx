@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
 import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator } from './CustomTestPage';
-import QuestionVisual, { PatternFrame, renderPicturePatternSvgString, renderAnswerFrameSvgString } from '../components/QuestionVisual';
+import QuestionVisual, { AnswerCell, renderPatternVisualSvgString, renderAnswerCellSvgString } from '../components/QuestionVisual';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
 // Mirrors the Custom Test builder (same QUESTION_BANK, same subject → topic →
@@ -598,7 +598,7 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: q.explanation ? 8 : 0 }}>
                         {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
                           <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            <PatternFrame frame={frame} size={48} correct={q.correct === letter} revealed color={subj.color} />
+                            <AnswerCell visual={q.visual} val={frame} size={48} correct={q.correct === letter} revealed color={subj.color} />
                             <span style={{ fontSize: 11, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
                           </div>
                         ))}
@@ -691,9 +691,9 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
   // answer choice drawn as its own small SVG frame so students can actually
   // see (and circle) the shape they're picking, not just a bare letter.
   const questionBlockHtml = (q, num) => {
-    const visualHtml = q.visual ? renderPicturePatternSvgString(q.visual) : '';
+    const visualHtml = q.visual ? renderPatternVisualSvgString(q.visual) : '';
     const optionsHtml = q.visual?.answerFrames
-      ? `<div class="answer-frames">${Object.entries(q.visual.answerFrames).map(([l, frame]) => `<div class="answer-frame"><span class="answer-frame-letter">${l}</span>${renderAnswerFrameSvgString(frame, 46)}</div>`).join('')}</div>`
+      ? `<div class="answer-frames">${Object.entries(q.visual.answerFrames).map(([l, val]) => `<div class="answer-frame"><span class="answer-frame-letter">${l}</span>${renderAnswerCellSvgString(q.visual, val, 46)}</div>`).join('')}</div>`
       : `<div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div>`;
     return `<div class="question"><p class="q-text">${num}. ${q.question}</p>${visualHtml}${optionsHtml}</div>`;
   };

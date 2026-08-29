@@ -822,14 +822,28 @@ Logic Problems:
 - Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
 
 PICTURE PATTERN QUESTIONS — CRITICAL RULES:
-For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes.
+For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes. The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames/quadrant transforms are what students see. IMPORTANT: the answer frame/transform for the "correct" letter MUST exactly match what logically continues the pattern shown — double-check your pattern before writing the correct letter, and make the other 3 options plausible distractors (wrong direction, wrong fill, wrong count, etc), never duplicates of the correct one.
 
-You MUST provide an "answerFrames" field in the visual containing the 4 answer option frames. The correct answer frame must logically continue the pattern. The other 3 frames must be plausible distractors (wrong direction, wrong fill, wrong count, etc).
+There are TWO visual schemas. Pick the one that matches the requested question type (the topic constraint above will name one of the 10 types below) — do not mix them.
 
-Available shape types: triangle, triangle_down, square, circle, diamond, star, arrow_right, arrow_down, smiley, sad, cross_x, square_small, circle_thick
-Fill: "none" (hollow), "#374151" (solid dark), "#4338CA" (solid blue), "#F97316" (solid orange)
+══ SCHEMA A — "picturepattern" (a strip of frames, one frame is blank) ══
+{"visual":{"type":"picturepattern","title":"What comes next?","frames":[frame, frame, ..., {"isBlank":true}],"answerFrames":{"A":frame,"B":frame,"C":frame,"D":frame}}}
 
-COMPLETE example — alternating hollow/solid arrows rotating right→down→right→down:
+A "frame" is EITHER:
+(a) {"shapes":[shape, shape, ...]} — a list of shapes placed in the frame, optionally with "bgShape":{"shape":"polygon","sides":6,"fill":"none|#hex","stroke":"#hex","rotation":0-360} (or "shape":"circle"/"square") drawn behind them as a background outline/fill — used for the "Attribute Cycling" type.
+(b) {"polygonSides":N,"elements":[{"type":"<shape type>","color":"#hex","vertex":0}]} — N-sided polygon outline with symbols sitting at its vertices (vertex 0 = top, numbered clockwise) — used ONLY for the "Rotation Around a Shape" type.
+
+A "shape" is {"type":"<shape type>","x":0-1,"y":0-1,"size":0.2-0.4,"fill":"none|#hex","stroke":"#hex"} (x/y/size are normalized 0-1 within the frame), plus OPTIONAL fields:
+- "rotation":0-360 — rotates the shape (use for "Path-Direction Rotation" and "Glyph Rotation / Reflection")
+- "flip":"h"|"v" — mirrors the shape horizontally/vertically (use for "Glyph Rotation / Reflection")
+- "count":N,"layout":"grid"|"row" — auto-repeats the shape N times laid out in the frame instead of one copy (use for "Growing / Count Patterns" — just set count, do not hand-place multiple shape entries)
+- "text":"3" — for shape type "text" only, draws that string instead of an icon (needs "color", not fill/stroke) — use for "Attribute Cycling" when numbers appear
+- "nestCount":1-5,"filled":true|false — for shape type "nested_triangle" only, draws that many concentric triangle outlines, filling the innermost if filled=true (use for "Nesting Progression")
+
+Shape types available: triangle, triangle_down, square, square_small, circle, circle_thick, diamond, star, arrow_right, arrow_down, arrow_up, arrow_left, cross_x, smiley, sad, heart, leaf, notched_bar, elbow_arrow, cuboid, cylinder, cone, nested_triangle, text.
+Fill/stroke colors: "none" (hollow), "#374151" (dark), "#4338CA" (blue), "#F97316" (orange), "#059669" (green), "#DC2626" (red).
+
+Worked example (alternating hollow/solid arrows rotating right→down→right→down — "Path-Direction Rotation" or "Glyph Rotation / Reflection" style):
 {"visual":{"type":"picturepattern","title":"What comes next?",
   "frames":[
     {"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"none","stroke":"#374151"}]},
@@ -845,21 +859,46 @@ COMPLETE example — alternating hollow/solid arrows rotating right→down→rig
     "D":{"shapes":[{"type":"arrow_right","x":0.5,"y":0.5,"size":0.35,"fill":"#374151","stroke":"#374151"}]}
   }
 }}
+Here correct="A" because the pattern needs a solid arrow pointing down next.
 
-In this example, correct="A" because the pattern needs a solid arrow pointing down next.
+Worked example — "Nesting Progression" (solid triangle, outline, then 2 nested, then blank; count grows by one each frame):
+{"visual":{"type":"picturepattern","title":"What comes next?","frames":[
+  {"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":1,"filled":true}]},
+  {"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":1,"filled":false}]},
+  {"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":2,"filled":false}]},
+  {"isBlank":true}],
+  "answerFrames":{"A":{"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":2,"filled":false}]},"B":{"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":3,"filled":false}]},"C":{"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":3,"filled":true}]},"D":{"shapes":[{"type":"nested_triangle","x":0.5,"y":0.55,"size":0.34,"nestCount":1,"filled":false}]}}}}
+Here correct="B" because nestCount increases by 1 each frame (1,1,2,→3).
 
-The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames are what students see.
+Worked example — "Attribute Cycling (Fill / Marker / Count)" (hexagon fill alternates while an X and a dot swap corners):
+{"visual":{"type":"picturepattern","title":"What comes next?","frames":[
+  {"bgShape":{"shape":"polygon","sides":6,"fill":"#0F172A","stroke":"#0F172A"},"shapes":[{"type":"circle","x":0.72,"y":0.28,"size":0.09,"fill":"#CBD5E1","stroke":"#CBD5E1"},{"type":"text","x":0.28,"y":0.72,"text":"X","color":"#fff"}]},
+  {"bgShape":{"shape":"polygon","sides":6,"fill":"none","stroke":"#0F172A"},"shapes":[{"type":"circle","x":0.72,"y":0.28,"size":0.09,"fill":"#94A3B8","stroke":"#94A3B8"},{"type":"text","x":0.28,"y":0.28,"text":"X","color":"#0F172A"}]},
+  {"isBlank":true}],
+  "answerFrames":{"A":{"bgShape":{"shape":"polygon","sides":6,"fill":"#0F172A","stroke":"#0F172A"},"shapes":[{"type":"text","x":0.28,"y":0.28,"text":"X","color":"#fff"},{"type":"circle","x":0.72,"y":0.72,"size":0.09,"fill":"#CBD5E1","stroke":"#CBD5E1"}]},"B":{"bgShape":{"shape":"polygon","sides":6,"fill":"none","stroke":"#0F172A"},"shapes":[]},"C":{"bgShape":{"shape":"polygon","sides":6,"fill":"#0F172A","stroke":"#0F172A"},"shapes":[{"type":"text","x":0.72,"y":0.28,"text":"X","color":"#fff"}]},"D":{"bgShape":{"shape":"polygon","sides":6,"fill":"none","stroke":"#0F172A"},"shapes":[{"type":"text","x":0.28,"y":0.72,"text":"X","color":"#0F172A"}]}}}}
+correct="A" — fill keeps alternating (solid,hollow,→solid) and X/dot keep swapping corners.
 
-PATTERN TYPES to use (vary these):
-1. Direction rotation: arrow_right → arrow_down → arrow_right → arrow_down → ?
-2. Fill progression: hollow → half → solid → hollow → ?  
-3. Count increase: 1 shape → 2 shapes → 3 shapes → ?
-4. Shape alternating: triangle → circle → triangle → circle → ?
-5. Size change: small → medium → large → ?
-6. Combination: rotating AND filling at same time
+══ SCHEMA B — "quadrantpattern" (a 2x2 grid, one quadrant is blank) ══
+Use this ONLY for the "Quadrant Rotation" question type. A single small "unit design" (cellMarks) is drawn in 3 of the 4 quadrants, each at a different rotation/mirror of that SAME design — do NOT invent different content per quadrant, only rotate/flip the one unit. This keeps the geometry consistent and checkable.
+{"visual":{"type":"quadrantpattern","title":"What comes next?",
+  "cellMarks":[ {"kind":"line","x1":0-1,"y1":0-1,"x2":0-1,"y2":0-1} , {"kind":"dot","x":0-1,"y":0-1,"r":0.04-0.08,"fill":"#hex"} ],
+  "quadrantTransforms":[ {"rotation":0}, {"rotation":90}, {"rotation":270}, null ],
+  "blankQuadrant":3,
+  "answerFrames":{"A":{"rotation":90},"B":{"rotation":0},"C":{"rotation":180},"D":{"rotation":270}}
+}}
+Rules: "cellMarks" entries are normalized 0-1 coordinates WITHIN one cell — kinds allowed are "line" (x1,y1,x2,y2), "arc" (x1,y1,x2,y2,"bulge":0-0.4 — a curved line), "dot" (x,y,r), or "shape" (shapeType from the list above,x,y,size,fill,stroke). "quadrantTransforms" is always exactly 4 entries in reading order [index 0 = top-left, 1 = top-right, 2 = bottom-left, 3 = bottom-right]; each is {"rotation":0-359} and optionally "flip":"h"|"v", EXCEPT the "blankQuadrant" index which MUST be null. "answerFrames" gives 4 candidate {"rotation":...,"flip":...} transforms of the SAME cellMarks for the blank cell — exactly one must be the transform that keeps the rotation sequence consistent going clockwise (top-left → top-right → bottom-right → bottom-left → back to top-left). In the worked example above, quadrantTransforms is [0°,90°,270°,null] = top-left 0°, top-right 90°, bottom-left 270°, bottom-right blank — going clockwise (top-left→top-right→bottom-right→bottom-left) the rotation must increase by 90° each step: 0°→90°→?→270°, so the blank bottom-right must be 180°. That matches answerFrames "C" (correct="C").
 
-IMPORTANT: The correct answer frame in answerFrames MUST exactly match what logically continues the sequence shown in frames. Double-check your pattern before writing the correct letter.
-
+QUESTION TYPE → SCHEMA mapping (the topic constraint above will name ONE of these — use the matching schema/technique):
+- "Repeating Shape Sequence" → Schema A, frames alternate through a short repeating unit of ordinary shapes (e.g. square,triangle,circle,square,?).
+- "Repeating 3D Solids Sequence" → Schema A, frames alternate through cuboid/cylinder/cone.
+- "Growing / Count Patterns" → Schema A, use a single shape with "count" increasing by a fixed amount each frame.
+- "Rotation Around a Shape" → Schema A, frame type (b): polygonSides + elements at vertices, all rotating the same number of vertices clockwise each frame.
+- "Quadrant Rotation" → Schema B.
+- "Attribute Cycling (Fill / Marker / Count)" → Schema A, use bgShape (fill alternating) and/or "text" numbers and/or marker shapes whose position/count cycles frame to frame.
+- "Nesting Progression" → Schema A, use "nested_triangle" with nestCount increasing (and optionally filled toggling) each frame.
+- "Path-Direction Rotation" → Schema A, use a single "elbow_arrow" shape with "rotation" increasing by a fixed amount (typically 90) each frame.
+- "Glyph Rotation / Reflection" → Schema A, use a single "notched_bar" (or other shape) with "rotation" and/or "flip" changing each frame — no other shapes in the frame.
+- "Shape Matrix (Odd One Out)" → Schema A is not required; this type shows 4-5 boxes as answerFrames-style shapes (no "frames"/blank strip) where one is the odd one out — build "frames" as the visible boxes (no isBlank) and set "answerFrames" to the same boxes, with "correct" naming the one that breaks the pattern.
 
 - "sequences" — number sequences and patterns
 - "picturepatterns" — visual/shape pattern sequences (requires visual field)

@@ -675,7 +675,87 @@ export const SHAPE_RENDERERS = {
   },
   smiley: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.1} Q${cx},${cy + sz * 0.45} ${cx + sz * 0.3},${cy + sz * 0.1}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
   sad: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.35} Q${cx},${cy + sz * 0.05} ${cx + sz * 0.3},${cy + sz * 0.35}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
+  // Added for the auto-generated General Ability "shape pattern" families
+  // (sequences of 3D solids, nesting, path-direction rotation, glyph
+  // rotation/reflection, and quadrant-rotation cell content).
+  heart: (cx, cy, sz, f, s) => `<path d="M${cx},${cy + sz * 0.6} C${cx - sz * 1.2},${cy - sz * 0.3} ${cx - sz * 0.5},${cy - sz * 1.1} ${cx},${cy - sz * 0.35} C${cx + sz * 0.5},${cy - sz * 1.1} ${cx + sz * 1.2},${cy - sz * 0.3} ${cx},${cy + sz * 0.6} Z" fill="${f}" stroke="${s}" stroke-width="1.4"/>`,
+  leaf: (cx, cy, sz, f, s) => `<path d="M${cx},${cy - sz} Q${cx + sz * 0.7},${cy} ${cx},${cy + sz} Q${cx - sz * 0.7},${cy} ${cx},${cy - sz} Z" fill="${f}" stroke="${s}" stroke-width="1.4"/>`,
+  notched_bar: (cx, cy, sz, f, s) => { const w = sz * 0.55, h = sz * 1.1; return `<rect x="${cx - w}" y="${cy - h}" width="${w * 2}" height="${h * 2}" fill="${f === 'none' ? '#fff' : f}" stroke="${s}" stroke-width="1.6"/><line x1="${cx - w}" y1="${cy + h}" x2="${cx + w}" y2="${cy - h}" stroke="${s}" stroke-width="1.6"/>`; },
+  elbow_arrow: (cx, cy, sz, f, s) => { const x0 = cx - sz * 0.5, y0 = cy - sz * 0.9, x1 = cx - sz * 0.5, y1 = cy + sz * 0.5, x2 = cx + sz * 0.6, y2 = cy + sz * 0.5; return `<path d="M${x0},${y0} L${x1},${y1} L${x2},${y2}" fill="none" stroke="${s}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><polygon points="${x2},${y2 - sz * 0.28} ${x2},${y2 + sz * 0.28} ${x2 + sz * 0.4},${y2}" fill="${s}"/>`; },
+  cuboid: (cx, cy, sz, f) => { const w = sz, h = sz * 0.8, d = sz * 0.45; const fx = cx - w, fy = cy - h + d; const c = f === 'none' ? '#D97706' : f; return `<polygon points="${fx},${fy} ${fx + d},${fy - d} ${fx + w * 2 - d + d},${fy - d} ${fx + w * 2 - d},${fy}" fill="#FCD34D" stroke="${c}" stroke-width="1.4"/><polygon points="${fx + w * 2 - d},${fy} ${fx + w * 2 - d + d},${fy - d} ${fx + w * 2 - d + d},${fy - d + h * 2 - d} ${fx + w * 2 - d},${fy + h * 2 - d}" fill="#F59E0B" stroke="${c}" stroke-width="1.4"/><rect x="${fx}" y="${fy}" width="${w * 2 - d}" height="${h * 2 - d}" fill="#FDE68A" stroke="${c}" stroke-width="1.4"/>`; },
+  cylinder: (cx, cy, sz) => { const w = sz * 0.8, h = sz * 1.0; const c = '#2563EB'; return `<rect x="${cx - w}" y="${cy - h}" width="${w * 2}" height="${h * 2}" fill="#93C5FD" stroke="none"/><line x1="${cx - w}" y1="${cy - h}" x2="${cx - w}" y2="${cy + h}" stroke="${c}" stroke-width="1.4"/><line x1="${cx + w}" y1="${cy - h}" x2="${cx + w}" y2="${cy + h}" stroke="${c}" stroke-width="1.4"/><path d="M${cx - w},${cy + h} A${w},${w * 0.4} 0 0 0 ${cx + w},${cy + h}" fill="none" stroke="${c}" stroke-width="1.4"/><ellipse cx="${cx}" cy="${cy - h}" rx="${w}" ry="${w * 0.4}" fill="#93C5FD" stroke="${c}" stroke-width="1.4"/>`; },
+  cone: (cx, cy, sz) => { const w = sz * 0.8, h = sz * 1.2; const c = '#DC2626'; return `<polygon points="${cx},${cy - h} ${cx - w},${cy + h * 0.4} ${cx + w},${cy + h * 0.4}" fill="#FCA5A5" stroke="${c}" stroke-width="1.4"/><ellipse cx="${cx}" cy="${cy + h * 0.4}" rx="${w}" ry="${w * 0.35}" fill="#FCA5A5" stroke="${c}" stroke-width="1.4"/>`; },
 };
+
+// Draws N concentric triangle outlines (used by the "nesting progression"
+// pattern family), filling the innermost one when `filled` is set. Handled
+// separately from SHAPE_RENDERERS because it needs extra params beyond the
+// uniform (cx,cy,sz,fill,stroke) signature.
+function renderNestedTriangleSvg(cx, cy, sz, nestCount, filled, color) {
+  let out = '';
+  for (let i = 0; i < nestCount; i++) {
+    const s2 = sz * (1 - i * 0.22);
+    const isInner = i === nestCount - 1;
+    const fill = (isInner && filled) ? color : 'none';
+    out += `<polygon points="${cx},${cy - s2} ${cx - s2},${cy + s2} ${cx + s2},${cy + s2}" fill="${fill}" stroke="${color}" stroke-width="1.5"/>`;
+  }
+  return out;
+}
+
+// Auto-lays-out N copies of a shape within a frame (used by "growing count"
+// patterns, so the AI only has to specify a count rather than hand-placing
+// each copy's x/y).
+function layoutPositions(count, layout, boxW, boxH) {
+  if (count <= 1) return [[boxW / 2, boxH / 2]];
+  if (layout === 'row') return Array.from({ length: count }, (_, i) => [(i + 0.5) / count * boxW, boxH / 2]);
+  const cols = Math.ceil(Math.sqrt(count)), rows = Math.ceil(count / cols), pts = [];
+  for (let i = 0; i < count; i++) { const r = Math.floor(i / cols), c = i % cols; pts.push([(c + 0.5) / cols * boxW, (r + 0.5) / rows * boxH]); }
+  return pts;
+}
+
+// Renders one shape spec, handling the "text" and "nested_triangle" special
+// cases, generic per-shape rotation/flip, and count/layout auto-repeat.
+function renderShapeSvg(sh, boxW, boxH) {
+  if (sh.type === 'text') {
+    return `<text x="${(sh.x ?? 0.5) * boxW}" y="${(sh.y ?? 0.5) * boxH}" font-size="${(sh.size ?? 0.34) * Math.min(boxW, boxH)}" font-weight="700" fill="${sh.color || '#374151'}" text-anchor="middle" dominant-baseline="middle" font-family="Inter, sans-serif">${sh.text}</text>`;
+  }
+  if (sh.type === 'nested_triangle') {
+    return renderNestedTriangleSvg((sh.x ?? 0.5) * boxW, (sh.y ?? 0.5) * boxH, (sh.size ?? 0.34) * Math.min(boxW, boxH), sh.nestCount || 3, !!sh.filled, sh.stroke || '#374151');
+  }
+  const renderer = SHAPE_RENDERERS[sh.type];
+  if (!renderer) return '';
+  const count = sh.count || 1;
+  const positions = count > 1 ? layoutPositions(count, sh.layout, boxW, boxH) : [[(sh.x ?? 0.5) * boxW, (sh.y ?? 0.5) * boxH]];
+  const sz = (sh.size ?? 0.3) * Math.min(boxW, boxH) * (count > 1 ? Math.max(0.55, 1 / Math.sqrt(count)) : 1);
+  return positions.map(([px, py]) => {
+    let svg = renderer(px, py, sz, sh.fill || 'none', sh.stroke || '#374151');
+    let t = '';
+    if (sh.flip === 'h') t += `translate(${2 * px},0) scale(-1,1) `;
+    if (sh.flip === 'v') t += `translate(0,${2 * py}) scale(1,-1) `;
+    if (sh.rotation) t += `rotate(${sh.rotation} ${px} ${py}) `;
+    return t ? `<g transform="${t}">${svg}</g>` : svg;
+  }).join('');
+}
+
+// Renders an optional full-frame background shape (hexagon/circle/square,
+// with fill and rotation) used by the "attribute cycling" pattern family —
+// drawn behind a frame's shapes so markers sit on top of it.
+function renderBgShapeSvg(bg, boxW, boxH) {
+  if (!bg) return '';
+  const cx = boxW / 2, cy = boxH / 2, r = Math.min(boxW, boxH) * 0.44;
+  let shapeSvg;
+  if (bg.shape === 'circle') shapeSvg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg.fill || 'none'}" stroke="${bg.stroke || '#374151'}" stroke-width="1.8"/>`;
+  else if (bg.shape === 'square') shapeSvg = `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" fill="${bg.fill || 'none'}" stroke="${bg.stroke || '#374151'}" stroke-width="1.8"/>`;
+  else { const n = bg.sides || 6; const pts = polygonVertices(n, cx, cy, r).map(p => p.join(',')).join(' '); shapeSvg = `<polygon points="${pts}" fill="${bg.fill || 'none'}" stroke="${bg.stroke || '#374151'}" stroke-width="1.8"/>`; }
+  return bg.rotation ? `<g transform="rotate(${bg.rotation} ${cx} ${cy})">${shapeSvg}</g>` : shapeSvg;
+}
+
+// Combines a frame's optional background shape with its shapes array — the
+// single shared implementation used by the React renderers below AND the
+// plain-string print builders, so the two can never drift apart.
+function renderShapesFrameSvg(frame, boxW, boxH) {
+  return renderBgShapeSvg(frame.bgShape, boxW, boxH) + (frame.shapes || []).map(sh => renderShapeSvg(sh, boxW, boxH)).join('');
+}
 
 // ── Rotation-around-polygon helper ───────────────────────────────────────────
 // Renders a small set of symbols placed at N vertices of a K-sided polygon —
@@ -715,14 +795,7 @@ export function renderRotationFrameSvg(frame, boxW, boxH) {
 function frameInnerSvgString(frame, boxW, boxH) {
   if (!frame) return '';
   if (frame.polygonSides) return renderRotationFrameSvg(frame, boxW, boxH);
-  return (frame.shapes || []).map(sh => {
-    const renderer = SHAPE_RENDERERS[sh.type];
-    if (!renderer) return '';
-    const cx = (sh.x ?? 0.5) * boxW;
-    const cy = (sh.y ?? 0.5) * boxH;
-    const sz = (sh.size ?? 0.3) * Math.min(boxW, boxH);
-    return renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151');
-  }).join('');
+  return renderShapesFrameSvg(frame, boxW, boxH);
 }
 
 // Renders the "What comes next?" sequence-of-frames strip (visual.frames) as
@@ -775,17 +848,9 @@ function PicturePattern({ visual }) {
                 <text x={fx + frameW / 2} y={fy + frameH / 2} fontSize={24} fontWeight="800" fill="#4338CA"
                   textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">?</text>
               )}
-              {!isBlank && frame.polygonSides && (
-                <g transform={`translate(${fx}, ${fy})`} dangerouslySetInnerHTML={{ __html: renderRotationFrameSvg(frame, frameW, frameH) }} />
+              {!isBlank && (
+                <g transform={`translate(${fx}, ${fy})`} dangerouslySetInnerHTML={{ __html: frameInnerSvgString(frame, frameW, frameH) }} />
               )}
-              {!isBlank && !frame.polygonSides && (frame.shapes || []).map((sh, si) => {
-                const renderer = SHAPE_RENDERERS[sh.type];
-                if (!renderer) return null;
-                const cx = fx + (sh.x ?? 0.5) * frameW;
-                const cy = fy + (sh.y ?? 0.5) * frameH;
-                const sz = (sh.size ?? 0.3) * Math.min(frameW, frameH);
-                return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
-              })}
             </g>
           );
         })}
@@ -807,18 +872,124 @@ export function PatternFrame({ frame, size = 48, selected, correct, revealed, co
   return (
     <svg width={fw} height={fh} viewBox={`0 0 ${fw} ${fh}`} style={{ flexShrink: 0 }}>
       <rect x={1} y={1} width={fw - 2} height={fh - 2} rx={6} fill={bg} stroke={stroke} strokeWidth={sw} />
-      {frame.polygonSides
-        ? <g dangerouslySetInnerHTML={{ __html: renderRotationFrameSvg(frame, fw, fh) }} />
-        : (frame.shapes || []).map((sh, si) => {
-          const renderer = SHAPE_RENDERERS[sh.type];
-          if (!renderer) return null;
-          const cx = (sh.x ?? 0.5) * fw;
-          const cy = (sh.y ?? 0.5) * fh;
-          const sz = (sh.size ?? 0.3) * Math.min(fw, fh);
-          return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
-        })}
+      <g dangerouslySetInnerHTML={{ __html: frameInnerSvgString(frame, fw, fh) }} />
     </svg>
   );
+}
+
+// ── Quadrant Rotation ─────────────────────────────────────────────────────────
+// A 2x2 grid where a single "unit design" (cellMarks: lines/arcs/dots/shapes,
+// normalized 0-1 within one cell) is rotated/mirrored per quadrant. The AI
+// only supplies the unit design plus a rotation/flip transform per quadrant —
+// this renderer does the actual geometry, which is far more reliable than
+// asking the AI to hand-draw 4 separate cells. One quadrant is left blank
+// (the question), and answerFrames maps each MCQ letter to a candidate
+// transform for that blank cell (reusing the same cellMarks).
+function renderCellMarksSvg(marks, transform, boxW, boxH) {
+  const inner = (marks || []).map(m => {
+    if (m.kind === 'line') return `<line x1="${m.x1 * boxW}" y1="${m.y1 * boxH}" x2="${m.x2 * boxW}" y2="${m.y2 * boxH}" stroke="${m.stroke || '#374151'}" stroke-width="${m.strokeWidth || 1.6}"/>`;
+    if (m.kind === 'arc') {
+      const x1 = m.x1 * boxW, y1 = m.y1 * boxH, x2 = m.x2 * boxW, y2 = m.y2 * boxH;
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len, bulge = (m.bulge ?? 0.3) * Math.min(boxW, boxH);
+      return `<path d="M${x1},${y1} Q${mx + nx * bulge},${my + ny * bulge} ${x2},${y2}" fill="none" stroke="${m.stroke || '#374151'}" stroke-width="${m.strokeWidth || 1.6}"/>`;
+    }
+    if (m.kind === 'dot' || m.kind === 'circle') {
+      const r = (m.r ?? 0.055) * Math.min(boxW, boxH);
+      return `<circle cx="${m.x * boxW}" cy="${m.y * boxH}" r="${r}" fill="${m.fill || m.stroke || '#374151'}" stroke="${m.stroke || '#374151'}" stroke-width="1.2"/>`;
+    }
+    if (m.kind === 'shape') {
+      const renderer = SHAPE_RENDERERS[m.shapeType];
+      if (!renderer) return '';
+      const sz = (m.size ?? 0.22) * Math.min(boxW, boxH);
+      return renderer(m.x * boxW, m.y * boxH, sz, m.fill || 'none', m.stroke || '#374151');
+    }
+    return '';
+  }).join('');
+  const cx = boxW / 2, cy = boxH / 2;
+  let t = '';
+  if (transform?.flip === 'h') t += `translate(${2 * cx},0) scale(-1,1) `;
+  if (transform?.flip === 'v') t += `translate(0,${2 * cy}) scale(1,-1) `;
+  if (transform?.rotation) t += `rotate(${transform.rotation} ${cx} ${cy}) `;
+  return t ? `<g transform="${t}">${inner}</g>` : inner;
+}
+
+export function renderQuadrantGridSvgString(visual, boxSize = 200) {
+  const cellSize = boxSize / 2;
+  const cellsSvg = [0, 1, 2, 3].map(i => {
+    const row = Math.floor(i / 2), col = i % 2, x = col * cellSize, y = row * cellSize;
+    if (i === visual.blankQuadrant) {
+      return `<g transform="translate(${x},${y})"><rect width="${cellSize}" height="${cellSize}" fill="#EEF2FF" stroke="#4338CA" stroke-width="2" stroke-dasharray="5,4"/><text x="${cellSize / 2}" y="${cellSize / 2}" font-size="26" font-weight="800" fill="#4338CA" text-anchor="middle" dominant-baseline="middle">?</text></g>`;
+    }
+    const t = (visual.quadrantTransforms || [])[i] || {};
+    return `<g transform="translate(${x},${y})"><rect width="${cellSize}" height="${cellSize}" fill="#fff" stroke="#94A3B8" stroke-width="1.5"/>${renderCellMarksSvg(visual.cellMarks, t, cellSize, cellSize)}</g>`;
+  }).join('');
+  return `<svg width="${boxSize}" height="${boxSize}" viewBox="0 0 ${boxSize} ${boxSize}">${cellsSvg}</svg>`;
+}
+
+// Print/PDF version of the quadrant grid, with an optional title above it —
+// the quadrantpattern counterpart to renderPicturePatternSvgString.
+export function renderQuadrantBlockSvgString(visual) {
+  const boxSize = 150;
+  return `<div style="margin:8px 0 12px;">${visual.title ? `<div style="font-size:11pt;font-weight:bold;margin-bottom:6px;">${visual.title}</div>` : ''}${renderQuadrantGridSvgString(visual, boxSize)}</div>`;
+}
+
+export function renderQuadrantAnswerSvgString(cellMarks, transform, size = 48) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="vertical-align:middle;"><rect x="1" y="1" width="${size - 2}" height="${size - 2}" rx="6" fill="#fff" stroke="#94A3B8" stroke-width="1.5"/>${renderCellMarksSvg(cellMarks, transform, size, size)}</svg>`;
+}
+
+function QuadrantPattern({ visual }) {
+  const boxSize = 200;
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '14px 10px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)' }}>
+      {visual.title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{visual.title}</div>}
+      <div style={{ display: 'flex', justifyContent: 'center' }} dangerouslySetInnerHTML={{ __html: renderQuadrantGridSvgString(visual, boxSize) }} />
+    </div>
+  );
+}
+
+// The quadrantpattern counterpart to PatternFrame — renders one MCQ answer
+// choice (a candidate transform of the puzzle's cellMarks) as a single cell.
+export function QuadrantAnswerCell({ cellMarks, transform, size = 48, selected, correct, revealed, color = '#4338CA' }) {
+  let bg = '#fff', stroke = '#CBD5E1', sw = 1.5;
+  if (revealed) {
+    if (correct) { bg = '#ECFDF5'; stroke = '#059669'; }
+    else if (selected) { bg = '#FFF1F2'; stroke = '#FDA4AF'; }
+  } else if (selected) { bg = '#EEF2FF'; stroke = color; sw = 2; }
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={size - 2} height={size - 2} rx={6} fill={bg} stroke={stroke} strokeWidth={sw} />
+      <g dangerouslySetInnerHTML={{ __html: renderCellMarksSvg(cellMarks, transform, size, size) }} />
+    </svg>
+  );
+}
+
+// ── Unified answer-option helpers ──────────────────────────────────────────
+// A question's visual.answerFrames values mean different things depending on
+// visual.type: for 'picturepattern' (rotation-around-shape or plain shapes)
+// each value is a self-contained frame, rendered by PatternFrame; for
+// 'quadrantpattern' each value is just a {rotation,flip} transform applied to
+// visual.cellMarks, rendered by QuadrantAnswerCell. These two helpers pick
+// the right one so call sites don't need to branch on visual.type themselves.
+export function AnswerCell({ visual, val, size = 48, selected, correct, revealed, color = '#4338CA' }) {
+  if (visual?.type === 'quadrantpattern') {
+    return <QuadrantAnswerCell cellMarks={visual.cellMarks} transform={val} size={size} selected={selected} correct={correct} revealed={revealed} color={color} />;
+  }
+  return <PatternFrame frame={val} size={size} selected={selected} correct={correct} revealed={revealed} color={color} />;
+}
+
+export function renderAnswerCellSvgString(visual, val, size = 48) {
+  if (visual?.type === 'quadrantpattern') return renderQuadrantAnswerSvgString(visual.cellMarks, val, size);
+  return renderAnswerFrameSvgString(val, size);
+}
+
+// Print/PDF version of the main puzzle visual (frames strip or quadrant
+// grid) — the single entry point buildAndPrintPaper should call.
+export function renderPatternVisualSvgString(visual) {
+  if (!visual) return '';
+  if (visual.type === 'quadrantpattern') return renderQuadrantBlockSvgString(visual);
+  if (visual.type === 'picturepattern') return renderPicturePatternSvgString(visual);
+  return '';
 }
 
 export default function QuestionVisual({ visual }) {
@@ -836,6 +1007,7 @@ export default function QuestionVisual({ visual }) {
     case 'thermometer': return <Thermometer visual={visual} />;
     case 'cubes': return <CubesVisual visual={visual} />;
     case 'picturepattern': return <PicturePattern visual={visual} />;
+    case 'quadrantpattern': return <QuadrantPattern visual={visual} />;
     default: return null;
   }
 }
