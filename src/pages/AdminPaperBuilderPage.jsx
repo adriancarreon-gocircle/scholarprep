@@ -95,7 +95,7 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
           if (needed > 0 && tmpl.exampleQuestion && tmpl.exampleQuestion !== '(from image)') {
             setMsg(`Generating ${needed} more question${needed > 1 ? 's' : ''} from "${tmpl.name}"`);
             try {
-              const result = await generateFromTemplate(tmpl.exampleQuestion, tmplSubj, tmpl.questionType || null, needed, yearLevel, null, null);
+              const result = await generateFromTemplate(tmpl.exampleQuestion, tmplSubj, tmpl.questionType || null, needed, yearLevel);
               const extras = (result.questions || []).slice(0, needed).map(q => ({
                 ...q, _subj: tmplSubj,
                 topic: q.topic || tmplSubj,
@@ -782,10 +782,10 @@ export default function AdminPaperBuilderPage() {
     return saved;
   };
 
-  const handleLaunchFromCreator = (qs, label) => {
+  const handleLaunchFromCreator = (qs, label, passage) => {
     setQuestions(qs.map(q => ({ ...q, _subj: q.topic || 'mathematics' })));
-    setPassageGroups([]);
-    setGenQuestionsPerPassage(5);
+    setPassageGroups(passage ? [{ passage, questions: qs }] : []);
+    setGenQuestionsPerPassage(passage ? qs.length : 5);
     setPaperTitle(label);
     setCurrentPaperId(null);
     // Not built from a subject/topic selection, so "Edit selection" should

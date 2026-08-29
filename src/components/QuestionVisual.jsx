@@ -667,6 +667,8 @@ const SHAPE_RENDERERS = {
   },
   arrow_right: (cx, cy, sz, f, s) => `<polygon points="${cx + sz},${cy} ${cx},${cy - sz * 0.6} ${cx},${cy - sz * 0.25} ${cx - sz},${cy - sz * 0.25} ${cx - sz},${cy + sz * 0.25} ${cx},${cy + sz * 0.25} ${cx},${cy + sz * 0.6}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
   arrow_down: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy + sz} ${cx - sz * 0.6},${cy} ${cx - sz * 0.25},${cy} ${cx - sz * 0.25},${cy - sz} ${cx + sz * 0.25},${cy - sz} ${cx + sz * 0.25},${cy} ${cx + sz * 0.6},${cy}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  arrow_up: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy - sz} ${cx - sz * 0.6},${cy} ${cx - sz * 0.25},${cy} ${cx - sz * 0.25},${cy + sz} ${cx + sz * 0.25},${cy + sz} ${cx + sz * 0.25},${cy} ${cx + sz * 0.6},${cy}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
+  arrow_left: (cx, cy, sz, f, s) => `<polygon points="${cx - sz},${cy} ${cx},${cy - sz * 0.6} ${cx},${cy - sz * 0.25} ${cx + sz},${cy - sz * 0.25} ${cx + sz},${cy + sz * 0.25} ${cx},${cy + sz * 0.25} ${cx},${cy + sz * 0.6}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
   cross_x: (cx, cy, sz, f, s) => {
     const t = sz * 0.25;
     return `<path d="M${cx - t},${cy - sz} h${t * 2} v${sz - t} h${sz - t} v${t * 2} h${-(sz - t)} v${sz - t} h${-t * 2} v${-(sz - t)} h${-(sz - t)} v${-t * 2} h${sz - t} z" fill="${f}" stroke="${s}" stroke-width="1"/>`;
@@ -674,6 +676,39 @@ const SHAPE_RENDERERS = {
   smiley: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.1} Q${cx},${cy + sz * 0.45} ${cx + sz * 0.3},${cy + sz * 0.1}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
   sad: (cx, cy, sz, f, s) => `<circle cx="${cx}" cy="${cy}" r="${sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="${cx - sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><circle cx="${cx + sz * 0.3}" cy="${cy - sz * 0.2}" r="${sz * 0.12}" fill="${s}" stroke="none"/><path d="M${cx - sz * 0.3},${cy + sz * 0.35} Q${cx},${cy + sz * 0.05} ${cx + sz * 0.3},${cy + sz * 0.35}" fill="none" stroke="${s}" stroke-width="1.5"/>`,
 };
+
+// ── Rotation-around-polygon helper ───────────────────────────────────────────
+// Renders a small set of symbols placed at N vertices of a K-sided polygon —
+// used for "symbols rotate around a fixed shape" pattern questions (extracted
+// from, or generated to match, a photo of that style of question). A frame in
+// this style carries {polygonSides, elements:[{type,color,vertex}, ...]}
+// instead of the older {shapes:[{type,x,y,size,fill,stroke}]} format — both
+// are supported side by side, picked per-frame by which fields are present.
+function polygonVertices(n, cx, cy, r) {
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = (-90 + k * (360 / n)) * Math.PI / 180;
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pts;
+}
+
+function renderRotationFrameSvg(frame, boxW, boxH) {
+  const cx = boxW / 2, cy = boxH / 2;
+  const r = Math.min(boxW, boxH) * 0.38;
+  const n = frame.polygonSides;
+  const verts = polygonVertices(n, cx, cy, r);
+  const outline = verts.map(p => p.join(',')).join(' ');
+  const elems = (frame.elements || []).map(el => {
+    const renderer = SHAPE_RENDERERS[el.type];
+    if (!renderer) return '';
+    const v = verts[((el.vertex % n) + n) % n];
+    const sz = Math.min(boxW, boxH) * 0.16;
+    const col = el.color || '#374151';
+    return renderer(v[0], v[1], sz, col, col);
+  }).join('');
+  return `<polygon points="${outline}" fill="none" stroke="#94A3B8" stroke-width="1.6"/>${elems}`;
+}
 
 function PicturePattern({ visual }) {
   const { frames = [], title } = visual;
@@ -701,7 +736,10 @@ function PicturePattern({ visual }) {
                 <text x={fx + frameW / 2} y={fy + frameH / 2} fontSize={24} fontWeight="800" fill="#4338CA"
                   textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">?</text>
               )}
-              {!isBlank && (frame.shapes || []).map((sh, si) => {
+              {!isBlank && frame.polygonSides && (
+                <g transform={`translate(${fx}, ${fy})`} dangerouslySetInnerHTML={{ __html: renderRotationFrameSvg(frame, frameW, frameH) }} />
+              )}
+              {!isBlank && !frame.polygonSides && (frame.shapes || []).map((sh, si) => {
                 const renderer = SHAPE_RENDERERS[sh.type];
                 if (!renderer) return null;
                 const cx = fx + (sh.x ?? 0.5) * frameW;
@@ -730,14 +768,16 @@ export function PatternFrame({ frame, size = 48, selected, correct, revealed, co
   return (
     <svg width={fw} height={fh} viewBox={`0 0 ${fw} ${fh}`} style={{ flexShrink: 0 }}>
       <rect x={1} y={1} width={fw - 2} height={fh - 2} rx={6} fill={bg} stroke={stroke} strokeWidth={sw} />
-      {(frame.shapes || []).map((sh, si) => {
-        const renderer = SHAPE_RENDERERS[sh.type];
-        if (!renderer) return null;
-        const cx = (sh.x ?? 0.5) * fw;
-        const cy = (sh.y ?? 0.5) * fh;
-        const sz = (sh.size ?? 0.3) * Math.min(fw, fh);
-        return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
-      })}
+      {frame.polygonSides
+        ? <g dangerouslySetInnerHTML={{ __html: renderRotationFrameSvg(frame, fw, fh) }} />
+        : (frame.shapes || []).map((sh, si) => {
+          const renderer = SHAPE_RENDERERS[sh.type];
+          if (!renderer) return null;
+          const cx = (sh.x ?? 0.5) * fw;
+          const cy = (sh.y ?? 0.5) * fh;
+          const sz = (sh.size ?? 0.3) * Math.min(fw, fh);
+          return <g key={si} dangerouslySetInnerHTML={{ __html: renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151') }} />;
+        })}
     </svg>
   );
 }
