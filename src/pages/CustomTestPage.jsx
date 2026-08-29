@@ -1774,14 +1774,26 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
               {previewing && <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontFamily: 'Inter, sans-serif', fontSize: 14 }}>⏳ Generating preview…</div>}
               {previewQ && !previewing && (
                 <div style={{ background: `${subjectColor}06`, border: `1.5px solid ${subjectColor}25`, borderRadius: 14, padding: 18 }}>
+                  {previewQ.visual && <QuestionVisual visual={previewQ.visual} />}
                   <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.7, marginBottom: 14, fontWeight: 500 }}>{previewQ.question}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 12 }}>
-                    {Object.entries(previewQ.options || {}).map(([key, val]) => (
-                      <div key={key} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, fontFamily: 'Inter, sans-serif', background: key === previewQ.correct ? '#DCFCE7' : '#F8FAFC', color: key === previewQ.correct ? '#166534' : '#374151', fontWeight: key === previewQ.correct ? 700 : 400, border: `1px solid ${key === previewQ.correct ? '#86EFAC' : '#E5E7EB'}` }}>
-                        {key}. {val}
-                      </div>
-                    ))}
-                  </div>
+                  {previewQ.visual?.answerFrames ? (
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                      {Object.entries(previewQ.visual.answerFrames).map(([letter, frame]) => (
+                        <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                          <PatternFrame frame={frame} size={48} correct={previewQ.correct === letter} revealed color={subjectColor} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: previewQ.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 12 }}>
+                      {Object.entries(previewQ.options || {}).map(([key, val]) => (
+                        <div key={key} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, fontFamily: 'Inter, sans-serif', background: key === previewQ.correct ? '#DCFCE7' : '#F8FAFC', color: key === previewQ.correct ? '#166534' : '#374151', fontWeight: key === previewQ.correct ? 700 : 400, border: `1px solid ${key === previewQ.correct ? '#86EFAC' : '#E5E7EB'}` }}>
+                          {key}. {val}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {previewQ.explanation && <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', background: '#F8FAFC', borderRadius: 8, padding: '8px 12px', lineHeight: 1.6 }}>💡 {previewQ.explanation}</div>}
                   <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1, minWidth: 180 }}>

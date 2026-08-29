@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
 import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator } from './CustomTestPage';
+import QuestionVisual, { PatternFrame, renderPicturePatternSvgString, renderAnswerFrameSvgString } from '../components/QuestionVisual';
 
 // ── Admin-only Paper Test Builder ───────────────────────────────────────────
 // Mirrors the Custom Test builder (same QUESTION_BANK, same subject → topic →
@@ -591,14 +592,26 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
                     <div style={{ fontSize: 11, color: subj.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {subj.label}{q.questionType ? ` · ${q.questionType}` : ''}
                     </div>
+                    {q.visual && <QuestionVisual visual={q.visual} />}
                     <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: q.explanation ? 8 : 0 }}>
-                      {Object.entries(q.options || {}).map(([key, val]) => (
-                        <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
-                          {key}. {val}
-                        </div>
-                      ))}
-                    </div>
+                    {q.visual?.answerFrames ? (
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: q.explanation ? 8 : 0 }}>
+                        {Object.entries(q.visual.answerFrames).map(([letter, frame]) => (
+                          <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            <PatternFrame frame={frame} size={48} correct={q.correct === letter} revealed color={subj.color} />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', marginBottom: q.explanation ? 8 : 0 }}>
+                        {Object.entries(q.options || {}).map(([key, val]) => (
+                          <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
+                            {key}. {val}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {q.explanation && <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>💡 {q.explanation}</div>}
                   </div>
                   <button
@@ -673,6 +686,18 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
     sections.find(s => s.subj === subj).items.push(q);
   });
 
+  // Renders one question, including its visual pattern strip (if any) and
+  // either plain-text options or, for a picture-pattern question, each
+  // answer choice drawn as its own small SVG frame so students can actually
+  // see (and circle) the shape they're picking, not just a bare letter.
+  const questionBlockHtml = (q, num) => {
+    const visualHtml = q.visual ? renderPicturePatternSvgString(q.visual) : '';
+    const optionsHtml = q.visual?.answerFrames
+      ? `<div class="answer-frames">${Object.entries(q.visual.answerFrames).map(([l, frame]) => `<div class="answer-frame"><span class="answer-frame-letter">${l}</span>${renderAnswerFrameSvgString(frame, 46)}</div>`).join('')}</div>`
+      : `<div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div>`;
+    return `<div class="question"><p class="q-text">${num}. ${q.question}</p>${visualHtml}${optionsHtml}</div>`;
+  };
+
   let counter = 0;
   const questionsHtml = sections.map(section => {
     let itemsHtml;
@@ -682,17 +707,11 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
         const passageHtml = g.passage
           ? `<div class="passage"><h2>${g.passage.title}</h2><p>${(g.passage.text || '').replace(/\n\n/g, '</p><p>')}</p></div>`
           : '';
-        const groupQsHtml = g.questions.map(q => {
-          counter += 1;
-          return `<div class="question"><p class="q-text">${counter}. ${q.question}</p><div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div></div>`;
-        }).join('');
+        const groupQsHtml = g.questions.map(q => { counter += 1; return questionBlockHtml(q, counter); }).join('');
         return passageHtml + groupQsHtml;
       }).join('');
     } else {
-      itemsHtml = section.items.map(q => {
-        counter += 1;
-        return `<div class="question"><p class="q-text">${counter}. ${q.question}</p><div class="options">${Object.entries(q.options || {}).map(([l, t]) => `<p>&nbsp;&nbsp;&nbsp;${l}. ${t}</p>`).join('')}</div></div>`;
-      }).join('');
+      itemsHtml = section.items.map(q => { counter += 1; return questionBlockHtml(q, counter); }).join('');
     }
     return `<div class="section"><div class="section-title">${section.label}</div>${itemsHtml}</div>`;
   }).join('');
@@ -704,7 +723,13 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
 
   const explanations = (() => {
     let n = 0;
-    return questions.map(q => { n += 1; return `<p><strong>${n}.</strong> ${q.correct}. ${(q.options || {})[q.correct] || ''} — ${q.explanation || ''}</p>`; }).join('');
+    return questions.map(q => {
+      n += 1;
+      // For a picture-pattern question the option "text" is just a placeholder
+      // letter (the real content is the drawn frame), so leave it out here.
+      const optText = q.visual?.answerFrames ? '' : `${(q.options || {})[q.correct] || ''} `;
+      return `<p><strong>${n}.</strong> ${q.correct}. ${optText}— ${q.explanation || ''}</p>`;
+    }).join('');
   })();
 
   // Blank bubble answer sheet — vertical A/B/C/D stack per question, matching
@@ -741,6 +766,9 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
       .question{margin-bottom:18px;page-break-inside:avoid}
       .q-text{font-weight:bold;margin:0 0 6px}
       .options{margin-left:20px}
+      .answer-frames{display:flex;gap:18px;margin-left:20px;flex-wrap:wrap}
+      .answer-frame{display:flex;flex-direction:column;align-items:center;gap:4px}
+      .answer-frame-letter{font-size:11pt;font-weight:bold}
       .answers{border-top:2px solid #000;padding-top:16px;margin-top:20px;font-size:11pt}
       .answer-sheet-page{page-break-before:always;padding-top:8px}
       .sheet-instructions{font-size:10pt;color:#333;margin-bottom:18px}

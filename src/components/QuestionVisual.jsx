@@ -653,7 +653,7 @@ function LShape({ visual }) {
 
 // ── Picture Pattern Sequence ──────────────────────────────────────────────────
 
-const SHAPE_RENDERERS = {
+export const SHAPE_RENDERERS = {
   triangle: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy - sz} ${cx - sz},${cy + sz} ${cx + sz},${cy + sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
   triangle_down: (cx, cy, sz, f, s) => `<polygon points="${cx},${cy + sz} ${cx - sz},${cy - sz} ${cx + sz},${cy - sz}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
   square: (cx, cy, sz, f, s) => `<rect x="${cx - sz}" y="${cy - sz}" width="${sz * 2}" height="${sz * 2}" fill="${f}" stroke="${s}" stroke-width="1.5"/>`,
@@ -684,7 +684,7 @@ const SHAPE_RENDERERS = {
 // this style carries {polygonSides, elements:[{type,color,vertex}, ...]}
 // instead of the older {shapes:[{type,x,y,size,fill,stroke}]} format — both
 // are supported side by side, picked per-frame by which fields are present.
-function polygonVertices(n, cx, cy, r) {
+export function polygonVertices(n, cx, cy, r) {
   const pts = [];
   for (let k = 0; k < n; k++) {
     const a = (-90 + k * (360 / n)) * Math.PI / 180;
@@ -693,7 +693,7 @@ function polygonVertices(n, cx, cy, r) {
   return pts;
 }
 
-function renderRotationFrameSvg(frame, boxW, boxH) {
+export function renderRotationFrameSvg(frame, boxW, boxH) {
   const cx = boxW / 2, cy = boxH / 2;
   const r = Math.min(boxW, boxH) * 0.38;
   const n = frame.polygonSides;
@@ -708,6 +708,45 @@ function renderRotationFrameSvg(frame, boxW, boxH) {
     return renderer(v[0], v[1], sz, col, col);
   }).join('');
   return `<polygon points="${outline}" fill="none" stroke="#94A3B8" stroke-width="1.6"/>${elems}`;
+}
+
+// ── Plain-string SVG builders (for the printed/PDF paper, which is built as a
+// raw HTML string rather than rendered by React) ─────────────────────────────
+function frameInnerSvgString(frame, boxW, boxH) {
+  if (!frame) return '';
+  if (frame.polygonSides) return renderRotationFrameSvg(frame, boxW, boxH);
+  return (frame.shapes || []).map(sh => {
+    const renderer = SHAPE_RENDERERS[sh.type];
+    if (!renderer) return '';
+    const cx = (sh.x ?? 0.5) * boxW;
+    const cy = (sh.y ?? 0.5) * boxH;
+    const sz = (sh.size ?? 0.3) * Math.min(boxW, boxH);
+    return renderer(cx, cy, sz, sh.fill || 'none', sh.stroke || '#374151');
+  }).join('');
+}
+
+// Renders the "What comes next?" sequence-of-frames strip (visual.frames) as
+// a standalone HTML/SVG string, matching PicturePattern's on-screen layout.
+export function renderPicturePatternSvgString(visual) {
+  const { frames = [], title } = visual || {};
+  if (!frames.length) return '';
+  const frameW = 54, frameH = 54, gap = 6, pad = 6;
+  const totalW = frames.length * (frameW + gap) - gap + pad * 2;
+  const framesSvg = frames.map(frame => {
+    const isBlank = frame.isBlank;
+    if (isBlank) {
+      return `<rect width="${frameW}" height="${frameH}" rx="4" fill="#EEF2FF" stroke="#4338CA" stroke-width="2" stroke-dasharray="4,3"/><text x="${frameW / 2}" y="${frameH / 2}" font-size="24" font-weight="800" fill="#4338CA" text-anchor="middle" dominant-baseline="middle" font-family="Inter, sans-serif">?</text>`;
+    }
+    return `<rect width="${frameW}" height="${frameH}" rx="4" fill="#fff" stroke="#94A3B8" stroke-width="1.5"/>${frameInnerSvgString(frame, frameW, frameH)}`;
+  }).map((inner, fi) => `<g transform="translate(${pad + fi * (frameW + gap)}, ${pad})">${inner}</g>`).join('');
+  return `<div style="margin:8px 0 12px;">${title ? `<div style="font-size:11pt;font-weight:bold;margin-bottom:6px;">${title}</div>` : ''}<svg viewBox="0 0 ${totalW} ${frameH + pad * 2}" width="${Math.min(totalW, 380)}" height="${(frameH + pad * 2) * Math.min(totalW, 380) / totalW}">${framesSvg}</svg></div>`;
+}
+
+// Renders one answer-option frame (visual.answerFrames[letter]) as a
+// standalone SVG string, matching the PatternFrame component's look.
+export function renderAnswerFrameSvgString(frame, size = 48) {
+  if (!frame) return '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="vertical-align:middle;"><rect x="1" y="1" width="${size - 2}" height="${size - 2}" rx="6" fill="#fff" stroke="#94A3B8" stroke-width="1.5"/>${frameInnerSvgString(frame, size, size)}</svg>`;
 }
 
 function PicturePattern({ visual }) {
