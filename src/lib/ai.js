@@ -11,24 +11,6 @@ export const callClaude = async (systemPrompt, userPrompt) => {
 };
 
 
-// ── Chunk large question requests to avoid token limits ───────────────────────
-const CHUNK_SIZE = 12; // max questions per API call
-
-async function chunkGenerate(generateFn, yearLevel, totalCount, focus) {
-  if (totalCount <= CHUNK_SIZE) {
-    return generateFn(yearLevel, totalCount, focus);
-  }
-  const chunks = [];
-  let remaining = totalCount;
-  while (remaining > 0) {
-    const batchSize = Math.min(remaining, CHUNK_SIZE);
-    const batch = await generateFn(yearLevel, batchSize, focus);
-    chunks.push(...(Array.isArray(batch) ? batch : []));
-    remaining -= batchSize;
-  }
-  return chunks;
-}
-
 const schoolLevel = (yearLevel) => yearLevel <= 6 ? 'primary school' : 'secondary school';
 
 // ── Randomness + anti-repetition helpers ───────────────────────────────────────
@@ -532,12 +514,42 @@ For COUNTING questions (Year 1-4):
 
 // ── Generate Maths Questions ──────────────────────────────────────────────────
 
+// A single call's response has to fit inside the API's max_tokens cap
+// (currently 8000, api/claude.js). Visual questions (thermometer/clock/
+// lshape/polygon/etc) run considerably longer per question than plain text
+// ones, so asking for a large count in one shot — e.g. a paper requesting a
+// dozen+ Clock/Temperature/Perimeter questions together — risks the response
+// getting cut off mid-JSON, which fails to parse and surfaces as "Failed to
+// generate questions" with no useful detail. Cap any single call at this
+// size; generateMathsQuestions below splits a bigger request into batches.
+const MATHS_CHUNK_SIZE = 8;
+
 export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = [], localTypeKey = null) => {
   if (localTypeKey) {
     const local = generateMathsQuestionsLocal(localTypeKey, count, yearLevel);
     if (local) return local;
     // Unrecognised key — fall through to the AI path below rather than failing.
   }
+  if (count > MATHS_CHUNK_SIZE) {
+    const out = [];
+    let remaining = count;
+    let fp = [...recentFingerprints];
+    while (remaining > 0) {
+      const batchSize = Math.min(remaining, MATHS_CHUNK_SIZE);
+      const batch = await generateMathsQuestionsOneCall(yearLevel, batchSize, questionTypeFocus, fp);
+      out.push(...batch);
+      // Each later batch also avoids repeating what earlier batches in this
+      // same request already produced, not just recentFingerprints from
+      // before the call started.
+      fp = [...fp, ...batch.map(fingerprintQuestion)];
+      remaining -= batchSize;
+    }
+    return out;
+  }
+  return await generateMathsQuestionsOneCall(yearLevel, count, questionTypeFocus, recentFingerprints);
+};
+
+async function generateMathsQuestionsOneCall(yearLevel, count, questionTypeFocus, recentFingerprints) {
   const blueprint = getMathsBlueprint(yearLevel);
   const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
 
@@ -597,10 +609,20 @@ Return ONLY this JSON (questionType must be a specific descriptive name for the 
 
 For questions with visuals, replace null with the visual object. For questions without visuals, use null or omit the field.`;
 
-  const raw = await callClaude(system, user);
-  const parsed = JSON.parse(raw);
-  return (parsed.questions || []).map(finalizeQuestion);
-};
+  // A truncated/malformed response (rare, but more likely for a visual-heavy
+  // batch pushing close to the output cap) fails JSON.parse — one retry with
+  // the same prompt before giving up, since the model's output length varies
+  // call to call.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const raw = await callClaude(system, user);
+      const parsed = JSON.parse(raw);
+      return (parsed.questions || []).map(finalizeQuestion);
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
+}
 
 // ── Generate Reading Questions ────────────────────────────────────────────────
 
