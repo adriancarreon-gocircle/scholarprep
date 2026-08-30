@@ -390,15 +390,16 @@ function NumberLine({ visual }) {
 // ── Thermometer ───────────────────────────────────────────────────────────────
 
 function Thermometer({ visual }) {
-  const { value, unit = 'C', min = 0, max = 50, title, color = '#EF4444' } = visual;
+  const { value, unit = 'C', min = 0, max = 50, title, color = '#EF4444', dual = false } = visual;
   const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const bulbY = 160;
   const tubeTop = 20;
   const tubeH = bulbY - tubeTop - 10;
   const fillH = pct * tubeH;
   const fillY = bulbY - 10 - fillH;
+  const cToF = (c) => c * 9 / 5 + 32;
 
-  // Generate tick marks
+  // Generate tick marks (left column — always in `unit`, i.e. °C for a dual thermometer)
   const ticks = [];
   const tickCount = 10;
   for (let i = 0; i <= tickCount; i++) {
@@ -408,25 +409,90 @@ function Thermometer({ visual }) {
     ticks.push({ val: Math.round(tickVal), y: tickY, major: isMajor });
   }
 
+  // Right-hand Fahrenheit column, only rendered when `dual` is set — same
+  // tube positions as the left column, just relabelled in °F.
+  const tubeCx = dual ? 80 : 60;
+  const svgW = dual ? 160 : 120;
+
   return (
     <div style={{ background: '#FFF5F5', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(239,68,68,0.15)', textAlign: 'center' }}>
       {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>{title}</div>}
-      <svg width={120} height={190} viewBox="0 0 120 190" style={{ display: 'block', margin: '0 auto' }}>
+      <svg width={svgW} height={190} viewBox={`0 0 ${svgW} 190`} style={{ display: 'block', margin: '0 auto' }}>
         {/* Tube outline */}
-        <rect x={52} y={tubeTop} width={16} height={tubeH + 10} rx={8} fill="#fff" stroke="#CBD5E1" strokeWidth={2} />
+        <rect x={tubeCx - 8} y={tubeTop} width={16} height={tubeH + 10} rx={8} fill="#fff" stroke="#CBD5E1" strokeWidth={2} />
         {/* Mercury fill */}
-        <rect x={56} y={fillY} width={8} height={fillH} rx={2} fill={color} />
+        <rect x={tubeCx - 4} y={fillY} width={8} height={fillH} rx={2} fill={color} />
         {/* Bulb */}
-        <circle cx={60} cy={bulbY + 10} r={14} fill={color} stroke={color} strokeWidth={2} />
-        {/* Tick marks */}
+        <circle cx={tubeCx} cy={bulbY + 10} r={14} fill={color} stroke={color} strokeWidth={2} />
+        {/* Left tick marks (Celsius, or the single unit when not dual) */}
         {ticks.map((t, i) => (
           <g key={i}>
-            <line x1={t.major ? 40 : 44} y1={t.y} x2={52} y2={t.y} stroke="#94A3B8" strokeWidth={t.major ? 1.5 : 1} />
-            {t.major && <text x={36} y={t.y + 4} fontSize={10} fill="#374151" textAnchor="end" fontFamily="Inter, sans-serif">{t.val}°</text>}
+            <line x1={t.major ? tubeCx - 20 : tubeCx - 16} y1={t.y} x2={tubeCx - 8} y2={t.y} stroke="#94A3B8" strokeWidth={t.major ? 1.5 : 1} />
+            {t.major && <text x={tubeCx - 24} y={t.y + 4} fontSize={10} fill="#374151" textAnchor="end" fontFamily="Inter, sans-serif">{t.val}°</text>}
           </g>
         ))}
-        {/* Unit label */}
-        <text x={80} y={30} fontSize={13} fontWeight="700" fill={color} fontFamily="Inter, sans-serif">{unit === 'C' ? '°C' : '°F'}</text>
+        {/* Right-hand Fahrenheit ticks — dual mode only */}
+        {dual && ticks.map((t, i) => (
+          <g key={`f${i}`}>
+            <line x1={tubeCx + 8} y1={t.y} x2={t.major ? tubeCx + 20 : tubeCx + 16} y2={t.y} stroke="#94A3B8" strokeWidth={t.major ? 1.5 : 1} />
+            {t.major && <text x={tubeCx + 24} y={t.y + 4} fontSize={10} fill="#374151" textAnchor="start" fontFamily="Inter, sans-serif">{Math.round(cToF(t.val))}°</text>}
+          </g>
+        ))}
+        {/* Unit label(s) */}
+        {dual ? (
+          <>
+            <text x={tubeCx - 28} y={30} fontSize={12} fontWeight="700" fill={color} textAnchor="end" fontFamily="Inter, sans-serif">°C</text>
+            <text x={tubeCx + 28} y={30} fontSize={12} fontWeight="700" fill={color} textAnchor="start" fontFamily="Inter, sans-serif">°F</text>
+          </>
+        ) : (
+          <text x={tubeCx + 20} y={30} fontSize={13} fontWeight="700" fill={color} fontFamily="Inter, sans-serif">{unit === 'C' ? '°C' : '°F'}</text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ── Analog Clock ──────────────────────────────────────────────────────────────
+
+function ClockFace({ visual }) {
+  const { hour = 3, minute = 0, title, color = '#4338CA' } = visual;
+  const h12 = ((Math.floor(hour) % 12) + 12) % 12;
+  const cx = 90, cy = 90, r = 76;
+  const minuteAngle = (minute / 60) * 360;
+  const hourAngle = (h12 / 12) * 360 + (minute / 60) * 30;
+
+  const toXY = (angleDeg, len) => {
+    const rad = ((angleDeg - 90) * Math.PI) / 180;
+    return [cx + len * Math.cos(rad), cy + len * Math.sin(rad)];
+  };
+  const [mx, my] = toXY(minuteAngle, 58);
+  const [hx, hy] = toXY(hourAngle, 40);
+
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const angle = i * 30;
+    const isMajor = true; // every hour mark is major on a 12-hour face
+    const [x1, y1] = toXY(angle, r - 4);
+    const [x2, y2] = toXY(angle, r - 13);
+    const [nx, ny] = toXY(angle, r - 24);
+    return { x1, y1, x2, y2, nx, ny, num: i === 0 ? 12 : i, isMajor };
+  });
+
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)', textAlign: 'center' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>{title}</div>}
+      <svg width={180} height={180} viewBox="0 0 180 180" style={{ display: 'block', margin: '0 auto' }}>
+        <circle cx={cx} cy={cy} r={r} fill="#fff" stroke={color} strokeWidth={3} />
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke={color} strokeWidth={2} strokeLinecap="round" />
+            <text x={t.nx} y={t.ny} fontSize={13} fontWeight="700" fill="#374151" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">{t.num}</text>
+          </g>
+        ))}
+        {/* Hour hand */}
+        <line x1={cx} y1={cy} x2={hx} y2={hy} stroke={color} strokeWidth={4.5} strokeLinecap="round" />
+        {/* Minute hand */}
+        <line x1={cx} y1={cy} x2={mx} y2={my} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={4.5} fill={color} />
       </svg>
     </div>
   );
@@ -646,6 +712,45 @@ function LShape({ visual }) {
             </text>
           );
         })}
+      </svg>
+    </div>
+  );
+}
+
+// ── Irregular Polygon (free-form, non-rectilinear perimeter shapes) ─────────
+// Unlike LShape's fixed rectilinear templates (right angles only), this takes
+// an arbitrary simple polygon as a list of normalised (0-1) points, so the AI
+// can describe any irregular shape — angled sides included — with its own
+// per-side length labels, matching reference shapes that aren't pure L/U/T/
+// staircase outlines.
+
+function PolygonShape({ visual }) {
+  const { points = [], sides = [], title, color = '#4338CA' } = visual;
+  const W = 280, H = 190, pad = 34;
+  if (!points.length) return null;
+  const px = points.map(([x, y]) => [pad + x * (W - 2 * pad), pad + y * (H - 2 * pad)]);
+  const n = px.length;
+  const polyPts = px.map(p => p.join(',')).join(' ');
+  const centroid = [px.reduce((s, p) => s + p[0], 0) / n, px.reduce((s, p) => s + p[1], 0) / n];
+
+  const labels = px.map((p, i) => {
+    const q = px[(i + 1) % n];
+    const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    const dx = mx - centroid[0], dy = my - centroid[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: mx + (dx / len) * 15, y: my + (dy / len) * 15, text: sides[i] ?? '' };
+  });
+
+  return (
+    <div style={{ background: '#F8FAFF', borderRadius: 14, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(67,56,202,0.1)' }}>
+      {title && <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>{title}</div>}
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: 340, display: 'block', margin: '0 auto', overflow: 'visible' }}>
+        <polygon points={polyPts} fill={`${color}15`} stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
+        {labels.map((lbl, i) => (
+          <text key={i} x={lbl.x} y={lbl.y} fontSize={12} fontWeight="700" fill={color} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+            {lbl.text}
+          </text>
+        ))}
       </svg>
     </div>
   );
@@ -1001,6 +1106,8 @@ export default function QuestionVisual({ visual }) {
     case 'piechart': return <PieChart visual={visual} />;
     case 'shape': return <ShapeDiagram visual={visual} />;
     case 'lshape': return <LShape visual={visual} />;
+    case 'polygon': return <PolygonShape visual={visual} />;
+    case 'clock': return <ClockFace visual={visual} />;
     case 'money': return <MoneyVisual visual={visual} />;
     case 'counting': return <CountingObjects visual={visual} />;
     case 'numberline': return <NumberLine visual={visual} />;

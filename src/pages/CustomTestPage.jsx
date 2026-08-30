@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion } from '../lib/ai';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion, MATHS_VISUAL_SPEC } from '../lib/ai';
 import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
 import QuestionVisual, { PatternFrame, AnswerCell } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
@@ -29,17 +29,17 @@ export const QUESTION_BANK = {
       { key: 'percentage', label: 'Percentages', questionTypes: [{ key: 'pctcount', label: 'Count Percentages', examples: ['Write 25/100 as a percentage', 'Write 0.25 as a percentage'] }, { key: 'pctcalc', label: 'Calculate Percentages', examples: ['What is 50% of $40?'] }, { key: 'pctworded', label: 'Worded Percentage Problems', examples: ['A computer costs $500 on 25% sale. What is the new price?'] }] },
       { key: 'conversion', label: 'Conversion', questionTypes: [{ key: 'convlength', label: 'Length Conversion', examples: ['What is 300cm in metres?'] }, { key: 'convtime', label: 'Time Conversion', examples: ['How many minutes in 3 hours?'] }, { key: 'convmoney', label: 'Money Conversion', examples: ['How many cents in $3.00?'] }, { key: 'convweight', label: 'Weight / Mass Conversion', examples: ['How many grams in 3kg?'] }] },
       { key: 'money', label: 'Money', questionTypes: [{ key: 'moneycount', label: 'Count Money', examples: ['Look at the coins — how much in total?'] }, { key: 'moneyworded', label: 'Worded Money Problems', examples: ['Adam had $50 and bought chips for $10. How much left?'] }] },
-      { key: 'time', label: 'Time', questionTypes: [{ key: 'timeclock', label: 'Read a Clock', examples: ['What time is shown on the clock?'] }, { key: 'timecalc', label: 'Time Calculations', examples: ['A TV show started at 8:00pm and finished at 9:00pm. How long?'] }, { key: 'timecalendar', label: 'Calendar Problems', examples: ['What day is it 5 days after 3rd May?'] }] },
+      { key: 'time', label: 'Time', questionTypes: [{ key: 'timeclock', label: 'Read a Clock', examples: ['What time is shown on the clock?', 'The clock above shows the time. What will the time be 2 hours and 45 minutes later?'] }, { key: 'timecalc', label: 'Time Calculations', examples: ['A TV show started at 8:00pm and finished at 9:00pm. How long?'] }, { key: 'timecalendar', label: 'Calendar Problems', examples: ['What day is it 5 days after 3rd May?'] }] },
       { key: 'length', label: 'Length', questionTypes: [{ key: 'lengthmeasure', label: 'Measure Length', examples: ['What is the length of the object?'] }, { key: 'lengthworded', label: 'Worded Length Problems', examples: ['Peter is taller than Thai by 20cm. Thai is 100cm. How tall is Peter?'] }] },
       { key: 'volume', label: 'Volume & Weight', questionTypes: [{ key: 'volumecount', label: 'Count Volume / Weight', examples: ['Look at the objects — how many kg total?'] }, { key: 'volumeworded', label: 'Worded Volume Problems', examples: ['Lia had 5kg of rice and gave 2.5kg away. How much left?'] }] },
-      { key: 'perimeter', label: 'Perimeter', questionTypes: [{ key: 'perimmeasure', label: 'Measure Perimeter', examples: ['What is the perimeter of this shape?'] }, { key: 'perimworded', label: 'Worded Perimeter Problems', examples: ['A shape has 20cm length and 5cm width. What is the perimeter?'] }] },
+      { key: 'perimeter', label: 'Perimeter', questionTypes: [{ key: 'perimmeasure', label: 'Measure Perimeter', examples: ['What is the perimeter of this shape?', 'What is the perimeter of the irregular shape above? Then subtract 15m from your answer.'] }, { key: 'perimworded', label: 'Worded Perimeter Problems', examples: ['A shape has 20cm length and 5cm width. What is the perimeter?'] }] },
       { key: 'area', label: 'Area', questionTypes: [{ key: 'areameasure', label: 'Measure Area', examples: ['What is the area of a 12cm x 4cm rectangle?'] }, { key: 'areacubes', label: 'Cube Volume', examples: ['How many cubes are in this object?'] }, { key: 'areacomplex', label: 'Complex Area', examples: ['What is the area after removing the small square from the rectangle?'] }] },
       { key: 'angles', label: 'Angles', questionTypes: [{ key: 'anglesbasic', label: 'Read / Calculate Angles', examples: ['What angle is shown?', 'What is angle x in the triangle with angles 65 and 70 degrees?'] }, { key: 'anglesshapes', label: 'Angles in Shapes', examples: ['What is the angle in an isosceles triangle?'] }] },
       { key: 'factors', label: 'Factors & Multiples', questionTypes: [{ key: 'factorscount', label: 'Count Factors & Multiples', examples: ['Is 3 a factor of 27?', 'What is a factor of 20?', 'What is a common multiple of 21 and 3?'] }] },
       { key: 'rate', label: 'Rates', questionTypes: [{ key: 'ratecount', label: 'Rate Problems', examples: ['A car drove for 3 hrs at 2km/h. How far?', 'A person earns $25/hour and works 8 hours. How much?'] }] },
       { key: 'average', label: 'Averages', questionTypes: [{ key: 'avgcount', label: 'Count Averages', examples: ['What is the average of 20, 42, 3, 14?'] }, { key: 'avgworded', label: 'Worded Average Problems', examples: ['A class got 40, 30, 20, 55 out of 100. What is the average?'] }] },
       { key: 'circle', label: 'Circles', questionTypes: [{ key: 'circlecirc', label: 'Circumference', examples: ['A circle has diameter 10cm. What is its circumference? (Use pi = 3.14)'] }, { key: 'circledia', label: 'Diameter & Radius', examples: ['Calculate the diameter of this circle'] }] },
-      { key: 'charts', label: 'Charts & Data', questionTypes: [{ key: 'barchart', label: 'Bar Charts', examples: ['How many are in column A and B?', 'What is the greatest number in the chart?'] }, { key: 'piechart', label: 'Pie Charts / Percentages', examples: ['Look at the pie chart — how much % was category 2?'] }, { key: 'thermometer', label: 'Thermometer', examples: ['Look at the thermometer — what is the temperature in Celsius?'] }] },
+      { key: 'charts', label: 'Charts & Data', questionTypes: [{ key: 'barchart', label: 'Bar Charts', examples: ['How many are in column A and B?', 'What is the greatest number in the chart?'] }, { key: 'piechart', label: 'Pie Charts / Percentages', examples: ['Look at the pie chart — how much % was category 2?'] }, { key: 'thermometer', label: 'Thermometer', examples: ['Look at the thermometer — what is the temperature in Celsius?', 'Look at the thermometer above — what is the temperature 12° above the one shown?'] }] },
       { key: 'algebra', label: 'Algebra', questionTypes: [{ key: 'algcalc', label: 'Calculate Algebra', examples: ['5k = 5 x ?', 'Simplify b + b + b'] }, { key: 'algsolve', label: 'Solve for x', examples: ['5x = 35, find x', '3x + 7 = 22, find x'] }] },
       { key: 'geometry', label: 'Shapes', questionTypes: [{ key: 'geo2d', label: '2D Shapes', examples: ['What is the name of this shape?', 'How many sides does this shape have?'] }, { key: 'geo3d', label: '3D Shapes', examples: ['How many edges does this shape have?'] }, { key: 'geoflip', label: 'Flip / Rotate Shapes', examples: ['Look at this shape and flip it sideways'] }] },
       { key: 'orderofoperations', label: 'Order of Operations (BODMAS)', questionTypes: [{ key: 'bodmasbasic', label: 'Basic Order of Operations', examples: ['4 + 2 × 3 = ?', '10 - 2 × 3 + 1 = ?', '8 ÷ 2 + 5 × 2 = ?'] }, { key: 'bodmasbrackets', label: 'With Brackets', examples: ['123 - (34 + 32) = ?', '(5 + 3) × 4 - 6 = ?', '50 ÷ (2 + 3) × 4 = ?'] }, { key: 'bodmasworded', label: 'Worded Order of Operations', examples: ['Sam had 20 stickers. He gave away (3 + 4) and then doubled what was left. How many does he have?', 'A box holds 5 × (2 + 3) apples. How many apples in total?'] }] },
@@ -1384,12 +1384,20 @@ const CREATOR_SUBJECTS = [
 ];
 
 export async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel, guidance = null) {
+  // Only mathematics templates can need a diagram (thermometer/clock/shape/etc)
+  // — without this, a template like "read the clock, what time is it later"
+  // was generated as plain text every time because this function's schema had
+  // no "visual" field at all.
+  const isMaths = subject === 'mathematics';
+  const visualClause = isMaths ? `\n\nIf the example question describes or implies a DIAGRAM (a shape to measure, a thermometer to read, a clock face, a chart), include a "visual" field on every generated question built per this schema — otherwise omit "visual" or set it to null:\n${MATHS_VISUAL_SPEC}` : '';
+
   const system = `You are an expert Australian exam question writer for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
 The user will give you an example question. Your job is to:
 1. Extract the underlying TEMPLATE — identify what variables (numbers, names, items) can be swapped out while keeping the same structure.
 2. Generate ${count} NEW questions following the same template with completely different numbers, names, and items.
 3. Each question must require the same reasoning/skill as the example.
+${visualClause}
 
 Return ONLY valid JSON:
 {
@@ -1402,10 +1410,12 @@ Return ONLY valid JSON:
       "correct": "A",
       "explanation": "Step-by-step working",
       "topic": "${subject}",
-      "questionType": "${questionType || 'Custom'}"
+      "questionType": "${questionType || 'Custom'}",
+      "visual": null
     }
   ]
-}`;
+}
+${isMaths ? 'For questions with a diagram, replace "visual":null with the visual object built per the schema above.' : ''}`;
 
   // "guidance" is the creator's own private note on what this template should
   // focus on — never shown to students, but handed to the model every time
@@ -1452,21 +1462,23 @@ Pick whichever option matches the photo. Do not include the blank "?" frame in "
 
 export async function generateFromImages(images, subject, questionType, yearLevel, mode, count, guidance = null) {
   const asIs = mode === 'asis';
+  const isMaths = subject === 'mathematics';
+  const mathsVisualClause = isMaths ? `\nIf the photo shows a MATHS DIAGRAM (a shape to measure, a thermometer, a clock face, a chart), represent it using this "visual" schema instead — build the structured visual, don't just describe the diagram in words:\n${MATHS_VISUAL_SPEC}\n` : '';
   const system = `You are an expert Australian exam question analyst for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
 The user has uploaded ${images.length > 1 ? `${images.length} photos` : 'a photo'} of an exam question or exercise. The photos may be different pages of the same exercise (for example, one photo of a reading passage and a separate photo of its questions) — treat them as one combined source.
 
 First work out what KIND of content this is:
-- "single" — one self-contained multiple-choice question
+- "single" — one self-contained multiple-choice question (this includes maths questions built around a diagram — a shape, thermometer, clock, or chart)
 - "pattern" — a visual/shape/picture reasoning question (a sequence of diagrams with 4 answer options)
 - "passage" — a reading comprehension passage with one or more attached multiple-choice questions
 
 ${asIs
-      ? `Your job is to EXTRACT the content exactly as shown — keep the wording, numbers, options and (for pattern questions) the visual layout faithful to the photo(s). For every question, also give your own best-guess correct answer as "suggestedCorrect" (a letter A-D), reasoned from the content itself. The user will confirm or correct every answer afterwards, so give your genuine best guess rather than a default.`
+      ? `Your job is to EXTRACT the content exactly as shown — keep the wording, numbers, options and (for pattern questions, or maths questions with a diagram) the visual layout faithful to the photo(s). For every question, also give your own best-guess correct answer as "suggestedCorrect" (a letter A-D), reasoned from the content itself. The user will confirm or correct every answer afterwards, so give your genuine best guess rather than a default.`
       : `Your job is to generate ${count} brand NEW ${count > 1 ? 'items' : 'item'} that closely follow the same structure and test the same skill, but with completely different content — new numbers, names, story, or shape arrangement as appropriate. Never reuse the exact wording, numbers, or shape positions shown in the photo(s). You know the correct answer for everything you generate, since you created it — put it directly in "correct".`}
 
 ${PATTERN_VISUAL_SPEC}
-
+${mathsVisualClause}
 Return ONLY valid JSON in this exact shape, no other text:
 {
   "contentKind": "single" | "pattern" | "passage",

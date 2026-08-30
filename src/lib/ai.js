@@ -468,28 +468,12 @@ function generateMathsQuestionsLocal(localTypeKey, count, yearLevel) {
   return out;
 }
 
-// ── Generate Maths Questions ──────────────────────────────────────────────────
-
-export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = [], localTypeKey = null) => {
-  if (localTypeKey) {
-    const local = generateMathsQuestionsLocal(localTypeKey, count, yearLevel);
-    if (local) return local;
-    // Unrecognised key — fall through to the AI path below rather than failing.
-  }
-  const blueprint = getMathsBlueprint(yearLevel);
-  const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
-
-  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
-
-  const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong to the specified topic(s) only. Returning questions on any other topic is a failure. Every question's "topic" field must match the topic it was generated for.${freshnessBlock}`
-    : freshnessBlock;
-
-  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
-${focusInstruction}
-${blueprint}
-
-VISUAL QUESTIONS — for certain question types, include a "visual" field with structured data to render a diagram. Use visuals for these types:
+// ── Shared maths visual-diagram schema documentation ───────────────────────
+// Used both by generateMathsQuestions (fresh generation) AND generateFreshVariant
+// (single-question regenerate, when the original question being replaced is a
+// maths question with a visual) — kept as one shared constant so the two paths
+// can never drift apart, the same pattern used for PICTURE_PATTERN_SPEC below.
+export const MATHS_VISUAL_SPEC = `VISUAL QUESTIONS — for certain question types, include a "visual" field with structured data to render a diagram. Use visuals for these types:
 
 For STATISTICS questions (bar charts, line graphs, pie charts):
 {"visual":{"type":"barchart","title":"Books Read Per Month","data":[{"label":"Jan","value":4},{"label":"Feb","value":7},{"label":"Mar","value":10},{"label":"Apr","value":6}],"yLabel":"Books","color":"#4338CA"}}
@@ -517,12 +501,24 @@ For Year 5+ perimeter questions, optionally hide 1-2 sides (hiddenSides array of
 
 IMPORTANT: sides array length must match template (lshape=6, rlshape=6, ushape=6, tshape=8, staircase=8). For perimeter questions, correct answer = sum of all sides.
 
+For IRREGULAR (non-rectilinear, angled) perimeter shapes — when the shape isn't made of right angles, use "polygon" instead of "lshape"/"shape":
+{"visual":{"type":"polygon","title":"Find the perimeter","color":"#4338CA","points":[[0.5,0.02],[0.95,0.35],[0.78,0.98],[0.22,0.98],[0.05,0.35]],"sides":["9m","11m","14m","14m","11m"]}}
+"points" is a list of [x,y] coordinates (each 0-1) tracing the polygon's corners in order — draw a simple (non-self-crossing) polygon with 5-7 points shaped roughly like the described figure. "sides" gives one length label per edge, same length and order as "points" (side i runs from points[i] to points[i+1], wrapping around).
+
+For perimeter questions at Year 4+, occasionally add a follow-up arithmetic step on top of the perimeter calculation itself (e.g. "What is the perimeter of the shape above? Then subtract 15m from your answer." / "...then double your answer.") so it isn't always a single-step calculation — vary this, don't do it every time.
+
 For COUNTING CUBES questions — always include a visual:
 {"visual":{"type":"cubes","title":"How many cubes are there?","dimensions":{"length":4,"width":3,"height":2},"color":"#4338CA"}}
 
-For THERMOMETER questions — always include a visual:
+For THERMOMETER questions — always include a visual. Use a single-scale thermometer (a plain red-mercury reading) most of the time, and a dual C/F thermometer sometimes for variety:
 {"visual":{"type":"thermometer","title":"What temperature is shown?","value":35,"unit":"C","min":0,"max":50,"color":"#EF4444"}}
 {"visual":{"type":"thermometer","title":"What temperature is shown?","value":98,"unit":"F","min":32,"max":120,"color":"#EF4444"}}
+{"visual":{"type":"thermometer","title":"What temperature is shown?","value":18,"unit":"C","min":-10,"max":40,"dual":true,"color":"#EF4444"}}
+For a dual thermometer, "value"/"min"/"max" are in Celsius — the Fahrenheit scale is derived and drawn automatically, so never set "unit":"F" together with "dual":true. Vary the question beyond simple reading — often ask for a temperature a given number of degrees ABOVE or BELOW the one shown (e.g. "What is the temperature 12° above the one shown?"), so the student reads the thermometer AND does the arithmetic.
+
+For CLOCK questions (Year 2+) — always include a visual:
+{"visual":{"type":"clock","title":"What time is shown?","hour":9,"minute":15,"color":"#4338CA"}}
+"hour" is 0-11 (12-hour face, no AM/PM shown on the clock itself), "minute" is 0-59. Vary the question beyond simple reading — often ask what the time will be a given number of hours and minutes LATER (or earlier) than the time shown (e.g. "What time will it be 2 hours and 45 minutes after the time shown?"), so options are plain times like "11:45" and the student must read the clock AND do the time arithmetic. State AM/PM or 24-hour context in the question text itself when it matters, since the clock face doesn't show it.
 
 CRITICAL — Chart question text: ALWAYS write "the bar chart ABOVE" or "the chart ABOVE" — NEVER "below", because the visual renders ABOVE the question text.
 
@@ -532,11 +528,35 @@ For MONEY questions (Year 1-6):
 
 For COUNTING questions (Year 1-4):
 {"visual":{"type":"counting","title":"How many apples are there?","object":"apple","groups":[{"count":5,"showCount":false},{"count":3,"showCount":false}]}}
-{"visual":{"type":"counting","title":"Count the objects in each group","groups":[{"label":"Group A","count":4,"emoji":"⭐","showCount":false},{"label":"Group B","count":7,"emoji":"⭐","showCount":false}]}}
+{"visual":{"type":"counting","title":"Count the objects in each group","groups":[{"label":"Group A","count":4,"emoji":"⭐","showCount":false},{"label":"Group B","count":7,"emoji":"⭐","showCount":false}]}}`;
+
+// ── Generate Maths Questions ──────────────────────────────────────────────────
+
+export const generateMathsQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = [], localTypeKey = null) => {
+  if (localTypeKey) {
+    const local = generateMathsQuestionsLocal(localTypeKey, count, yearLevel);
+    if (local) return local;
+    // Unrecognised key — fall through to the AI path below rather than failing.
+  }
+  const blueprint = getMathsBlueprint(yearLevel);
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} mathematics exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). You generate questions that closely match the style and types specified in the question bank blueprint. Always respond with ONLY valid JSON, no other text.`;
+
+  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong to the specified topic(s) only. Returning questions on any other topic is a failure. Every question's "topic" field must match the topic it was generated for.${freshnessBlock}`
+    : freshnessBlock;
+
+  const user = `Generate ${count} mathematics multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} students.
+${focusInstruction}
+${blueprint}
+
+${MATHS_VISUAL_SPEC}
 
 RULES FOR VISUALS:
 - Only add a visual when it genuinely helps the question (statistics, geometry shapes, money, counting)
-- Do NOT add visuals to algebra, number operations, fractions without shapes, or worded time problems
+- Do NOT add visuals to algebra, number operations, or fractions without shapes
+- DO add a "clock" visual whenever the question is about reading a clock face or doing arithmetic on a shown time (not for calendar problems, or time-conversion problems like "how many minutes in 3 hours" — those stay text-only)
 - Make sure the question text references the visual (e.g. "Using the bar chart above..." or "Look at the shape below...")
 - The correct answer must be determinable from the visual data provided
 
@@ -555,7 +575,7 @@ TOPIC TAGS — assign exactly one to each question:
 - "decimals" — decimals, converting decimals
 - "percentages" — percentages, percentage problems
 - "geometry" — shapes, 2D, 3D, symmetry, angles
-- "measurement" — length, area, perimeter, volume, time, money
+- "measurement" — length, area, perimeter, volume, time, money, temperature
 - "algebra" — algebra, expressions, equations
 - "orderofoperations" — order of operations, BODMAS, BIDMAS, brackets, mixed calculations with multiple operators
 - "statistics" — averages, mean, median, mode, data
@@ -1356,13 +1376,21 @@ export const generateFreshVariant = async (originalQuestion, subject, yearLevel,
   // Reuse the same schema documentation the initial generator uses so a
   // regenerated variant gets a fresh, real visual of the same type/technique.
   const hasVisual = !!originalQuestion.visual;
+  // Maths visuals (thermometer/clock/lshape/polygon/etc) and General Ability
+  // picture-pattern visuals use completely different schemas — inject the
+  // matching documentation so a regenerated variant keeps the right kind of
+  // picture instead of silently reverting to plain text (or getting the wrong
+  // schema's rules). Detected from the subject rather than the visual's own
+  // "type" so it works even before the fresh visual exists.
+  const isMathsVisual = hasVisual && subject === 'mathematics';
+  const visualSpecBlock = isMathsVisual ? MATHS_VISUAL_SPEC : PICTURE_PATTERN_SPEC;
   const visualBlock = hasVisual ? `
 
-This question has a VISUAL PICTURE-PATTERN — the original "visual" object (for reference, to see which schema and technique it uses) was:
+This question has a VISUAL${isMathsVisual ? ' DIAGRAM' : ' PICTURE-PATTERN'} — the original "visual" object (for reference, to see which schema and technique it uses) was:
 ${JSON.stringify(originalQuestion.visual)}
 
-You MUST return a fresh "visual" object in your response, built with the SAME schema and technique (same "type", same underlying pattern rule implied by the question type "${qType}") but with different concrete shapes/colors/positions/rotations/counts than the original — never reuse the exact same visual. Follow these rules for constructing it:
-${PICTURE_PATTERN_SPEC}` : '';
+You MUST return a fresh "visual" object in your response, built with the SAME schema and technique (same "type"${isMathsVisual ? '' : ', same underlying pattern rule implied by the question type "' + qType + '"'}) but with different concrete ${isMathsVisual ? 'values/dimensions' : 'shapes/colors/positions/rotations/counts'} than the original — never reuse the exact same visual. Follow these rules for constructing it:
+${visualSpecBlock}` : '';
 
   const user = `I have an existing exam question. Generate ONE fresh variant that keeps EXACTLY the same question format and sentence structure, but changes the specific values (numbers, names, objects, words).
 
@@ -1376,7 +1404,7 @@ STRICT RULES:
 2. For maths: change ALL numbers to different values. Keep the same operations and narrative.
    Example: "320 markers and 180 rulers, remove 25 items for 5 days" → "400 markers and 200 rulers, remove 30 items for 4 days"
 3. For English: change the example sentence/word but test the SAME grammar rule
-4. For general ability: change pattern values/analogy words/sequence numbers — same reasoning structure${hasVisual ? '. This one has a visual — see the visual instructions above; the "options" text stays as short placeholder labels ("Option A" etc), the real answer content lives in "visual.answerFrames"/quadrant transforms.' : ''}
+4. For general ability: change pattern values/analogy words/sequence numbers — same reasoning structure${hasVisual && !isMathsVisual ? '. This one has a visual — see the visual instructions above; the "options" text stays as short placeholder labels ("Option A" etc), the real answer content lives in "visual.answerFrames"/quadrant transforms.' : ''}${isMathsVisual ? '\n8. This maths question has a diagram — see the visual instructions above. Keep "options" as real, meaningful answer text as normal (unlike picture-pattern questions, the diagram here illustrates the question, it is not the answer itself).' : ''}
 5. Do NOT use any of the same numbers or key words from the original
 6. All 4 options must be plausible, only one correct
 7. The correct answer letter (A/B/C/D) should vary — do not always use the same letter as original
