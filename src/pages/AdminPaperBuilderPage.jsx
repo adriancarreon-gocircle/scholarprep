@@ -121,8 +121,17 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
         // in original order, every time, with its passage carried through.
         const hasPassage = !!tmpl.passage;
         const effSubj = hasPassage ? 'reading' : tmplSubj;
+        // Only a template the admin actually marked "As-Is" should permanently
+        // lock its questions against regeneration. This used to be `_asIs: true`
+        // unconditionally for every question sourced from ANY custom template —
+        // so a non-As-Is (extendable) template's already-saved questions were
+        // greyed out in Review just as hard as a true As-Is template's, while
+        // that same template's freshly AI-generated "extra" questions (added
+        // below when more were needed than were saved) were left regenerable.
+        // That inconsistency is exactly what showed up as "Regenerate is
+        // sometimes greyed out" for papers built from custom templates.
         const saved = (tmpl.questions || []).map(q => ({
-          ...q, _subj: effSubj, _asIs: true,
+          ...q, _subj: effSubj, _asIs: !!tmpl.isAsIs,
           topic: q.topic || effSubj, questionType: q.questionType || tmpl.questionType || 'Custom',
         }));
 
