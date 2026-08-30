@@ -789,48 +789,14 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   return parsed;
 };
 
-// ── Generate General Ability Questions ────────────────────────────────────────
-
-export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = []) => {
-  const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
-
-  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
-
-  const focusInstruction = questionTypeFocus
-    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic. Do NOT generate any other topic. Match the exact quantities specified. Forbidden topics listed above must not appear even once.\n${freshnessBlock}`
-    : freshnessBlock;
-
-  const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
-${focusInstruction}
-QUESTION TYPES — use the following from the question bank. CRITICALLY IMPORTANT: vary the mix — do NOT generate all the same type:
-
-Number Patterns — MUST USE A VARIETY of these pattern types, not just +100:
-- Single digit steps: go up by 2,3,4,5,6,7,8,9 (e.g. "25, 32, 39, 46, ___?" goes up by 7; "13, 17, 21, 25, ___?" goes up by 4)
-- Doubling: multiply by 2 each time (e.g. "4, 8, 16, 32, ___?")
-- Tripling: multiply by 3 each time (e.g. "4, 12, 36, 108, ___?")
-- Up and down: alternating add and subtract (e.g. "3, 6, 5, 8, 7, 10, ___?" goes +3,-1,+3,-1; "2, 5, 4, 7, 6, 9, ___?")
-- Fibonacci-style: add previous two numbers (e.g. "1, 1, 2, 3, 5, 8, ___?")
-- Subtract steps: go down by 3,4,5,6,7 (e.g. "50, 44, 38, 32, ___?" goes down by 6)
-- Fill in missing: "436, 438, ___, 442, ___, 446" (goes up by 2)
-- Hundreds/thousands only when mixing with other types
-
-STRICT RULE: If generating ${count} pattern questions, use AT LEAST 3 different pattern types above. Never generate more than 2 questions with the same pattern type (e.g. never 3 +100 questions in a row).
-
-Verbal Reasoning (vary these):
-- Word analogies (e.g. "Hot is to cold as day is to ___?")
-- Odd one out from a list of words
-- Word relationships (e.g. "Doctor is to hospital as teacher is to ___?")
-- Synonyms (e.g. "What word means the same as 'large'?")
-- Antonyms (e.g. "What is the opposite of 'brave'?")
-- Letter patterns (e.g. "A, C, E, G, ___?")
-
-Logic Problems:
-- Draw conclusions (e.g. "All boys play soccer. Sam is a boy. What can we conclude?")
-- Coding (e.g. "If A=1, B=2, C=3, what word is 8-5-12-12-15?")
-- Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
-- Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
-
-PICTURE PATTERN QUESTIONS — CRITICAL RULES:
+// ── Picture pattern visual schema — shared spec ─────────────────────────────
+// Documents both visual schemas (frame-strip "picturepattern" and 2x2-grid
+// "quadrantpattern") for the model. Used by generateGeneralAbilityQuestions
+// (fresh generation) AND generateFreshVariant (single-question regenerate) —
+// pulled into one constant so a picture-pattern question regenerated from
+// the admin Review screen gets the SAME visual-schema instructions as one
+// generated from scratch, instead of silently falling back to plain text.
+const PICTURE_PATTERN_SPEC = `PICTURE PATTERN QUESTIONS — CRITICAL RULES:
 For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes. The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames/quadrant transforms are what students see. IMPORTANT: the answer frame/transform for the "correct" letter MUST exactly match what logically continues the pattern shown — double-check your pattern before writing the correct letter, and make the other 3 options plausible distractors (wrong direction, wrong fill, wrong count, etc), never duplicates of the correct one.
 
 There are TWO visual schemas. Pick the one that matches the requested question type (the topic constraint above will name one of the 10 types below) — do not mix them.
@@ -907,7 +873,50 @@ QUESTION TYPE → SCHEMA mapping (the topic constraint above will name ONE of th
 - "Nesting Progression" → Schema A, use "nested_triangle" with nestCount increasing (and optionally filled toggling) each frame.
 - "Path-Direction Rotation" → Schema A, use a single "elbow_arrow" shape with "rotation" increasing by a fixed amount (typically 90) each frame.
 - "Glyph Rotation / Reflection" → Schema A, use a single "notched_bar" (or other shape) with "rotation" and/or "flip" changing each frame — no other shapes in the frame.
-- "Shape Matrix (Odd One Out)" → Schema A is not required; this type shows 4-5 boxes as answerFrames-style shapes (no "frames"/blank strip) where one is the odd one out — build "frames" as the visible boxes (no isBlank) and set "answerFrames" to the same boxes, with "correct" naming the one that breaks the pattern.
+- "Shape Matrix (Odd One Out)" → Schema A is not required; this type shows 4-5 boxes as answerFrames-style shapes (no "frames"/blank strip) where one is the odd one out — build "frames" as the visible boxes (no isBlank) and set "answerFrames" to the same boxes, with "correct" naming the one that breaks the pattern.`;
+
+// ── Generate General Ability Questions ────────────────────────────────────────
+
+export const generateGeneralAbilityQuestions = async (yearLevel, count, questionTypeFocus, recentFingerprints = []) => {
+  const system = `You are an expert Australian ${schoolLevel(yearLevel)} general ability exam writer for scholarship and selective entry tests (ACER, AAST, Edutest, NAPLAN). Create verbal and non-verbal reasoning questions. Always respond with ONLY valid JSON, no other text.`;
+
+  const freshnessBlock = buildFreshnessBlock(recentFingerprints);
+
+  const focusInstruction = questionTypeFocus
+    ? `\nCRITICAL TOPIC CONSTRAINT — YOU MUST FOLLOW THIS EXACTLY:\n${questionTypeFocus}\nEvery single question MUST belong ONLY to the specified topic. Do NOT generate any other topic. Match the exact quantities specified. Forbidden topics listed above must not appear even once.\n${freshnessBlock}`
+    : freshnessBlock;
+
+  const user = `Generate ${count} general ability multiple-choice questions for Year ${yearLevel} Australian ${schoolLevel(yearLevel)} scholarship and selective entry exam.
+${focusInstruction}
+QUESTION TYPES — use the following from the question bank. CRITICALLY IMPORTANT: vary the mix — do NOT generate all the same type:
+
+Number Patterns — MUST USE A VARIETY of these pattern types, not just +100:
+- Single digit steps: go up by 2,3,4,5,6,7,8,9 (e.g. "25, 32, 39, 46, ___?" goes up by 7; "13, 17, 21, 25, ___?" goes up by 4)
+- Doubling: multiply by 2 each time (e.g. "4, 8, 16, 32, ___?")
+- Tripling: multiply by 3 each time (e.g. "4, 12, 36, 108, ___?")
+- Up and down: alternating add and subtract (e.g. "3, 6, 5, 8, 7, 10, ___?" goes +3,-1,+3,-1; "2, 5, 4, 7, 6, 9, ___?")
+- Fibonacci-style: add previous two numbers (e.g. "1, 1, 2, 3, 5, 8, ___?")
+- Subtract steps: go down by 3,4,5,6,7 (e.g. "50, 44, 38, 32, ___?" goes down by 6)
+- Fill in missing: "436, 438, ___, 442, ___, 446" (goes up by 2)
+- Hundreds/thousands only when mixing with other types
+
+STRICT RULE: If generating ${count} pattern questions, use AT LEAST 3 different pattern types above. Never generate more than 2 questions with the same pattern type (e.g. never 3 +100 questions in a row).
+
+Verbal Reasoning (vary these):
+- Word analogies (e.g. "Hot is to cold as day is to ___?")
+- Odd one out from a list of words
+- Word relationships (e.g. "Doctor is to hospital as teacher is to ___?")
+- Synonyms (e.g. "What word means the same as 'large'?")
+- Antonyms (e.g. "What is the opposite of 'brave'?")
+- Letter patterns (e.g. "A, C, E, G, ___?")
+
+Logic Problems:
+- Draw conclusions (e.g. "All boys play soccer. Sam is a boy. What can we conclude?")
+- Coding (e.g. "If A=1, B=2, C=3, what word is 8-5-12-12-15?")
+- Order steps (e.g. "Put these in order: Boil water, Add tea, Pour into cup, Stir")
+- Find information from text (e.g. "Car A is 4m. Car B is 2m. Car C is 1m longer than A. Which is longest?")
+
+${PICTURE_PATTERN_SPEC}
 
 - "sequences" — number sequences and patterns
 - "picturepatterns" — visual/shape pattern sequences (requires visual field)
@@ -1339,25 +1348,42 @@ export const generateFreshVariant = async (originalQuestion, subject, yearLevel,
   // threading its own accumulated history through.
   const freshnessBlock = buildFreshnessBlock([fingerprintQuestion(originalQuestion), ...recentFingerprints]);
 
+  // A picture-pattern question's "options" are just placeholder labels ("Option
+  // A" etc) — the real content the model must vary is the "visual" object. This
+  // used to be dropped entirely (the return template below hardcoded
+  // "visual":null), so regenerating one of these single questions from the
+  // admin Review screen silently downgraded it to plain text with no shapes.
+  // Reuse the same schema documentation the initial generator uses so a
+  // regenerated variant gets a fresh, real visual of the same type/technique.
+  const hasVisual = !!originalQuestion.visual;
+  const visualBlock = hasVisual ? `
+
+This question has a VISUAL PICTURE-PATTERN — the original "visual" object (for reference, to see which schema and technique it uses) was:
+${JSON.stringify(originalQuestion.visual)}
+
+You MUST return a fresh "visual" object in your response, built with the SAME schema and technique (same "type", same underlying pattern rule implied by the question type "${qType}") but with different concrete shapes/colors/positions/rotations/counts than the original — never reuse the exact same visual. Follow these rules for constructing it:
+${PICTURE_PATTERN_SPEC}` : '';
+
   const user = `I have an existing exam question. Generate ONE fresh variant that keeps EXACTLY the same question format and sentence structure, but changes the specific values (numbers, names, objects, words).
 
 ORIGINAL QUESTION: "${originalQuestion.question}"
 Options — A: ${qA} | B: ${qB} | C: ${qC} | D: ${qD}
 Correct: ${qCorrect} | Topic: ${qTopic} | Type: ${qType}
+${visualBlock}
 
 STRICT RULES:
 1. Keep the IDENTICAL sentence structure and story format — only swap values
 2. For maths: change ALL numbers to different values. Keep the same operations and narrative.
    Example: "320 markers and 180 rulers, remove 25 items for 5 days" → "400 markers and 200 rulers, remove 30 items for 4 days"
 3. For English: change the example sentence/word but test the SAME grammar rule
-4. For general ability: change pattern values/analogy words/sequence numbers — same reasoning structure
+4. For general ability: change pattern values/analogy words/sequence numbers — same reasoning structure${hasVisual ? '. This one has a visual — see the visual instructions above; the "options" text stays as short placeholder labels ("Option A" etc), the real answer content lives in "visual.answerFrames"/quadrant transforms.' : ''}
 5. Do NOT use any of the same numbers or key words from the original
 6. All 4 options must be plausible, only one correct
 7. The correct answer letter (A/B/C/D) should vary — do not always use the same letter as original
 ${freshnessBlock}
 
 Return ONLY this JSON with no other text:
-{"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"B","explanation":"brief explanation","topic":"${qTopic}","questionType":"${qType}","visual":null}`;
+{"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"B","explanation":"brief explanation","topic":"${qTopic}","questionType":"${qType}","visual":null}${hasVisual ? '\nThis question has a visual (see above) — replace "visual":null with a real fresh visual object built per the instructions above. Do not leave it null.' : ''}`;
 
   const raw = await callClaude(system, user);
   const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
