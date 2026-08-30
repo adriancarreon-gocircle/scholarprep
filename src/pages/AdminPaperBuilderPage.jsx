@@ -153,7 +153,7 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
           if (needed > 0 && tmpl.exampleQuestion && tmpl.exampleQuestion !== '(from image)') {
             setMsg(`Generating ${needed} more question${needed > 1 ? 's' : ''} from "${tmpl.name}"`);
             try {
-              const result = await generateFromTemplate(tmpl.exampleQuestion, tmplSubj, tmpl.questionType || null, needed, yearLevel);
+              const result = await generateFromTemplate(tmpl.exampleQuestion, tmplSubj, tmpl.questionType || null, needed, yearLevel, tmpl.focusGuidance || null);
               const extras = (result.questions || []).slice(0, needed).map(q => ({
                 ...q, _subj: tmplSubj,
                 topic: q.topic || tmplSubj,
@@ -285,7 +285,7 @@ function SavedPapersList({ papers, loading, onOpen, onDelete, onCreateNew, onOpe
 
 // ── Builder screen ──────────────────────────────────────────────────────────
 
-function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTitle, setPaperTitle, selection, setSelection, passages, setPassages, questionsPerPassage, setQuestionsPerPassage, onGenerate, onBackToList, error }) {
+function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTitle, setPaperTitle, selection, setSelection, passages, setPassages, questionsPerPassage, setQuestionsPerPassage, onGenerate, onBackToList, error, onEditTemplate }) {
   const [expandedSubjects, setExpandedSubjects] = useState({});
   const [expandedTopics, setExpandedTopics] = useState({});
   const [expandedQTypes, setExpandedQTypes] = useState({});
@@ -383,13 +383,14 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
                                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>{tmpl.name}</div>
                                 <div style={{ fontSize: 11, color: '#7C3AED', fontFamily: 'Inter, sans-serif' }}>{subjLabel} · {metaLabel}</div>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 2 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
                                 <input
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = checked ? 0 : naturalCount; return s; })}
                                   style={{ width: 18, height: 18, accentColor: '#7C3AED', cursor: 'pointer' }}
                                 />
+                                <button onClick={() => onEditTemplate(tmpl)} title="Edit this custom question" style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #DDD6FE', background: '#fff', color: '#7C3AED', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✏️</button>
                               </div>
                             </div>
                           );
@@ -408,6 +409,7 @@ function PaperBuilderScreen({ customTemplates, yearLevel, setYearLevel, paperTit
                               <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = Math.max(0, (s.custom[selKey] || 0) - 1); return s; })} style={smallBtnStyle}>-</button>
                               <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#7C3AED' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
                               <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = Math.min(max, (s.custom[selKey] || 0) + 1); return s; })} style={smallBtnStyle}>+</button>
+                              <button onClick={() => onEditTemplate(tmpl)} title="Edit this custom question" style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #DDD6FE', background: '#fff', color: '#7C3AED', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✏️</button>
                             </div>
                           </div>
                         );
@@ -838,6 +840,11 @@ export default function AdminPaperBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
+  // The custom-question template currently being re-edited, if any — opens
+  // the Creator pre-filled instead of blank.
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const handleEditTemplate = (tmpl) => { setEditingTemplate(tmpl); setView('creator'); };
+
   useEffect(() => {
     Promise.all([
       getCustomTemplates().catch(() => []),
@@ -1046,14 +1053,15 @@ export default function AdminPaperBuilderPage() {
           onOpen={handleOpenPaper}
           onDelete={handleDeletePaper}
           onCreateNew={resetForNewPaper}
-          onOpenCreator={() => setView('creator')}
+          onOpenCreator={() => { setEditingTemplate(null); setView('creator'); }}
         />
       )}
 
       {!dataLoading && view === 'creator' && (
         <CustomQuestionCreator
           yearLevel={yearLevel}
-          onBack={() => setView('list')}
+          editingTemplate={editingTemplate}
+          onBack={() => { setEditingTemplate(null); setView('list'); }}
           onSaveTemplate={handleSaveTemplate}
           onLaunch={handleLaunchFromCreator}
           launchLabel="▶ Review & print"
@@ -1071,6 +1079,7 @@ export default function AdminPaperBuilderPage() {
           onGenerate={handleGenerate}
           onBackToList={() => setView('list')}
           error={error}
+          onEditTemplate={handleEditTemplate}
         />
       )}
 

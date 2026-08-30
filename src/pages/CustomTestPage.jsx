@@ -150,7 +150,7 @@ function PauseOverlay({ onResume }) {
   );
 }
 
-function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, customTemplates, onDeleteTemplate }) {
+function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, customTemplates, onDeleteTemplate, onEditTemplate }) {
   const [selection, setSelection] = useState(editingTest?.selection || {});
   const [expandedSubjects, setExpandedSubjects] = useState({});
   const [expandedTopics, setExpandedTopics] = useState({});
@@ -238,6 +238,7 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                               <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#7C3AED' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
                               <button onClick={() => setSelection(prev => { const s = { ...prev }; if (!s.custom) s.custom = {}; s.custom[selKey] = (s.custom[selKey] || 0) + 1; return s; })} style={smallBtnStyle}>+</button>
                             </div>
+                            <button onClick={() => onEditTemplate(tmpl)} title="Edit this custom question" style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #DDD6FE', background: '#fff', color: '#7C3AED', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✏️</button>
                             <button onClick={() => onDeleteTemplate(tmpl.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✕</button>
                           </div>
                         );
@@ -316,6 +317,7 @@ function BuilderScreen({ onStart, onSaveAndStart, onSaveOnly, editingTest, custo
                                       <span style={{ fontSize: 13, fontWeight: 700, color: count > 0 ? '#F97316' : '#94A3B8', minWidth: 20, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{count}</span>
                                       <button onClick={e => { e.stopPropagation(); setSelection(prev => { const s = { ...prev }; if (!s[sk]) s[sk] = {}; s[sk][selKey] = (s[sk][selKey] || 0) + 1; return s; }); }} style={smallBtnStyle}>+</button>
                                     </div>
+                                    <button onClick={e => { e.stopPropagation(); onEditTemplate(tmpl); }} title="Edit this custom question" style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #DDD6FE', background: '#fff', color: '#7C3AED', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✏️</button>
                                     <button onClick={e => { e.stopPropagation(); onDeleteTemplate(tmpl.id); }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #FECDD3', background: '#fff', color: '#F43F5E', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>✕</button>
                                   </div>
                                 );
@@ -913,7 +915,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                 try {
                   const result = await generateFromTemplate(
                     tmpl.exampleQuestion, tmplSubj,
-                    tmpl.questionType || null, needed, yearLevel, null, null
+                    tmpl.questionType || null, needed, yearLevel, tmpl.focusGuidance || null
                   );
                   const extras = (result.questions || []).slice(0, needed).map(q => ({
                     ...q, _subj: tmplSubj,
@@ -1381,7 +1383,7 @@ const CREATOR_SUBJECTS = [
   { key: 'general', label: 'General Ability', icon: '🧩', color: '#F97316' },
 ];
 
-export async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel) {
+export async function generateFromTemplate(exampleQuestion, subject, questionType, count, yearLevel, guidance = null) {
   const system = `You are an expert Australian exam question writer for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
 The user will give you an example question. Your job is to:
@@ -1405,7 +1407,12 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const userText = `Example question:\n"${exampleQuestion}"\n\nSubject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions following the same template.`;
+  // "guidance" is the creator's own private note on what this template should
+  // focus on — never shown to students, but handed to the model every time
+  // (initial generation AND every later "generate more from this template"
+  // call) so it keeps steering output the same way the creator intended.
+  const guidanceClause = guidance && guidance.trim() ? `\n\nGUIDANCE FROM THE QUESTION CREATOR — follow this closely when deciding what each generated question should focus on:\n"${guidance.trim()}"` : '';
+  const userText = `Example question:\n"${exampleQuestion}"\n\nSubject: ${subject}\nQuestion type: ${questionType || 'Custom'}\nGenerate ${count} questions following the same template.${guidanceClause}`;
 
   const response = await fetch('/api/claude', {
     method: 'POST',
@@ -1443,7 +1450,7 @@ Option 2 — symbols rotating around the corners of a polygon (use whenever the 
 
 Pick whichever option matches the photo. Do not include the blank "?" frame in "frames" — it's implied.`;
 
-export async function generateFromImages(images, subject, questionType, yearLevel, mode, count) {
+export async function generateFromImages(images, subject, questionType, yearLevel, mode, count, guidance = null) {
   const asIs = mode === 'asis';
   const system = `You are an expert Australian exam question analyst for scholarship and selective entry exams (ACER, AAST, Edutest, NAPLAN) for Year ${yearLevel} students.
 
@@ -1481,7 +1488,8 @@ Return ONLY valid JSON in this exact shape, no other text:
 
 For "passage" content, include EVERY question shown for that passage in the "questions" array — do not drop any. For "single" or "pattern" content, "questions" should have exactly ${asIs ? '1 entry (more only if the photo genuinely shows more than one such question)' : `${count} entries`}.`;
 
-  const userText = `Subject: ${subject}\nQuestion type: ${questionType || 'Custom'}\n${asIs ? 'Extract the content from the photo(s) exactly as shown.' : `Generate ${count} new item(s) based on the photo(s), following the same structure.`}`;
+  const guidanceClause = guidance && guidance.trim() ? `\nGUIDANCE FROM THE QUESTION CREATOR — follow this closely when deciding what each item should focus on:\n"${guidance.trim()}"` : '';
+  const userText = `Subject: ${subject}\nQuestion type: ${questionType || 'Custom'}\n${asIs ? 'Extract the content from the photo(s) exactly as shown.' : `Generate ${count} new item(s) based on the photo(s), following the same structure.`}${guidanceClause}`;
 
   const response = await fetch('/api/claude-vision', {
     method: 'POST',
@@ -1506,28 +1514,44 @@ For "passage" content, include EVERY question shown for that passage in the "que
 
 const MAX_CREATOR_IMAGES = 4;
 
-export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch, launchLabel = '▶ Start test' }) {
+export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLaunch, launchLabel = '▶ Start test', editingTemplate = null }) {
+  // editingTemplate — when set, this component opens pre-filled with an
+  // existing saved template instead of a blank form, and saves update that
+  // same template (via currentTmplId) instead of creating a new one. Every
+  // piece of state below seeds from it once, at mount — a fresh
+  // CustomQuestionCreator instance is mounted each time the Creator screen
+  // is opened (it lives behind a view === 'creator' conditional in the
+  // parent), so a plain useState initializer is enough; no effect needed.
+  const et = editingTemplate;
   const [inputMode, setInputMode] = useState('text');
   const [mode, setMode] = useState('similar'); // 'similar' | 'asis' — image mode only
-  const [example, setExample] = useState('');
+  const [example, setExample] = useState(et && et.exampleQuestion && et.exampleQuestion !== '(from image)' ? et.exampleQuestion : '');
   const [images, setImages] = useState([]); // [{ base64, mediaType, preview }]
-  const [subject, setSubject] = useState('mathematics');
-  const [qType, setQType] = useState('');
-  const [tmplName, setTmplName] = useState('');
+  const [subject, setSubject] = useState(et?.subject && et.subject !== 'custom' ? et.subject : 'mathematics');
+  const [qType, setQType] = useState(et?.questionType || '');
+  const [tmplName, setTmplName] = useState(et?.name || '');
   const [count, setCount] = useState(5);
   const [previewQ, setPreviewQ] = useState(null);
-  const [template, setTemplate] = useState('');
+  const [template, setTemplate] = useState(et?.templateDescription || '');
   const [previewing, setPreviewing] = useState(false);
-  const [phase, setPhase] = useState('input'); // input | generating | extracting | confirm | preview
-  const [questions, setQuestions] = useState([]);
-  const [passage, setPassage] = useState(null);
+  // Editing an existing template with saved questions lands straight on the
+  // (now-editable) question list rather than the blank input form.
+  const [phase, setPhase] = useState(et && (et.questions || []).length > 0 ? 'preview' : 'input'); // input | generating | extracting | confirm | preview
+  const [questions, setQuestions] = useState(et?.questions ? et.questions.map(q => ({ ...q })) : []);
+  const [passage, setPassage] = useState(et?.passage || null);
   const [extracted, setExtracted] = useState(null);
   const [confirmedAnswers, setConfirmedAnswers] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedName, setSavedName] = useState('');
-  const [currentTmplId, setCurrentTmplId] = useState(null);
+  const [currentTmplId, setCurrentTmplId] = useState(et?.id || null);
+  // Private note the creator can leave for the AI — what this question
+  // should focus on. Never shown to students taking the test; stored on the
+  // template so it's still there (and still steering generation) the next
+  // time this template is reopened for editing or extended with more
+  // AI-generated questions.
+  const [focusGuidance, setFocusGuidance] = useState(et?.focusGuidance || '');
   const fileRef = useRef(null);
   const subjectColor = CREATOR_SUBJECTS.find(s => s.key === subject)?.color || '#4338CA';
 
@@ -1549,8 +1573,8 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
     setError(''); setPreviewing(true); setPreviewQ(null);
     try {
       const result = inputMode === 'image'
-        ? await generateFromImages(images, subject, qType.trim(), yearLevel, 'similar', 1)
-        : await generateFromTemplate(example.trim(), subject, qType.trim(), 1, yearLevel);
+        ? await generateFromImages(images, subject, qType.trim(), yearLevel, 'similar', 1, focusGuidance.trim() || null)
+        : await generateFromTemplate(example.trim(), subject, qType.trim(), 1, yearLevel, focusGuidance.trim() || null);
       setTemplate(result.template || '');
       setPreviewQ(result.questions?.[0] || null);
     } catch (e) { setError(e.message || 'Preview failed. Please try again.'); }
@@ -1562,8 +1586,8 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
     setError(''); setLoading(true); setPhase('generating');
     try {
       const result = inputMode === 'image'
-        ? await generateFromImages(images, subject, qType.trim(), yearLevel, 'similar', count)
-        : await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel);
+        ? await generateFromImages(images, subject, qType.trim(), yearLevel, 'similar', count, focusGuidance.trim() || null)
+        : await generateFromTemplate(example.trim(), subject, qType.trim(), count, yearLevel, focusGuidance.trim() || null);
       setTemplate(result.template || '');
       setQuestions(result.questions || []);
       setPassage(result.passage || null);
@@ -1577,7 +1601,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
     if (!readyToGenerate) { setError('Please upload at least one photo first.'); return; }
     setError(''); setLoading(true); setPhase('extracting');
     try {
-      const result = await generateFromImages(images, subject, qType.trim(), yearLevel, 'asis', 1);
+      const result = await generateFromImages(images, subject, qType.trim(), yearLevel, 'asis', 1, focusGuidance.trim() || null);
       const initial = {};
       (result.questions || []).forEach((q, i) => { initial[i] = q.correct || q.suggestedCorrect || 'A'; });
       setExtracted(result);
@@ -1604,6 +1628,7 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
       setQType('');
       setPreviewQ(null);
       setTemplate('');
+      setFocusGuidance('');
       setQuestions([]);
       setPassage(null);
       setExtracted(null);
@@ -1617,6 +1642,14 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
     }, 1800);
   };
 
+  // Photos aren't kept once a template is saved, so editing an existing
+  // template never re-populates `images` — meaning `inputMode` defaults back
+  // to 'text' and the isAsIs computation below would otherwise read as false
+  // even for a template originally saved As-Is from a photo. Preserve the
+  // template's own isAsIs flag whenever this save isn't accompanied by a
+  // fresh photo upload in this session.
+  const resolvedIsAsIs = images.length > 0 ? (inputMode === 'image' && mode === 'asis') : !!et?.isAsIs;
+
   const handleSaveOnly = async () => {
     if (!tmplName.trim()) { setError('Please give this template a name before saving.'); return; }
     setSaving(true); setError('');
@@ -1626,8 +1659,9 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
         questionType: qType.trim() || null,
         exampleQuestion: example.trim() || '(from image)',
         templateDescription: template,
+        focusGuidance: focusGuidance.trim() || null,
         passage: passage || null,
-        isAsIs: inputMode === 'image' && mode === 'asis',
+        isAsIs: resolvedIsAsIs,
         questions: previewQ ? [previewQ] : [],
       };
       const saved = await onSaveTemplate(tmpl);
@@ -1647,8 +1681,10 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
         id: currentTmplId, name: tmplName.trim(), subject,
         questionType: qType.trim() || null,
         exampleQuestion: example.trim() || '(from image)',
-        templateDescription: template, passage: passage || null,
-        isAsIs: inputMode === 'image' && mode === 'asis',
+        templateDescription: template,
+        focusGuidance: focusGuidance.trim() || null,
+        passage: passage || null,
+        isAsIs: resolvedIsAsIs,
         questions,
       };
       const saved = await onSaveTemplate(tmpl);
@@ -1660,6 +1696,14 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
     setSaving(false);
   };
 
+  // Inline edits to an already-generated/saved question — lets the creator
+  // fix a typo or reword an option without having to regenerate (and
+  // possibly lose) the whole batch. Used by the editable question cards in
+  // the preview phase, both right after generating and when reopening a
+  // saved template via editingTemplate.
+  const updateQuestionField = (i, patch) => setQuestions(qs => qs.map((qq, idx) => idx === i ? { ...qq, ...patch } : qq));
+  const updateOptionField = (i, letter, val) => setQuestions(qs => qs.map((qq, idx) => idx === i ? { ...qq, options: { ...(qq.options || {}), [letter]: val } } : qq));
+
   const readyToGenerate = inputMode === 'text' ? example.trim().length > 0 : images.length > 0;
 
   return (
@@ -1667,8 +1711,8 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#5A6A7A', padding: 4 }}>←</button>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>✨ Custom Question Creator</div>
-          <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>Give an example question and we'll generate similar ones</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{et ? `✏️ Editing "${et.name}"` : '✨ Custom Question Creator'}</div>
+          <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>{et ? 'Update the questions below, or change the settings and regenerate.' : "Give an example question and we'll generate similar ones"}</div>
         </div>
       </div>
 
@@ -1759,6 +1803,12 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
                 </div>
               )}
             </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Guidance <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optional)</span></label>
+            <textarea value={focusGuidance} onChange={e => setFocusGuidance(e.target.value)} placeholder="e.g. Focus on two-step problems involving money and change — avoid fractions." rows={2} style={{ width: '100%', boxSizing: 'border-box', border: '2px solid #E5E7EB', borderRadius: 12, padding: '10px 14px', fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#0F172A', resize: 'vertical', outline: 'none', lineHeight: 1.6, transition: 'border-color 0.15s' }} onFocus={e => e.target.style.borderColor = subjectColor} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>Extra direction on what this question should focus on. Never shown to students — saved with the template so it's still here (and still shaping what gets generated) next time you reopen or extend it.</div>
           </div>
 
           {error && <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#BE123C', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>⚠️ {error}</div>}
@@ -1928,30 +1978,55 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: -4 }}>Edit any question, option, or the correct answer directly below — changes are saved when you hit Save template.</div>
             {questions.map((q, i) => (
               <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '14px 18px', border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 1px 4px rgba(67,56,202,0.04)' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span style={{ background: subjectColor, color: '#fff', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2, fontFamily: 'Inter, sans-serif' }}>Q{i + 1}</span>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     {q.visual && <QuestionVisual visual={q.visual} />}
-                    <div style={{ fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
+                    <textarea
+                      value={q.question || ''}
+                      onChange={e => updateQuestionField(i, { question: e.target.value })}
+                      rows={2}
+                      style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E5E7EB', borderRadius: 8, padding: '7px 10px', fontSize: 14, color: '#0F172A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 8, resize: 'vertical', outline: 'none' }}
+                      onFocus={e => e.target.style.borderColor = subjectColor} onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+                    />
                     {q.visual?.answerFrames ? (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {sortedEntries(q.visual.answerFrames).map(([letter, frame]) => (
-                          <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                          <button key={letter} onClick={() => updateQuestionField(i, { correct: letter })} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
                             <AnswerCell visual={q.visual} val={frame} size={44} correct={q.correct === letter} revealed color={subjectColor} />
-                            <span style={{ fontSize: 10, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}</span>
-                          </div>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: q.correct === letter ? '#166534' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}>{letter}{q.correct === letter ? ' ✓' : ''}</span>
+                          </button>
                         ))}
                       </div>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px' }}>
                         {sortedEntries(q.options || {}).map(([key, val]) => (
-                          <div key={key} style={{ fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '4px 8px', borderRadius: 6, background: key === q.correct ? '#DCFCE7' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}` }}>
-                            {key}. {val}
+                          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={() => updateQuestionField(i, { correct: key })}
+                              title={key === q.correct ? 'Correct answer' : `Mark ${key} as the correct answer`}
+                              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', border: `1.5px solid ${key === q.correct ? '#059669' : '#CBD5E1'}`, background: key === q.correct ? '#DCFCE7' : '#fff', color: key === q.correct ? '#166534' : '#94A3B8', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+                            >{key}</button>
+                            <input
+                              value={val}
+                              onChange={e => updateOptionField(i, key, e.target.value)}
+                              style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', fontSize: 12, fontFamily: 'Inter, sans-serif', padding: '5px 8px', borderRadius: 6, background: key === q.correct ? '#F0FDF4' : '#F8FAFC', color: key === q.correct ? '#166534' : '#374151', fontWeight: key === q.correct ? 700 : 400, border: `1px solid ${key === q.correct ? '#86EFAC' : '#E5E7EB'}`, outline: 'none' }}
+                            />
                           </div>
                         ))}
                       </div>
+                    )}
+                    {!q.visual && (
+                      <textarea
+                        value={q.explanation || ''}
+                        onChange={e => updateQuestionField(i, { explanation: e.target.value })}
+                        placeholder="Explanation (optional)"
+                        rows={1}
+                        style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#64748B', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginTop: 8, resize: 'vertical', outline: 'none', background: '#F8FAFC' }}
+                      />
                     )}
                   </div>
                 </div>
@@ -1984,6 +2059,12 @@ export default function CustomTestPage() {
   const [result, setResult] = useState(null);
   const [customTemplates, setCustomTemplates] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  // The custom-question template currently being re-edited, if any — opens
+  // the Creator pre-filled instead of blank. Cleared whenever the Creator is
+  // opened fresh ("✨ Question Creator") so a stale edit target doesn't
+  // silently carry over.
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const handleEditTemplate = (tmpl) => { setEditingTemplate(tmpl); setView('creator'); };
 
   useEffect(() => {
     setDataLoading(true);
@@ -2055,7 +2136,7 @@ export default function CustomTestPage() {
         {view === 'builder' && <button onClick={() => { setEditingTest(null); setView('list'); }} style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: '#F1F5F9', color: '#64748B', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Back</button>}
         {view === 'list' && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-            <button onClick={() => setView('creator')} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✨ Question Creator</button>
+            <button onClick={() => { setEditingTemplate(null); setView('creator'); }} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>✨ Question Creator</button>
             <button onClick={() => { setEditingTest(null); setView('builder'); }} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Build a test</button>
           </div>
         )}
@@ -2094,13 +2175,14 @@ export default function CustomTestPage() {
           setCustomTemplates(prev => prev.filter(t => t.id !== id));
         }}
         onCreateNew={() => { setEditingTest(null); setView('builder'); }}
-        onOpenCreator={() => setView('creator')}
+        onOpenCreator={() => { setEditingTemplate(null); setView('creator'); }}
       />}
-      {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} customTemplates={customTemplates} onDeleteTemplate={async (id) => { await deleteCustomTemplate(id); setCustomTemplates(prev => prev.filter(t => t.id !== id)); }} />}
+      {hasAccess && view === 'builder' && <BuilderScreen onStart={handleStart} onSaveAndStart={handleSaveAndStart} onSaveOnly={handleSaveOnly} editingTest={editingTest} customTemplates={customTemplates} onDeleteTemplate={async (id) => { await deleteCustomTemplate(id); setCustomTemplates(prev => prev.filter(t => t.id !== id)); }} onEditTemplate={handleEditTemplate} />}
       {hasAccess && view === 'creator' && (
         <CustomQuestionCreator
           yearLevel={yearLevel}
-          onBack={() => setView('list')}
+          editingTemplate={editingTemplate}
+          onBack={() => { setEditingTemplate(null); setView('list'); }}
           onSaveTemplate={async (tmpl) => {
             const saved = await saveCustomTemplate(tmpl);
             setCustomTemplates(prev => {
