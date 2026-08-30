@@ -1682,6 +1682,16 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);
+      // A save that lands only in this browser's local storage (not synced
+      // to the server) looks identical to a real save right now, but can
+      // silently vanish on a later refresh — say so immediately instead of
+      // letting that happen unexplained, and keep the form as-is so it's
+      // easy to just try Save again.
+      if (saved?._unsynced) {
+        setError("Saved on this device, but couldn't sync to the server — it may not appear after a refresh. Check your connection and try saving again.");
+        setSaving(false);
+        return;
+      }
       const justSaved = tmplName.trim();
       setSavedName(justSaved);
       resetFormForNext(justSaved);
@@ -1705,6 +1715,11 @@ export function CustomQuestionCreator({ yearLevel, onBack, onSaveTemplate, onLau
       };
       const saved = await onSaveTemplate(tmpl);
       if (saved?.id) setCurrentTmplId(saved.id);
+      if (saved?._unsynced) {
+        setError("Saved on this device, but couldn't sync to the server — it may not appear after a refresh. Check your connection and try saving again.");
+        setSaving(false);
+        return;
+      }
       const justSaved = tmplName.trim();
       setSavedName(justSaved);
       resetFormForNext(justSaved);

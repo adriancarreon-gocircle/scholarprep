@@ -823,7 +823,29 @@ export const loadCustomBuilderTests = async () => {
 
 // ── Custom Question Templates ─────────────────────────────────────────────────
 // Save a custom question template to Supabase (and localStorage as fallback)
+//
+// IMPORTANT FAILURE MODE this function used to hide completely: if the
+// Supabase insert/update throws (most commonly because the `row` payload
+// references a column that doesn't exist yet in custom_question_templates —
+// e.g. a migration like the focus_guidance one below was never run), the
+// old code silently swallowed it, still returned a "successful"-looking
+// template with a synthetic `local_...` id, and the caller (and the admin)
+// had no way to know the save never actually reached Supabase. That
+// template would then look fine for the rest of the session, but the NEXT
+// getCustomTemplates() call (e.g. after a page refresh) would overwrite
+// localStorage with the real Supabase list — which never contained it —
+// and it would vanish for good. This is now surfaced instead of hidden:
+// template._unsynced is set to true whenever a logged-in save didn't reach
+// Supabase, so a caller (see handleSaveTemplate in AdminPaperBuilderPage)
+// can warn the admin immediately rather than let it silently disappear
+// later.
 export const saveCustomTemplate = async (template) => {
+  // Captured before any id reassignment below — if this save recovers from
+  // a previous local-only save (e.g. retried after fixing a missing-column
+  // migration) and gets a real id back, this lets us remove the stale
+  // local_... localStorage entry instead of leaving it behind as a
+  // permanent duplicate alongside the newly-synced real one.
+  const priorLocalId = template.id && String(template.id).startsWith('local_') ? template.id : null;
   const row = {
     name: template.name,
     subject: template.subject,
@@ -838,42 +860,70 @@ export const saveCustomTemplate = async (template) => {
     updated_at: new Date().toISOString(),
   };
 
+  template._unsynced = false;
   try {
     const user = await getCurrentUser();
     if (user) {
-      if (template.id) {
+      if (template.id && !String(template.id).startsWith('local_')) {
         // Update existing
-        await supabase.from('custom_question_templates')
+        const { error } = await supabase.from('custom_question_templates')
           .update(row)
           .eq('id', template.id)
           .eq('user_id', user.id);
+        if (error) { console.error('saveCustomTemplate update error (check custom_question_templates columns match the app — see the *_add_*.sql migration files):', error); template._unsynced = true; }
       } else {
-        // Insert new
-        const { data } = await supabase.from('custom_question_templates')
+        // Insert new (also covers "was local-only, now retrying" — a
+        // previous local_... id is never sent as a real Supabase id)
+        const { data, error } = await supabase.from('custom_question_templates')
           .insert({ ...row, user_id: user.id })
           .select('id')
           .single();
+        if (error) { console.error('saveCustomTemplate insert error (check custom_question_templates columns match the app — see the *_add_*.sql migration files):', error); template._unsynced = true; }
         if (data?.id) template.id = data.id;
       }
     }
   } catch (e) {
     console.error('saveCustomTemplate error:', e);
+    template._unsynced = true;
   }
+
+  // A failed/offline save never got a real id back above — assign the local
+  // fallback id to `template` itself (not just to the localStorage copy), so
+  // the object this function returns is immediately usable in the same
+  // session (e.g. selecting this template for a paper right after creating
+  // it) instead of carrying an id of `undefined` until the next refresh.
+  if (!template.id) template.id = `local_${Date.now()}`;
 
   // Always save to localStorage as fallback
   try {
-    const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    let stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    // Recovered from local-only to a real synced id this time — drop the
+    // old local_... copy so it doesn't linger as a duplicate.
+    if (priorLocalId && priorLocalId !== template.id) {
+      stored = stored.filter(t => t.id !== priorLocalId);
+    }
     const existing = stored.findIndex(t => t.id === template.id);
     if (existing >= 0) stored[existing] = template;
-    else stored.unshift({ ...template, id: template.id || `local_${Date.now()}` });
+    else stored.unshift(template);
     localStorage.setItem('sp_custom_templates', JSON.stringify(stored.slice(0, 50)));
   } catch { }
 
   return template;
 };
 
-// Load all custom question templates for the current user
+// Load all custom question templates for the current user. Merges in any
+// locally-saved-but-never-synced templates (id starts with "local_", or
+// flagged _unsynced by saveCustomTemplate above) instead of letting a fresh
+// Supabase fetch blindly overwrite them — that overwrite is exactly what
+// made a just-created template "disappear on refresh" whenever its save had
+// silently failed against Supabase.
 export const getCustomTemplates = async () => {
+  let localOnly = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
+    localOnly = stored.filter(t => t && (String(t.id || '').startsWith('local_') || t._unsynced));
+  } catch { }
+
   try {
     const user = await getCurrentUser();
     if (user) {
@@ -882,10 +932,10 @@ export const getCustomTemplates = async () => {
         .select('*')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
-      if (!error && data?.length > 0) {
-        // Sync to localStorage
-        localStorage.setItem('sp_custom_templates', JSON.stringify(data));
-        return data.map(row => ({
+      if (error) {
+        console.error('getCustomTemplates error:', error);
+      } else if (data) {
+        const mapped = data.map(row => ({
           id: row.id,
           name: row.name,
           subject: row.subject,
@@ -898,12 +948,19 @@ export const getCustomTemplates = async () => {
           questions: row.questions,
           createdAt: row.created_at,
         }));
+        // Local-only entries go first (most-recently-created, unsynced —
+        // the admin should notice them) followed by the confirmed Supabase
+        // set. A template that successfully synced on a later save already
+        // has a real id in `mapped`, so it won't double up here.
+        const merged = [...localOnly, ...mapped];
+        localStorage.setItem('sp_custom_templates', JSON.stringify(merged));
+        return merged;
       }
     }
   } catch (e) {
     console.error('getCustomTemplates error:', e);
   }
-  // Fallback to localStorage
+  // Fallback to localStorage (offline / logged out / Supabase read failed)
   try {
     const stored = JSON.parse(localStorage.getItem('sp_custom_templates') || '[]');
     return stored;
