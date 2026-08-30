@@ -809,6 +809,70 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   return parsed;
 };
 
+// ── Duplicate-option detection & repair (picture/quadrant pattern) ─────────
+// Reported bug: two of a picture-pattern question's 4 answer options can
+// end up looking like the EXACT SAME picture — either because the model
+// literally repeated the same frame content under two letters, or (more
+// subtly) because it gave two options different numeric "rotation" values
+// on a shape that has its own rotational symmetry: a plain circle looks
+// identical at ANY angle, and a plain square/diamond repeats every 90°, so
+// two "different" rotation values render as indistinguishable pictures.
+// Shapes not listed below (arrows, notched_bar, elbow_arrow, text, stars,
+// hearts, etc.) are asymmetric enough that their exact rotation matters and
+// is compared as-is.
+const SHAPE_ROTATION_PERIOD = {
+  circle: 1, circle_thick: 1,                              // identical at any angle
+  square: 90, square_small: 90, diamond: 90, cross_x: 90,  // repeats every 90°
+};
+
+function normalizeShapeForCompare(sh) {
+  if (!sh || typeof sh !== 'object') return sh;
+  const period = SHAPE_ROTATION_PERIOD[sh.type];
+  const rotation = period ? (period === 1 ? 0 : ((sh.rotation || 0) % period)) : (sh.rotation || 0);
+  return { ...sh, rotation };
+}
+
+// Only normalizes the "picturepattern" frame shape (a {shapes:[...]} list,
+// optionally with bgShape) — the {polygonSides,elements} vertex-rotation
+// frame variant and quadrantpattern's {rotation,flip} transforms are
+// compared as-is below (no known symmetry trap reported for those yet).
+function normalizeFrameForCompare(frame) {
+  if (!frame || typeof frame !== 'object') return frame;
+  if (Array.isArray(frame.shapes)) return { shapes: frame.shapes.map(normalizeShapeForCompare), bgShape: frame.bgShape || null };
+  return frame;
+}
+
+function hasDuplicateAnswerOptions(q) {
+  const frames = q?.visual?.answerFrames;
+  if (!frames) return false;
+  const letters = ['A', 'B', 'C', 'D'];
+  if (letters.some(l => frames[l] === undefined)) return false;
+  const keys = letters.map(l => JSON.stringify(normalizeFrameForCompare(frames[l])));
+  return new Set(keys).size < letters.length;
+}
+
+// Applied once to a freshly-generated batch (generateGeneralAbilityQuestions).
+// Any question whose options aren't all visually distinct gets exactly ONE
+// regenerate attempt via the same single-question path the admin Review
+// screen's "Regenerate" button uses, before being handed back to the caller.
+// Bounded to one retry per question — a call that still has duplicates after
+// that ships anyway (better than losing the question or looping forever) but
+// is logged so it's visible during testing.
+async function repairDuplicateOptionQuestions(questions, yearLevel, recentFingerprints) {
+  const out = [];
+  for (const q of questions) {
+    if (!hasDuplicateAnswerOptions(q)) { out.push(q); continue; }
+    try {
+      const fixed = await generateFreshVariant(q, 'general', yearLevel, [...recentFingerprints, ...out.map(fingerprintQuestion)]);
+      if (hasDuplicateAnswerOptions(fixed)) console.warn('Picture-pattern question still has duplicate-looking options after one repair attempt:', fixed.question);
+      out.push(fixed);
+    } catch {
+      out.push(q); // repair call failed — ship the original rather than losing the question
+    }
+  }
+  return out;
+}
+
 // ── Picture pattern visual schema — shared spec ─────────────────────────────
 // Documents both visual schemas (frame-strip "picturepattern" and 2x2-grid
 // "quadrantpattern") for the model. Used by generateGeneralAbilityQuestions
@@ -818,6 +882,10 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
 // generated from scratch, instead of silently falling back to plain text.
 const PICTURE_PATTERN_SPEC = `PICTURE PATTERN QUESTIONS — CRITICAL RULES:
 For picture pattern questions, the answer options MUST be rendered as actual shape frames (not text descriptions), because text descriptions are ambiguous and students need to see the actual shapes. The text options (A/B/C/D in the "options" field) should just be short labels like "Option A", "Option B", "Option C", "Option D" — the actual visual frames in answerFrames/quadrant transforms are what students see. IMPORTANT: the answer frame/transform for the "correct" letter MUST exactly match what logically continues the pattern shown — double-check your pattern before writing the correct letter, and make the other 3 options plausible distractors (wrong direction, wrong fill, wrong count, etc), never duplicates of the correct one.
+
+BEFORE YOU WRITE THE JSON — work through these two checks, they catch the most common mistakes:
+1. STATE THE RULE, THEN DERIVE THE ANSWER: write out (to yourself) exactly what changes from frame to frame — which shape, count, fill, rotation amount, or position — and apply that rule one more step to get the true next frame. Put THAT exact frame at the "correct" letter. This matters most for "Growing / Count Patterns" (the count must follow the established step exactly — e.g. if it grows by a fixed amount or a fixed layout rule each frame, the next count/layout must match that rule precisely, not just "look bigger") and "Attribute Cycling" (every attribute that cycles — fill, marker position, count — must each be advanced correctly, not just one of them).
+2. CHECK ALL 4 OPTIONS ARE ACTUALLY DIFFERENT PICTURES: before finalizing, mentally render each of the 4 answerFrames/transforms and confirm no two look identical. The most common way this silently fails: rotating a SYMMETRIC shape by different amounts produces the same picture — a plain rectangle/square looks identical at 0° vs 180°, and identical at 90° vs 270° (it has 180° rotational symmetry); a circle looks the same at any rotation. Do not build two "different" options that are actually a symmetric shape at rotations differing by exactly its symmetry period. If a shape needs 4 genuinely distinct-looking rotations, use an asymmetric shape (arrow, elbow_arrow, notched_bar) instead, or vary fill/count/position instead of rotation alone.
 
 There are TWO visual schemas. Pick the one that matches the requested question type (the topic constraint above will name one of the 10 types below) — do not mix them.
 
@@ -956,7 +1024,8 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"o
 
 For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
   const raw = await callClaude(system, user);
-  return (JSON.parse(raw).questions || []).map(finalizeQuestion);
+  const questions = (JSON.parse(raw).questions || []).map(finalizeQuestion);
+  return await repairDuplicateOptionQuestions(questions, yearLevel, recentFingerprints);
 };
 
 // ── Generate English Questions ────────────────────────────────────────────────
@@ -1413,12 +1482,27 @@ ${freshnessBlock}
 Return ONLY this JSON with no other text:
 {"question":"text","options":{"A":"opt","B":"opt","C":"opt","D":"opt"},"correct":"B","explanation":"brief explanation","topic":"${qTopic}","questionType":"${qType}","visual":null}${hasVisual ? '\nThis question has a visual (see above) — replace "visual":null with a real fresh visual object built per the instructions above. Do not leave it null.' : ''}`;
 
-  const raw = await callClaude(system, user);
-  const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-  const start = clean.indexOf('{');
-  const end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('Invalid response from AI');
-  return finalizeQuestion(JSON.parse(clean.slice(start, end + 1)));
+  const parseOneAttempt = async () => {
+    const raw = await callClaude(system, user);
+    const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+    const start = clean.indexOf('{');
+    const end = clean.lastIndexOf('}');
+    if (start === -1 || end === -1) throw new Error('Invalid response from AI');
+    return finalizeQuestion(JSON.parse(clean.slice(start, end + 1)));
+  };
+
+  const result = await parseOneAttempt();
+  // Same prompt, called again — the model's sampling differs run to run, so a
+  // second attempt has a real chance of not repeating the same rotational-
+  // symmetry (or similar) duplicate. Bounded to one retry; if it's still bad,
+  // ship it anyway rather than hammering the API or losing the question.
+  if (hasDuplicateAnswerOptions(result)) {
+    try {
+      const retry = await parseOneAttempt();
+      if (!hasDuplicateAnswerOptions(retry)) return retry;
+    } catch { /* keep the original result below */ }
+  }
+  return result;
 };
 // ── Scan a filled-in bubble answer sheet (vision) ──────────────────────────────
 // Reads a photo/scan of the ScholarPrep printable answer sheet and returns the
