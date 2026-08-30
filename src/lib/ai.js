@@ -25,20 +25,34 @@ const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const pickN = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, Math.min(n, arr.length));
 
+// Widened Aug 2026 (repetition review) — more than doubled from the original
+// ~30/18/15 entries. pickN's sample counts below (3/3/2) are UNCHANGED, so
+// this adds zero extra prompt tokens per call; it just means two calls in a
+// row are far less likely to draw the same anchor material, which was one
+// of the contributors to "similar questions showing again".
 const NAME_POOL = [
   'Mei', 'Jayden', 'Amara', 'Kai', 'Priya', 'Lachlan', 'Zara', 'Tobias', 'Isla', 'Ravi',
   'Freya', 'Marcus', 'Aaliyah', 'Ethan', 'Sione', 'Chloe', 'Dimitri', 'Neha', 'Oscar', 'Yasmin',
   'Hugo', 'Kiri', 'Elijah', 'Anika', 'Finn', 'Layla', 'Cormac', 'Grace', 'Wiremu', 'Sofia',
+  'Beatrix', 'Callum', 'Ngaire', 'Rosa', 'Kayden', 'Ivy', 'Youssef', 'Tahlia', 'Bodhi', 'Aisha',
+  'Xavier', 'Poppy', 'Rangi', 'Camille', 'Zaid', 'Willa', 'Nikau', 'Esme', 'Arlo', 'Meera',
+  'Solomon', 'Talia', 'Kavya', 'Declan', 'Amira', 'Rhys', 'Nadia', 'Toby', 'Selin', 'Micah',
 ];
 const OBJECT_POOL = [
   'bus tickets', 'paint tins', 'garden stakes', 'library cards', 'fishing lures', 'jigsaw pieces',
   'guitar strings', 'seedling trays', 'chess pieces', 'stamps', 'marbles', 'recipe cards',
   'bike helmets', 'compost bags', 'raffle tickets', 'bolts', 'kite string', 'lanyards',
+  'sketchbooks', 'water bottles', 'badges', 'ribbon spools', 'skateboard wheels', 'tent pegs',
+  'seed packets', 'trading cards', 'bookmarks', 'paintbrushes', 'string lights', 'washers',
+  'origami squares', 'hair ties', 'coasters', 'jam jars', 'ticket stubs', 'shells',
 ];
 const SETTING_POOL = [
   'a school canteen', 'a community garden', 'a bike repair shop', 'a local market', 'a boat shed',
   'a wildlife shelter', 'a pottery studio', 'a scout camp', 'a train station kiosk', 'a skate park',
   'a farmers co-op', 'a recycling depot', 'a surf club', 'a museum gift shop', 'a food truck',
+  'a community pool', 'a hardware store', 'a scout hall fete', 'a school fair', 'a bushwalking club',
+  'a netball club canteen', 'an op shop', 'a science fair', 'a library book sale', 'a car boot sale',
+  'a bakery', 'an orchard', 'a caravan park', 'a bowling club', 'a plant nursery',
 ];
 
 // Compact signature for a question — used both to build the "avoid repeating
@@ -65,7 +79,10 @@ function buildFreshnessBlock(recentFingerprints) {
 - Numeric seed values — let these (or numbers of similar size/shape) influence numbers you choose, instead of defaulting to round numbers like 2, 5, 10, 20, 50, 100: ${seedNumbers.join(', ')}
 - You don't need to use all of these in every question — they exist to break default patterns, not to be forced in.`;
   if (recentFingerprints && recentFingerprints.length > 0) {
-    const list = recentFingerprints.slice(-20);
+    // Widened from 20 → 30 (repetition review) — a deliberate small token
+    // cost increase (each entry is a short fingerprint line, not full
+    // question text) to catch more of a longer paper's earlier questions.
+    const list = recentFingerprints.slice(-30);
     block += `\n\nAVOID REPEATING — these questions were already used recently (same test, or a recent regenerate). Do NOT generate anything with the same numbers, wording, or scenario as any of these:\n${list.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
   }
   return block;

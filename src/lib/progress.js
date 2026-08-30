@@ -1022,20 +1022,62 @@ export const deletePaperTest = async (id) => {
 // live AI generation for that request, never a broken test.
 
 // Fetch up to `count` pooled questions for one bucket. Pulls a window of
-// candidates and shuffles client-side (simpler and plenty fast at the pool
-// depths this app runs at — no need for a server-side random ordering).
-export const getPooledQuestions = async (subject, topicKey, questionTypeKey, yearLevel, count) => {
+// candidates ordered by served_count (least-served rows first, so the pool
+// spreads load across its content instead of always handing back whatever
+// happens to sort first), shuffles WITHIN each same-served-count group so
+// we don't always serve the same row first, and — new — filters out any
+// row whose fingerprint is in `excludeFingerprints` (the caller's
+// already-seen list for this session/paper), so a bucket that's been
+// served to this same person recently doesn't just repeat itself. If
+// filtering would leave nothing (small bucket, everything's been seen),
+// falls back to the unfiltered set rather than forcing a live-generation
+// call for what's still a perfectly fine served-again question.
+export const getPooledQuestions = async (subject, topicKey, questionTypeKey, yearLevel, count, excludeFingerprints = []) => {
   try {
-    let query = supabase.from('question_pool').select('id, question')
-      .eq('subject', subject).eq('topic_key', topicKey).eq('year_level', yearLevel);
+    let query = supabase.from('question_pool').select('id, question, fingerprint, served_count')
+      .eq('subject', subject).eq('topic_key', topicKey).eq('year_level', yearLevel)
+      .order('served_count', { ascending: true });
     query = questionTypeKey ? query.eq('question_type_key', questionTypeKey) : query.is('question_type_key', null);
     const { data, error } = await query.limit(200);
     if (error || !data || data.length === 0) return [];
-    const shuffled = [...data].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count).map(row => ({ ...row.question, _poolId: row.id }));
+    const excludeSet = new Set(excludeFingerprints);
+    const filtered = excludeSet.size > 0 ? data.filter(row => !excludeSet.has(row.fingerprint)) : data;
+    const pool = filtered.length > 0 ? filtered : data;
+    // Shuffle within each served_count tier (rows are already ordered by
+    // served_count ascending) so ties don't always resolve the same way.
+    const result = [];
+    let i = 0;
+    while (i < pool.length && result.length < count) {
+      let j = i;
+      while (j < pool.length && pool[j].served_count === pool[i].served_count) j++;
+      const tier = pool.slice(i, j).sort(() => Math.random() - 0.5);
+      result.push(...tier);
+      i = j;
+    }
+    return result.slice(0, count).map(row => ({ ...row.question, _poolId: row.id }));
   } catch (e) {
     console.error('getPooledQuestions error:', e);
     return [];
+  }
+};
+
+// Best-effort: tell the pool a batch of rows were just served to someone, so
+// future getPooledQuestions calls bias away from them (via the served_count
+// ordering above) toward less-frequently-served content. Fire-and-forget —
+// never awaited by callers before showing the user their test/paper.
+export const markPoolQuestionsServed = async (poolIds) => {
+  try {
+    const ids = (poolIds || []).filter(Boolean);
+    if (ids.length === 0) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return; // not logged in — skip silently
+    await fetch('/api/pool-mark-served', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authToken: session.access_token, poolIds: ids }),
+    });
+  } catch (e) {
+    console.error('markPoolQuestionsServed error:', e);
   }
 };
 

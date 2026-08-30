@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
-import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
+import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket, markPoolQuestionsServed } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator, sortedEntries } from './CustomTestPage';
 import QuestionVisual, { AnswerCell, renderPatternVisualSvgString, renderAnswerCellSvgString } from '../components/QuestionVisual';
 
@@ -26,26 +26,29 @@ const smallBtnStyle = { width: 24, height: 24, borderRadius: '50%', border: '1.5
 // Phase 2 — try the shared pool before generating live. Any shortfall is
 // filled by a live AI/local call (identical to today's behaviour), and the
 // freshly-generated top-up is contributed back to the pool for next time.
-// Scoped to mathematics for now — same pattern can be extended to
-// english/general later. Never blocks the paper on the pool: every pool call
-// is best-effort and empty results just mean 100% live generation, same as
-// before this existed.
-async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey) {
+// Now generalized across mathematics/english/general (previously
+// mathematics-only) — `generateFn` is the subject's live generator, already
+// bound to any subject-specific extra args (e.g. maths' localKey), with a
+// uniform (yearLevel, count, focusStr, seenFp) signature. Never blocks the
+// paper on the pool: every pool call is best-effort and empty/failed results
+// just mean 100% live generation, same as before pooling existed.
+async function getQuestionsPooledOrLive(subject, generateFn, yearLevel, count, tk, qtk, focusStr, seenFp) {
   const bucketQtk = qtk === '_topic' ? null : qtk;
-  const pooled = await getPooledQuestions('mathematics', tk, bucketQtk, yearLevel, count);
+  const pooled = await getPooledQuestions(subject, tk, bucketQtk, yearLevel, count, seenFp);
+  if (pooled.length > 0) markPoolQuestionsServed(pooled.map(q => q._poolId));
   if (pooled.length >= count) {
-    getPoolBucketDepth('mathematics', tk, bucketQtk, yearLevel).then(depth => {
+    getPoolBucketDepth(subject, tk, bucketQtk, yearLevel).then(depth => {
       if (depth < 30) {
-        generateMathsQuestions(yearLevel, 10, focusStr, seenFp, localKey)
-          .then(fresh => refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, fresh))
+        generateFn(yearLevel, 10, focusStr, seenFp)
+          .then(fresh => refillPoolBucket(subject, tk, bucketQtk, yearLevel, fresh))
           .catch(() => { });
       }
     }).catch(() => { });
     return pooled.slice(0, count);
   }
   const needed = count - pooled.length;
-  const live = await generateMathsQuestions(yearLevel, needed, focusStr, seenFp, localKey);
-  refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, live).catch(() => { });
+  const live = await generateFn(yearLevel, needed, focusStr, seenFp);
+  refillPoolBucket(subject, tk, bucketQtk, yearLevel, live).catch(() => { });
   return [...pooled, ...live];
 }
 
@@ -195,23 +198,24 @@ async function generateAllPaperQuestions(selection, passages, questionsPerPassag
             ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${exclusionClause}`
             : null;
         if (!focusStr) continue;
-        // Mathematics goes through the shared pool first (Phase 2), UNLESS
+        // Every subject now goes through the shared pool first (Phase 2 was
+        // mathematics-only; extended here to english/general too), UNLESS
         // this is a "give me a fresh set" regenerate (bypassPool) — a pool
         // bucket that's only ever been seeded by THIS paper can otherwise
         // just re-serve the exact same questions back, which defeats the
-        // purpose of asking for something new. English/general go straight
-        // to the AI generator either way (pooling not extended to them yet).
+        // purpose of asking for something new.
         const localKey = matchLocalMathsType(tk, qtk);
-        const genQs = sk === 'mathematics'
-          ? (bypassPool
-            ? await generateMathsQuestions(yearLevel, count, focusStr, seenFp, localKey)
-            : await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey))
-          : await generator(yearLevel, count, focusStr, seenFp);
-        // Still contribute freshly-generated maths questions back to the
-        // pool even when bypassing it for THIS request — future users still
-        // benefit, this paper just doesn't get served stale content itself.
-        if (sk === 'mathematics' && bypassPool) {
-          refillPoolBucket('mathematics', tk, qtk === '_topic' ? null : qtk, yearLevel, genQs).catch(() => { });
+        const genFn = sk === 'mathematics'
+          ? (yl, c, f, fp) => generateMathsQuestions(yl, c, f, fp, localKey)
+          : generator;
+        const genQs = bypassPool
+          ? await genFn(yearLevel, count, focusStr, seenFp)
+          : await getQuestionsPooledOrLive(sk, genFn, yearLevel, count, tk, qtk, focusStr, seenFp);
+        // Still contribute freshly-generated questions back to the pool even
+        // when bypassing it for THIS request — future users still benefit,
+        // this paper just doesn't get served stale content itself.
+        if (bypassPool) {
+          refillPoolBucket(sk, tk, qtk === '_topic' ? null : qtk, yearLevel, genQs).catch(() => { });
         }
         seenFp.push(...genQs.map(fingerprintQuestion));
         allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: sk, topic: tk, questionType: q.questionType || qtObj?.label || tObj?.label || tk })));

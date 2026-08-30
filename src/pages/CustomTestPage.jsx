@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion, MATHS_VISUAL_SPEC } from '../lib/ai';
-import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket } from '../lib/progress';
+import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket, markPoolQuestionsServed } from '../lib/progress';
 import QuestionVisual, { PatternFrame, AnswerCell } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
@@ -742,28 +742,31 @@ function AnswerSheetScanScreen({ questions, onComplete, onBack }) {
 // Phase 2 — try the shared pool before generating live. Any shortfall is
 // filled by a live AI/local call (identical to today's behaviour), and the
 // freshly-generated top-up is contributed back to the pool for next time.
-// Scoped to mathematics for now — same pattern can be extended to
-// english/general later. Never blocks the test on the pool: every pool call
-// is best-effort and empty results just mean 100% live generation, same as
-// before this existed.
-async function getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr, seenFp, localKey) {
+// Now generalized across mathematics/english/general (previously
+// mathematics-only) — `generateFn` is the subject's live generator, already
+// bound to any subject-specific extra args (e.g. maths' localKey), with a
+// uniform (yearLevel, count, focusStr, seenFp) signature. Never blocks the
+// test on the pool: every pool call is best-effort and empty/failed results
+// just mean 100% live generation, same as before pooling existed.
+async function getQuestionsPooledOrLive(subject, generateFn, yearLevel, count, tk, qtk, focusStr, seenFp) {
   const bucketQtk = qtk === '_topic' ? null : qtk;
-  const pooled = await getPooledQuestions('mathematics', tk, bucketQtk, yearLevel, count);
+  const pooled = await getPooledQuestions(subject, tk, bucketQtk, yearLevel, count, seenFp);
+  if (pooled.length > 0) markPoolQuestionsServed(pooled.map(q => q._poolId));
   if (pooled.length >= count) {
     // Got enough from the pool — top the bucket up in the background if it's
     // running low, so it doesn't run dry next time this exact bucket is hit.
-    getPoolBucketDepth('mathematics', tk, bucketQtk, yearLevel).then(depth => {
+    getPoolBucketDepth(subject, tk, bucketQtk, yearLevel).then(depth => {
       if (depth < 30) {
-        generateMathsQuestions(yearLevel, 10, focusStr, seenFp, localKey)
-          .then(fresh => refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, fresh))
+        generateFn(yearLevel, 10, focusStr, seenFp)
+          .then(fresh => refillPoolBucket(subject, tk, bucketQtk, yearLevel, fresh))
           .catch(() => { });
       }
     }).catch(() => { });
     return pooled.slice(0, count);
   }
   const needed = count - pooled.length;
-  const live = await generateMathsQuestions(yearLevel, needed, focusStr, seenFp, localKey);
-  refillPoolBucket('mathematics', tk, bucketQtk, yearLevel, live).catch(() => { });
+  const live = await generateFn(yearLevel, needed, focusStr, seenFp);
+  refillPoolBucket(subject, tk, bucketQtk, yearLevel, live).catch(() => { });
   return [...pooled, ...live];
 }
 
@@ -853,7 +856,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Every question MUST test this exact skill.${englishExclusionClause}`
                   : null;
               if (!focusStr) continue;
-              const genQs = await generateEnglishQuestions(yearLevel, count, focusStr, seenFp);
+              const genQs = await getQuestionsPooledOrLive('english', generateEnglishQuestions, yearLevel, count, tk, qtk, focusStr, seenFp);
               seenFp.push(...genQs.map(fingerprintQuestion));
               allQs.push(...genQs.slice(0, count).map(q => ({
                 ...q, _subj: 'english',
@@ -887,7 +890,7 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                 : qtObj
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj?.label} — ${qtObj.label}". Example: ${qtObj.examples?.[0] || ''}${gaExclusionClause}`
                   : null;
-              const genQs = await generateGeneralAbilityQuestions(yearLevel, count, focusStr, seenFp);
+              const genQs = await getQuestionsPooledOrLive('general', generateGeneralAbilityQuestions, yearLevel, count, tk, qtk, focusStr, seenFp);
               seenFp.push(...genQs.map(fingerprintQuestion));
               allQs.push(...genQs.slice(0, count).map(q => ({ ...q, _subj: 'general', topic: tk })));
             }
@@ -963,7 +966,8 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
                   ? `Generate exactly ${count} question${count > 1 ? 's' : ''} ONLY on: "${tObj2?.label} — ${qtObj2.label}". Example: ${qtObj2.examples?.[0] || ''}${mathsExclusionClause}`
                   : null;
               const localKey = matchLocalMathsType(tk, qtk);
-              const genQs2 = await getMathsQuestionsPooledOrLive(yearLevel, count, tk, qtk, focusStr2, seenFp, localKey);
+              const mathsGenFn = (yl, c, f, fp) => generateMathsQuestions(yl, c, f, fp, localKey);
+              const genQs2 = await getQuestionsPooledOrLive('mathematics', mathsGenFn, yearLevel, count, tk, qtk, focusStr2, seenFp);
               seenFp.push(...genQs2.map(fingerprintQuestion));
               allQs.push(...genQs2.slice(0, count).map(q => ({ ...q, _subj: 'mathematics', topic: tk })));
             }
