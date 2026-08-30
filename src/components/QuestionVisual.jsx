@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOMServer from 'react-dom/server';
 
 // ── Bar Chart ─────────────────────────────────────────────────────────────────
 
@@ -1094,7 +1095,21 @@ export function renderPatternVisualSvgString(visual) {
   if (!visual) return '';
   if (visual.type === 'quadrantpattern') return renderQuadrantBlockSvgString(visual);
   if (visual.type === 'picturepattern') return renderPicturePatternSvgString(visual);
-  return '';
+  // Every other visual type (bar/line/pie charts, shape/lshape/polygon,
+  // thermometer, clock, cubes, money, counting, numberline) had no bespoke
+  // string builder here at all, so buildAndPrintPaper's document.write()
+  // pathway (AdminPaperBuilderPage.jsx) silently printed nothing for them —
+  // the picture would show correctly in the on-screen preview (which renders
+  // <QuestionVisual> as real React) but vanish from the printed/PDF paper.
+  // Render the exact same component to a static HTML/SVG string instead of
+  // hand-duplicating each type's markup — guarantees the print output always
+  // matches the live preview pixel-for-pixel, for every current and future
+  // visual type, with no separate implementation to keep in sync.
+  try {
+    return ReactDOMServer.renderToStaticMarkup(<QuestionVisual visual={visual} />);
+  } catch {
+    return '';
+  }
 }
 
 export default function QuestionVisual({ visual }) {
