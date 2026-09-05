@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion, MATHS_VISUAL_SPEC } from '../lib/ai';
-import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket, markPoolQuestionsServed } from '../lib/progress';
+import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, scanAnswerSheet, matchLocalMathsType, fingerprintQuestion, finalizeQuestion, repairInvalidQuestions, MATHS_VISUAL_SPEC } from '../lib/ai';
+import { saveTestResult, updateTestResult, saveCustomTemplate, getCustomTemplates, deleteCustomTemplate, syncCustomBuilderTests, loadCustomBuilderTests, getPooledQuestions, getPoolBucketDepth, refillPoolBucket, markPoolQuestionsServed, flagQuestion } from '../lib/progress';
 import QuestionVisual, { PatternFrame, AnswerCell } from '../components/QuestionVisual';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 
@@ -1175,7 +1175,14 @@ function QuizScreen({ test, yearLevel, customTemplates, onFinish, onRequestScan,
             </div>
             {test.reviewMode !== 'sheet' && revealed[current] && <div style={{ marginTop: 12, padding: '12px 14px', background: '#EEF2FF', borderRadius: 10, fontSize: 13, color: '#4338CA', lineHeight: 1.65, fontFamily: 'Inter, sans-serif', border: '1px solid #C7D2FE' }}>💡 {q.explanation}</div>}
             {test.reviewMode !== 'sheet' && revealed[current] && selected[current] !== q?.correct && !disputes[current] && (
-              <DisputePanel question={q} disputed={disputes[current]?.letter} disputeText={disputes[current]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [current]: { letter, ownText } }))} />
+              <DisputePanel question={q} disputed={disputes[current]?.letter} disputeText={disputes[current]?.ownText} onDispute={(letter, ownText) => {
+                setDisputes(d => ({ ...d, [current]: { letter, ownText } }));
+                // Persist this to the flagged_questions review queue (best-effort,
+                // fire-and-forget) — the manual-check pipeline the "disagree with
+                // this answer" button now feeds, on top of its existing local
+                // score-correction behaviour.
+                flagQuestion(q, qSubj, yearLevel, letter === 'own' ? ownText : letter, { screen: 'quiz' });
+              }} />
             )}
             {test.reviewMode !== 'sheet' && disputes[current] && (
               <DisputePanel question={q} disputed={disputes[current].letter} disputeText={disputes[current].ownText} onDispute={() => { }} />
@@ -1361,7 +1368,11 @@ function ResultsScreen({ test, yearLevel, result, onRetry, onBack }) {
               }
               {!isCorrectQ && !disputes[i] && q.explanation && <div style={{ marginTop: 6, fontSize: 12, color: '#64748B', background: '#EEF2FF', padding: '7px 10px', borderRadius: 8, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}>💡 {q.explanation}</div>}
               {!isCorrectQ && !disputes[i] && ua && (
-                <DisputePanel question={q} disputed={disputes[i]?.letter} disputeText={disputes[i]?.ownText} onDispute={(letter, ownText) => setDisputes(d => ({ ...d, [i]: { letter, ownText } }))} />
+                <DisputePanel question={q} disputed={disputes[i]?.letter} disputeText={disputes[i]?.ownText} onDispute={(letter, ownText) => {
+                  setDisputes(d => ({ ...d, [i]: { letter, ownText } }));
+                  const qSubj = (q._subj && q._subj !== 'custom') ? q._subj : (test.subject || 'mathematics');
+                  flagQuestion(q, qSubj, yearLevel, letter === 'own' ? ownText : letter, { screen: 'results' });
+                }} />
               )}
             </div>
           </div>
@@ -1440,7 +1451,15 @@ ${isMaths ? 'For questions with a diagram, replace "visual":null with the visual
   const data = JSON.parse(rawText);
   const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
   const parsed = JSON.parse(text);
-  return { ...parsed, questions: (parsed.questions || []).map(finalizeQuestion) };
+  const finalized = (parsed.questions || []).map(finalizeQuestion);
+  // Custom Question Creator content gets the exact same QA pass every other
+  // generator does — previously this path (and generateFromImages' "similar"
+  // mode below) had zero validation at all, unlike General Ability's
+  // picture-pattern repair. subject falls back to 'mathematics' only for the
+  // repair helper's regenerate call — the questions themselves keep whatever
+  // topic/subject tag they were generated with.
+  const questions = await repairInvalidQuestions(finalized, subject || 'mathematics', yearLevel);
+  return { ...parsed, questions };
 }
 
 // ── Vision-based extraction / similar-generation from uploaded photo(s) ──────
@@ -1524,7 +1543,15 @@ For "passage" content, include EVERY question shown for that passage in the "que
   const text = (data.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
   const parsed = JSON.parse(text);
   let qs = (parsed.questions || []).map(q => ({ ...q, correct: q.correct || q.suggestedCorrect || 'A' }));
-  if (!asIs) qs = qs.map(finalizeQuestion);
+  if (!asIs) {
+    qs = qs.map(finalizeQuestion);
+    // Same QA pass as every other generator — only for "similar" (brand-new
+    // content) mode. "asis" mode deliberately extracts content exactly as
+    // shown with a suggestedCorrect for a human to confirm/override, so
+    // auto-regenerating it would defeat the point of faithful extraction —
+    // leave that path untouched.
+    qs = await repairInvalidQuestions(qs, subject || 'mathematics', yearLevel);
+  }
   return { ...parsed, questions: qs };
 }
 

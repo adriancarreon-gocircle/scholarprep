@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilityQuestions, generateEnglishQuestions, generateFreshVariant, matchLocalMathsType, fingerprintQuestion } from '../lib/ai';
+import { validateQuestion, validateQuestionSet } from '../lib/qaChecker';
 import { getCustomTemplates, saveCustomTemplate, savePaperTest, getPaperTests, deletePaperTest, getPooledQuestions, getPoolBucketDepth, refillPoolBucket, markPoolQuestionsServed } from '../lib/progress';
 import { QUESTION_BANK, generateFromTemplate, CustomQuestionCreator, sortedEntries } from './CustomTestPage';
 import QuestionVisual, { AnswerCell, renderPatternVisualSvgString, renderAnswerCellSvgString } from '../components/QuestionVisual';
@@ -686,11 +687,7 @@ function ReviewScreen({ questions, passageGroups, questionsPerPassage, yearLevel
 // mechanism, so this needs no new backend endpoint.
 
 function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paperTitle, yearLevel) {
-  const win = window.open('', '_blank');
-  if (!win) return;
-
   const title = paperTitle?.trim() || 'Custom Practice Test';
-  const total = questions.length;
 
   // Group into subject sections in a stable order, preserving passage grouping for reading.
   const sections = [];
@@ -713,7 +710,21 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
     return `<div class="question"><p class="q-text">${num}. ${q.question}</p>${visualHtml}${optionsHtml}</div>`;
   };
 
-  let counter = 0;
+  // ── Single canonical print order ──────────────────────────────────────────
+  // BUG FIX: everything below — question numbering, the blank bubble answer
+  // sheet, the Answer Key, and the Explanations — now walks this ONE array,
+  // built ONCE, in this exact order. Previously the Answer Key/Explanations
+  // (and the bubble sheet) were each built by looping over the raw
+  // `questions` prop in its ORIGINAL order, while the printed questions
+  // above were numbered after being grouped by subject and, within reading,
+  // by passage. Those two orders only matched by coincidence — any paper
+  // whose subjects/passages weren't already contiguous in `questions` (e.g.
+  // built from an interleaved selection, or a saved paper edited/reordered
+  // over time) printed a question numbered N whose answer-key/explanation
+  // entry #N, and whose bubble-sheet position #N, actually belonged to a
+  // DIFFERENT question. This is the fix for "the answers don't associate
+  // with the right questions."
+  const orderedQuestions = [];
   const questionsHtml = sections.map(section => {
     let itemsHtml;
     if (section.subj === 'reading') {
@@ -722,36 +733,54 @@ function buildAndPrintPaper(questions, passageGroups, questionsPerPassage, paper
         const passageHtml = g.passage
           ? `<div class="passage"><h2>${g.passage.title}</h2><p>${(g.passage.text || '').replace(/\n\n/g, '</p><p>')}</p></div>`
           : '';
-        const groupQsHtml = g.questions.map(q => { counter += 1; return questionBlockHtml(q, counter); }).join('');
+        const groupQsHtml = g.questions.map(q => {
+          orderedQuestions.push(q);
+          return questionBlockHtml(q, orderedQuestions.length);
+        }).join('');
         return passageHtml + groupQsHtml;
       }).join('');
     } else {
-      itemsHtml = section.items.map(q => { counter += 1; return questionBlockHtml(q, counter); }).join('');
+      itemsHtml = section.items.map(q => {
+        orderedQuestions.push(q);
+        return questionBlockHtml(q, orderedQuestions.length);
+      }).join('');
     }
     return `<div class="section"><div class="section-title">${section.label}</div>${itemsHtml}</div>`;
   }).join('');
 
-  const answers = (() => {
-    let n = 0;
-    return questions.map(q => { n += 1; return `${n}. ${q.correct}`; }).join('&nbsp;&nbsp;&nbsp;');
-  })();
+  const total = orderedQuestions.length;
 
-  const explanations = (() => {
-    let n = 0;
-    return questions.map(q => {
-      n += 1;
-      // For a picture-pattern question the option "text" is just a placeholder
-      // letter (the real content is the drawn frame), so leave it out here.
-      const optText = q.visual?.answerFrames ? '' : `${(q.options || {})[q.correct] || ''} `;
-      return `<p><strong>${n}.</strong> ${q.correct}. ${optText}— ${q.explanation || ''}</p>`;
-    }).join('');
-  })();
+  // Safety net: if this ever drifts (a question dropped or double-counted
+  // while walking sections/passage-groups above), refuse to print a paper
+  // whose answer key can't possibly line up, rather than shipping one
+  // silently. Should never actually fire — every question pushed into a
+  // section above came from `questions` itself — but this is exactly the
+  // class of bug that was previously silent, so it's worth a real guard.
+  if (total !== questions.length) {
+    console.error('buildAndPrintPaper: question count mismatch while paginating — aborting print.', { total, expected: questions.length });
+    window.alert(`Something went wrong preparing this paper (question count mismatch: ${total} vs ${questions.length}). Nothing was printed — please try "New question set" or reload before printing again, and let engineering know if this recurs.`);
+    return;
+  }
+
+  const win = window.open('', '_blank');
+  if (!win) return;
+
+  // From here on, everything walks `orderedQuestions` — the exact same
+  // array, same order, used to number the printed questions above.
+  const answers = orderedQuestions.map((q, i) => `${i + 1}. ${q.correct}`).join('&nbsp;&nbsp;&nbsp;');
+
+  const explanations = orderedQuestions.map((q, i) => {
+    // For a picture-pattern question the option "text" is just a placeholder
+    // label (the real content is the drawn frame), so leave it out here.
+    const optText = q.visual?.answerFrames ? '' : `${(q.options || {})[q.correct] || ''} `;
+    return `<p><strong>${i + 1}.</strong> ${q.correct}. ${optText}— ${q.explanation || ''}</p>`;
+  }).join('');
 
   // Blank bubble answer sheet — vertical A/B/C/D stack per question, matching
   // the existing scan feature's convention (topmost = A, bottommost = D).
   const COLS = 3, ROWS_PER_COL = 20, PER_PAGE = COLS * ROWS_PER_COL;
   const pages = [];
-  for (let start = 0; start < total; start += PER_PAGE) pages.push(questions.slice(start, start + PER_PAGE));
+  for (let start = 0; start < total; start += PER_PAGE) pages.push(orderedQuestions.slice(start, start + PER_PAGE));
   const bubbleSheetHtml = pages.map((pageQs, pageIdx) => {
     const cols = [];
     for (let c = 0; c < COLS; c++) cols.push(pageQs.slice(c * ROWS_PER_COL, (c + 1) * ROWS_PER_COL));
@@ -979,7 +1008,32 @@ export default function AdminPaperBuilderPage() {
     setView('builder');
   };
 
+  // Pre-print QA gate — structural check (well-formed options, a real
+  // "correct" key, no duplicate/duplicate-looking answer choices) plus a
+  // same-paper duplicate-question check, using the same qaChecker.js this
+  // app now runs after every generation call. By the time a paper reaches
+  // this screen it should already be clean (generateAllPaperQuestions and
+  // generateFreshVariant both run these checks), but this is the last gate
+  // before something actually gets handed to a student, so it's worth
+  // re-checking rather than assuming upstream never lets anything through —
+  // a paper edited/reordered/reopened after being saved is exactly the kind
+  // of path that could otherwise slip past those upstream checks.
   const handleDownload = () => {
+    // ReviewScreen doesn't render the error banner (only the builder screen
+    // does — see handleRegenerateAll's comment above for the same gap), so
+    // this uses a blocking alert rather than setError to make sure an admin
+    // actually sees it before a bad paper gets printed and handed out.
+    const perQuestion = questions.map((q, i) => ({ i, ...validateQuestion(q) })).filter(r => !r.ok);
+    const setCheck = validateQuestionSet(questions);
+    if (perQuestion.length > 0 || !setCheck.ok) {
+      const details = [
+        ...perQuestion.map(r => `Q${r.i + 1}: ${r.issues.join('; ')}`),
+        ...setCheck.issues,
+      ];
+      console.error('Pre-print QA check failed:', details);
+      window.alert(`This paper has ${perQuestion.length + setCheck.duplicateIndexPairs.length} question issue(s) that should be fixed before printing:\n\n${details.slice(0, 8).join('\n')}${details.length > 8 ? `\n…and ${details.length - 8} more` : ''}\n\nUse Regenerate on the affected question(s), then try downloading again.`);
+      return;
+    }
     setDownloading(true);
     try {
       buildAndPrintPaper(questions, passageGroups, genQuestionsPerPassage, paperTitle, yearLevel);

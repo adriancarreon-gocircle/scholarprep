@@ -1170,3 +1170,101 @@ export const refillPoolBucket = async (subject, topicKey, questionTypeKey, yearL
     console.error('refillPoolBucket error:', e);
   }
 };
+
+// ── QA flag pipeline (flagged_questions — human review queue) ───────────────
+// Two ways a question lands here:
+//   1. "dispute"  — a student used the "Disagree with this answer?" panel.
+//      This ALREADY corrected their own score locally (see updateTestResult
+//      above); flagQuestion additionally persists the question + what they
+//      believe the correct answer is, so an admin has something real to look
+//      at instead of the report vanishing the moment they close the test.
+//   2. "auto"     — ai.js's repairInvalidQuestions() logs a question here
+//      automatically when it still fails the qaChecker.js structural checks
+//      (or, for the deterministic local maths generators, independent
+//      arithmetic re-verification) after its bounded regenerate attempts.
+// Both are best-effort, fire-and-forget: a failure here must never block or
+// interrupt the student's test or the admin's paper. Reads/moderation go
+// through /api/flagged-questions (server-mediated with the service-role key
+// and an admin check) rather than direct client RLS, the same pattern
+// pool-refill.js/pool-mark-served.js already use for cross-user data.
+
+export const flagQuestion = async (question, subject, yearLevel, reportedCorrect, context = {}) => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return; // matches updateTestResult's own bar — disputes already require a logged-in user
+    await supabase.from('flagged_questions').insert({
+      user_id: user.id,
+      source: 'dispute',
+      status: 'open',
+      subject,
+      topic: question?.topic || null,
+      question_type: question?.questionType || null,
+      year_level: yearLevel || null,
+      question,
+      reported_correct: reportedCorrect ?? null,
+      issues: null,
+      context: context && Object.keys(context).length > 0 ? context : null,
+    });
+  } catch (e) {
+    console.error('flagQuestion error:', e);
+  }
+};
+
+// Called from ai.js (no user context — this is a system-detected QA
+// failure, not a student report). Uses the same table; source distinguishes
+// the two so the admin review page can show them differently.
+export const logAutoFlaggedQuestion = async (question, subject, yearLevel, issues) => {
+  try {
+    await supabase.from('flagged_questions').insert({
+      user_id: null,
+      source: 'auto',
+      status: 'open',
+      subject,
+      topic: question?.topic || null,
+      question_type: question?.questionType || null,
+      year_level: yearLevel || null,
+      question,
+      reported_correct: null,
+      issues: issues || [],
+      context: null,
+    });
+  } catch (e) {
+    console.error('logAutoFlaggedQuestion error:', e);
+  }
+};
+
+// Admin-only reads/writes go through the server-mediated endpoint (service
+// role + an is_admin check), not direct client RLS — flagged_questions holds
+// every user's reports, which no ordinary client policy should expose.
+async function callFlaggedQuestionsApi(body) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not logged in');
+  const response = await fetch('/api/flagged-questions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ authToken: session.access_token, ...body }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+export const getFlaggedQuestions = async (status = 'open') => {
+  try {
+    const data = await callFlaggedQuestionsApi({ action: 'list', status });
+    return data.rows || [];
+  } catch (e) {
+    console.error('getFlaggedQuestions error:', e);
+    return [];
+  }
+};
+
+export const resolveFlaggedQuestion = async (id, status = 'resolved') => {
+  try {
+    await callFlaggedQuestionsApi({ action: 'update', id, status });
+    return true;
+  } catch (e) {
+    console.error('resolveFlaggedQuestion error:', e);
+    return false;
+  }
+};

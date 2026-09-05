@@ -1,3 +1,6 @@
+import { validateQuestion, verifyLocalMathsAnswer } from './qaChecker';
+import { logAutoFlaggedQuestion } from './progress';
+
 const CLAUDE_API_URL = '/api/claude';
 
 export const callClaude = async (systemPrompt, userPrompt) => {
@@ -461,6 +464,13 @@ function generateMathsQuestionsLocal(localTypeKey, count, yearLevel) {
     guard++;
     const q = finalizeQuestion(gen(yearLevel));
     if (seen.has(q.question)) continue; // exact operand repeat within this batch — redraw
+    // These four generators are pure JS arithmetic, so this should never
+    // actually fire — but it's cheap (no API call) and it's the difference
+    // between "should always be correct" and "verified to be correct", which
+    // is the whole point of having this checker exist at all. A generator
+    // bug that somehow produces a wrong answer gets silently redrawn here
+    // instead of ever reaching a student.
+    if (!verifyLocalMathsAnswer(q).ok) continue;
     seen.add(q.question);
     out.push(q);
   }
@@ -634,7 +644,8 @@ For questions with visuals, replace null with the visual object. For questions w
     try {
       const raw = await callClaude(system, user);
       const parsed = JSON.parse(raw);
-      return (parsed.questions || []).map(finalizeQuestion);
+      const finalized = (parsed.questions || []).map(finalizeQuestion);
+      return await repairInvalidQuestions(finalized, 'mathematics', yearLevel, recentFingerprints);
     } catch (err) {
       if (attempt === 2) throw err;
     }
@@ -839,7 +850,14 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   const parsed = JSON.parse(raw);
 
   if (parsed.questions) {
-    parsed.questions = parsed.questions.map(finalizeQuestion);
+    const finalized = parsed.questions.map(finalizeQuestion);
+    // No recentFingerprints list is tracked per-passage here (recentSeeds is
+    // a list of STORY seeds, not question fingerprints, so it isn't passed
+    // through) — repairInvalidQuestions still builds its own from the
+    // questions already accepted earlier in this same batch. allowRegenerate
+    // is false — see the comment on repairInvalidQuestions for why a reading
+    // question can't be safely auto-regenerated without its passage.
+    parsed.questions = await repairInvalidQuestions(finalized, 'reading', yearLevel, [], { allowRegenerate: false });
   }
   // Let the caller track which seed was used (e.g. to exclude it from the next
   // passage in the same test via recentSeeds) without needing to re-derive it.
@@ -848,66 +866,64 @@ Return ONLY this JSON: {"passage":{"title":"title","text":"passage text with par
   return parsed;
 };
 
-// ── Duplicate-option detection & repair (picture/quadrant pattern) ─────────
-// Reported bug: two of a picture-pattern question's 4 answer options can
-// end up looking like the EXACT SAME picture — either because the model
-// literally repeated the same frame content under two letters, or (more
-// subtly) because it gave two options different numeric "rotation" values
-// on a shape that has its own rotational symmetry: a plain circle looks
-// identical at ANY angle, and a plain square/diamond repeats every 90°, so
-// two "different" rotation values render as indistinguishable pictures.
-// Shapes not listed below (arrows, notched_bar, elbow_arrow, text, stars,
-// hearts, etc.) are asymmetric enough that their exact rotation matters and
-// is compared as-is.
-const SHAPE_ROTATION_PERIOD = {
-  circle: 1, circle_thick: 1,                              // identical at any angle
-  square: 90, square_small: 90, diamond: 90, cross_x: 90,  // repeats every 90°
-};
-
-function normalizeShapeForCompare(sh) {
-  if (!sh || typeof sh !== 'object') return sh;
-  const period = SHAPE_ROTATION_PERIOD[sh.type];
-  const rotation = period ? (period === 1 ? 0 : ((sh.rotation || 0) % period)) : (sh.rotation || 0);
-  return { ...sh, rotation };
-}
-
-// Only normalizes the "picturepattern" frame shape (a {shapes:[...]} list,
-// optionally with bgShape) — the {polygonSides,elements} vertex-rotation
-// frame variant and quadrantpattern's {rotation,flip} transforms are
-// compared as-is below (no known symmetry trap reported for those yet).
-function normalizeFrameForCompare(frame) {
-  if (!frame || typeof frame !== 'object') return frame;
-  if (Array.isArray(frame.shapes)) return { shapes: frame.shapes.map(normalizeShapeForCompare), bgShape: frame.bgShape || null };
-  return frame;
-}
-
-function hasDuplicateAnswerOptions(q) {
-  const frames = q?.visual?.answerFrames;
-  if (!frames) return false;
-  const letters = ['A', 'B', 'C', 'D'];
-  if (letters.some(l => frames[l] === undefined)) return false;
-  const keys = letters.map(l => JSON.stringify(normalizeFrameForCompare(frames[l])));
-  return new Set(keys).size < letters.length;
-}
-
-// Applied once to a freshly-generated batch (generateGeneralAbilityQuestions).
-// Any question whose options aren't all visually distinct gets exactly ONE
-// regenerate attempt via the same single-question path the admin Review
-// screen's "Regenerate" button uses, before being handed back to the caller.
-// Bounded to one retry per question — a call that still has duplicates after
-// that ships anyway (better than losing the question or looping forever) but
-// is logged so it's visible during testing.
-async function repairDuplicateOptionQuestions(questions, yearLevel, recentFingerprints) {
+// ── Generalized post-generation QA repair ──────────────────────────────────
+// Runs validateQuestion() (qaChecker.js — well-formed options, a real
+// "correct" key, no duplicate/duplicate-looking answer choices) and, for the
+// four deterministic local maths generators, an independent arithmetic
+// re-derivation via verifyLocalMathsAnswer(), against every question in a
+// freshly-generated batch. Previously ONLY General Ability's picture-pattern
+// duplicate-frame check got any repair pass at all here — Maths, Reading and
+// English questions left this file with zero validation whatsoever. Now
+// applied uniformly to all four subject generators below.
+//
+// Anything that fails gets up to two regenerate attempts via
+// generateFreshVariant — the same single-question path the admin Review
+// screen's "Regenerate" button already uses. If it's STILL invalid after
+// that, the question ships anyway (never silently drop a slot the caller
+// asked for — a missing question is worse than an imperfect one) but is
+// also logged to the flagged_questions table (best-effort, fire-and-forget)
+// so an admin has somewhere real to look instead of the problem vanishing
+// the moment the test/paper is closed.
+//
+// allowRegenerate: false skips the generateFreshVariant step entirely and
+// only validates + logs. Used for reading comprehension questions — the
+// admin Review screen already treats these as non-regenerable one at a time
+// ("reading questions share a passage and can't be regenerated
+// individually"), because generateFreshVariant has no way to see the
+// passage a reading question is actually about: asking it to "vary the
+// values, keep the structure" for a question like "What is the author's
+// main argument?" with no passage in hand would just produce an unrelated,
+// unanchored replacement — worse than leaving the original in place.
+export async function repairInvalidQuestions(questions, subject, yearLevel, recentFingerprints = [], { allowRegenerate = true } = {}) {
   const out = [];
   for (const q of questions) {
-    if (!hasDuplicateAnswerOptions(q)) { out.push(q); continue; }
-    try {
-      const fixed = await generateFreshVariant(q, 'general', yearLevel, [...recentFingerprints, ...out.map(fingerprintQuestion)]);
-      if (hasDuplicateAnswerOptions(fixed)) console.warn('Picture-pattern question still has duplicate-looking options after one repair attempt:', fixed.question);
-      out.push(fixed);
-    } catch {
-      out.push(q); // repair call failed — ship the original rather than losing the question
+    const check = (question) => {
+      const structural = validateQuestion(question);
+      const arithmetic = verifyLocalMathsAnswer(question);
+      return {
+        ok: structural.ok && arithmetic.ok,
+        issues: [...structural.issues.filter(i => !i.startsWith('(warning)')), ...arithmetic.issues],
+      };
+    };
+
+    let current = q;
+    let result = check(current);
+    let attempts = 0;
+    while (allowRegenerate && !result.ok && attempts < 2) {
+      attempts++;
+      try {
+        const fixed = await generateFreshVariant(current, subject, yearLevel, [...recentFingerprints, ...out.map(fingerprintQuestion)]);
+        current = fixed;
+        result = check(current);
+      } catch {
+        break; // regenerate call itself failed — stop retrying, ship what we have
+      }
     }
+    if (!result.ok) {
+      console.warn('Question still failed QA after repair attempts:', current.question, result.issues);
+      logAutoFlaggedQuestion(current, subject, yearLevel, result.issues).catch(() => { });
+    }
+    out.push(current);
   }
   return out;
 }
@@ -1064,7 +1080,7 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"text","options":{"A":"o
 For picture pattern questions, replace null with the visual object. For text-only questions, use null or omit the field.`;
   const raw = await callClaude(system, user);
   const questions = (JSON.parse(raw).questions || []).map(finalizeQuestion);
-  return await repairDuplicateOptionQuestions(questions, yearLevel, recentFingerprints);
+  return await repairInvalidQuestions(questions, 'general', yearLevel, recentFingerprints);
 };
 
 // ── Generate English Questions ────────────────────────────────────────────────
@@ -1163,7 +1179,8 @@ Return ONLY this JSON: {"questions":[{"id":1,"question":"Question text here. For
 
   const raw = await callClaude(system, user);
   const parsed = JSON.parse(raw);
-  return (parsed.questions || []).map(finalizeQuestion);
+  const finalized = (parsed.questions || []).map(finalizeQuestion);
+  return await repairInvalidQuestions(finalized, 'english', yearLevel, recentFingerprints);
 };
 
 // ── Writing ───────────────────────────────────────────────────────────────────
@@ -1533,12 +1550,15 @@ Return ONLY this JSON with no other text:
   const result = await parseOneAttempt();
   // Same prompt, called again — the model's sampling differs run to run, so a
   // second attempt has a real chance of not repeating the same rotational-
-  // symmetry (or similar) duplicate. Bounded to one retry; if it's still bad,
-  // ship it anyway rather than hammering the API or losing the question.
-  if (hasDuplicateAnswerOptions(result)) {
+  // symmetry (or duplicate-option, or malformed-correct-key) problem. Bounded
+  // to one retry; if it's still bad, ship it anyway rather than hammering the
+  // API or losing the question — this is also the path repairInvalidQuestions
+  // uses, so a still-bad result here still gets logged for manual review one
+  // level up, it's never silently lost.
+  if (!validateQuestion(result).ok) {
     try {
       const retry = await parseOneAttempt();
-      if (!hasDuplicateAnswerOptions(retry)) return retry;
+      if (validateQuestion(retry).ok) return retry;
     } catch { /* keep the original result below */ }
   }
   return result;
