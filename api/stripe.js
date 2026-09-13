@@ -56,6 +56,33 @@ export default async function handler(req, res) {
         return res.json({ received: true });
       }
 
+      // ── One-time eBook purchase ─────────────────────────────────────────────
+      if (session.mode === 'payment' && session.metadata?.productType === 'ebook') {
+        try {
+          const { getEbookServer } = require('./_ebooksServer');
+          const supabaseAdmin = getSupabaseAdmin();
+          const customerEmail = session.customer_details?.email || session.customer_email;
+          const skus = (session.metadata.skus || '').split(',').filter(Boolean);
+
+          if (customerEmail && supabaseAdmin && skus.length > 0) {
+            const downloads = [];
+            for (const sku of skus) {
+              const ebook = getEbookServer(sku);
+              if (!ebook) continue;
+              const { data, error: signError } = await supabaseAdmin.storage
+                .from('ebooks')
+                .createSignedUrl(ebook.file, 60 * 60 * 24 * 7); // 7 days
+              if (!signError && data) downloads.push({ title: ebook.title, url: data.signedUrl });
+            }
+            await sendEbookEmail(customerEmail, downloads);
+            console.log('Sent ebook email to:', customerEmail, 'books:', downloads.length);
+          }
+        } catch (err) {
+          console.error('Ebook webhook error:', err.message);
+        }
+        return res.json({ received: true });
+      }
+
       if (session.mode === 'subscription') {
         try {
           const supabaseAdmin = getSupabaseAdmin();
@@ -274,6 +301,43 @@ export default async function handler(req, res) {
         cancel_url: cancelUrl || `${req.headers.origin}/practice-papers`,
       });
 
+    } else if (type === 'ebook') {
+      const { skus } = req.body;
+      const { getEbookServer } = require('./_ebooksServer');
+
+      if (!Array.isArray(skus) || skus.length === 0) {
+        return res.status(400).json({ error: 'Your cart is empty.' });
+      }
+      if (skus.length > 20) {
+        return res.status(400).json({ error: 'Too many items in one order.' });
+      }
+
+      const uniqueSkus = [...new Set(skus)];
+      const lineItems = [];
+      for (const sku of uniqueSkus) {
+        const ebook = getEbookServer(sku);
+        if (!ebook || !ebook.available) {
+          return res.status(400).json({ error: `"${sku}" isn't available yet.` });
+        }
+        const priceId = process.env[ebook.priceEnvVar];
+        if (!priceId) {
+          // Missing env var — fail loudly rather than silently charging $0.
+          console.error(`Missing Stripe price env var ${ebook.priceEnvVar} for SKU ${sku}`);
+          return res.status(500).json({ error: `"${ebook.title}" isn't set up for checkout yet.` });
+        }
+        lineItems.push({ price: priceId, quantity: 1 });
+      }
+
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: lineItems,
+        metadata: { productType: 'ebook', skus: uniqueSkus.join(',') },
+        ...(userEmail && { customer_email: userEmail }),
+        success_url: successUrl || `${req.headers.origin}/ebooks/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${req.headers.origin}/ebooks`,
+      });
+
     } else {
       return res.status(400).json({ error: 'Invalid checkout type' });
     }
@@ -446,6 +510,59 @@ async function sendPracticePaperEmail(email, downloads) {
     if (!response.ok) console.error('Brevo email error:', await response.text());
   } catch (err) {
     console.error('Failed to send practice paper email:', err.message);
+  }
+}
+
+// ── Send eBook download email via Brevo ───────────────────────────────────────
+async function sendEbookEmail(email, downloads) {
+  try {
+    const linksHtml = downloads.map(d => `
+      <div style="margin-bottom: 10px;">
+        <a href="${d.url}" style="display: inline-block; background: #4338CA; color: #fff; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 700; text-decoration: none; font-family: 'Inter', Arial, sans-serif;">
+          📚 Download ${d.title}
+        </a>
+      </div>
+    `).join('');
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': process.env.BREVO_API_KEY },
+      body: JSON.stringify({
+        sender: { name: 'ScholarPrep', email: 'hello@scholarprep.com.au' },
+        to: [{ email }],
+        subject: 'Your ScholarPrep eBooks are ready!',
+        htmlContent: `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F7FF;">
+  <div style="background: #3730A3; padding: 32px 40px; text-align: center;">
+    <div style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 28px; font-weight: 900; color: #fff;">
+      Scholar<span style="color: #A5B4FC;">Prep</span>
+    </div>
+  </div>
+  <div style="padding: 40px; background: #fff; margin: 24px; border-radius: 16px; border: 1px solid rgba(67,56,202,0.08);">
+    <h1 style="font-family: 'Plus Jakarta Sans', Georgia, sans-serif; font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 14px;">
+      Your eBooks are ready 📚
+    </h1>
+    <p style="font-size: 15px; color: #6B7280; line-height: 1.7; margin: 0 0 24px; font-family: 'Inter', Arial, sans-serif;">
+      Thanks for your purchase! Click below to download your book${downloads.length > 1 ? 's' : ''}. Links are valid for 7 days.
+    </p>
+    ${linksHtml}
+    <p style="font-size: 13px; color: #94A3B8; line-height: 1.7; margin: 24px 0 0; font-family: 'Inter', Arial, sans-serif;">
+      Trouble downloading? Just reply to this email or visit our <a href="https://scholarprep.com.au/support" style="color: #4338CA;">support page</a>.
+    </p>
+  </div>
+  <div style="padding: 20px 24px; text-align: center;">
+    <div style="font-size: 12px; color: #9CA3AF; font-family: 'Inter', Arial, sans-serif;">
+      © 2026 ScholarPrep — a Go Circle Pty Ltd company<br/>
+      <a href="https://scholarprep.com.au" style="color: #4338CA; text-decoration: none;">scholarprep.com.au</a>
+    </div>
+  </div>
+</div>
+        `
+      })
+    });
+    if (!response.ok) console.error('Brevo email error:', await response.text());
+  } catch (err) {
+    console.error('Failed to send ebook email:', err.message);
   }
 }
 

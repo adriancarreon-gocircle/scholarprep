@@ -32,6 +32,8 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminPaperBuilderPage = lazy(() => import('./pages/AdminPaperBuilderPage'));
 const PracticePapersPage = lazy(() => import('./pages/PracticePapersPage'));
 const PracticePaperSuccessPage = lazy(() => import('./pages/PracticePaperSuccessPage'));
+const EbookCataloguePage = lazy(() => import('./pages/EbookCataloguePage'));
+const EbookSuccessPage = lazy(() => import('./pages/EbookSuccessPage'));
 
 function PageLoader() {
   return (
@@ -81,6 +83,8 @@ function AppRoutes() {
         <Route path="/admin/paper-builder" element={<ProtectedRoute><AdminPaperBuilderPage /></ProtectedRoute>} />
         <Route path="/practice-papers" element={<PracticePapersPage />} />
         <Route path="/practice-papers/success" element={<PracticePaperSuccessPage />} />
+        <Route path="/ebooks" element={<EbookCataloguePage />} />
+        <Route path="/ebooks/success" element={<EbookSuccessPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

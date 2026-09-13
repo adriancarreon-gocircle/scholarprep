@@ -157,6 +157,9 @@ export default function Landing() {
         }
         .band-seg { display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.8); font-family: 'Inter', sans-serif; }
 
+        @media (max-width: 1100px) {
+          .pricing-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
         @media (max-width: 768px) {
           .hero-grid { grid-template-columns: 1fr !important; }
           .hero-screenshot { display: none !important; }
@@ -745,7 +748,7 @@ export default function Landing() {
             <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, letterSpacing: -1, color: '#111827', marginBottom: 12, lineHeight: 1.15 }}>Start free. Subscribe when ready.</h2>
             <p style={{ fontSize: 16, color: '#6B7280', fontFamily: 'Inter, sans-serif' }}>No lock-in contracts. Cancel anytime.</p>
           </div>
-          <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, alignItems: 'start' }}>
+          <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, alignItems: 'start' }}>
 
             <div className="pricing-card">
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>Free trial</div>
@@ -803,6 +806,24 @@ export default function Landing() {
                 Generate a PDF test
               </button>
             </div>
+
+            <div className="pricing-card">
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>One-off purchase</div>
+              <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 22, fontWeight: 800, color: '#111827' }}>eBooks</div>
+              <div style={{ fontSize: 44, fontWeight: 900, color: '#111827', lineHeight: 1, margin: '14px 0 4px', fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: -2 }}>$14.95</div>
+              <div style={{ fontSize: 14, color: '#9CA3AF', marginBottom: 28, fontFamily: 'Inter, sans-serif' }}>per volume · instant download</div>
+              <div style={{ height: 1, background: '#F3F4F6', marginBottom: 24 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+                {['44 practice tests + 4 full exams', '~600 questions per volume', '200+ pages, printable PDF', 'Scholarship, Selective Entry & NAPLAN-style', 'Years 3, 5 & 7 available'].map(f => (
+                  <div key={f} className="check-item"><span style={{ color: '#10B981', fontWeight: 700, flexShrink: 0 }}>✓</span>{f}</div>
+                ))}
+              </div>
+              <button onClick={() => navigate('/ebooks')} style={{ width: '100%', padding: 14, borderRadius: 100, fontSize: 15, fontWeight: 700, border: 'none', background: '#7C3AED', color: '#fff', cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.2s' }}
+                onMouseEnter={e => e.target.style.background = '#6D28D9'}
+                onMouseLeave={e => e.target.style.background = '#7C3AED'}>
+                Browse eBooks →
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -841,6 +862,7 @@ export default function Landing() {
                 <Link to="/pdf-generator" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>PDF Test Generator</Link>
                 <Link to="/blog" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Blog</Link>
                 <Link to="/practice-papers" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Practice Papers</Link>
+                <Link to="/ebooks" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>eBooks</Link>
                 <Link to="/signup" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>Start Free Trial</Link>
               </div>
             </div>
