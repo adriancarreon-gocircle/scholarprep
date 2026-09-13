@@ -6,6 +6,14 @@ export default function Landing() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [examsMenuOpen, setExamsMenuOpen] = useState(false);
+  const [productsMenuOpen, setProductsMenuOpen] = useState(false);
+
+  const PRODUCT_LINKS = [
+    { key: 'subscription', label: 'Monthly Subscription', desc: 'Unlimited practice · $9.99/mo', icon: '⭐', href: '#pricing' },
+    { key: 'pdf-generator', label: 'PDF Test Generator', desc: '15¢ per question · instant PDF', icon: '📄', to: '/pdf-generator' },
+    { key: 'practice-papers', label: 'Practice Papers', desc: 'Printable exam booklets', icon: '📝', to: '/practice-papers' },
+    { key: 'ebooks', label: 'eBooks', desc: 'Full practice books · $14.95', icon: '📚', to: '/ebooks' },
+  ];
 
   const EXAM_LINKS = [
     { slug: 'acer-selective', label: 'ACER Selective Entry', icon: '🎓' },
@@ -31,6 +39,42 @@ export default function Landing() {
     { name: 'Measurement', pct: 75, grade: 'B+', status: 'Above average', statusColor: '#059669', feedback: 'Good work — slightly above average. A few more targeted sessions will consolidate this further.' },
     { name: 'Word problems', pct: 61, grade: 'C+', status: 'At average', statusColor: '#F97316', feedback: 'On track with the national average. Regular practice will push you above the benchmark.' },
   ];
+
+  const [screenshotIndex, setScreenshotIndex] = useState(0);
+  const SCREENSHOTS = [
+    {
+      src: '/screenshots/screenshot-welcome.jpg',
+      title: 'Your personalised dashboard',
+      caption: "Jump straight into a practice test, a full simulated exam, or pick up your child's progress right where they left off — everything is one click away.",
+    },
+    {
+      src: '/screenshots/screenshot-maths-setup.jpg',
+      title: 'Build a test to size',
+      caption: 'Choose how many questions, target specific topics that need work, add a timer, and pick how answers are reviewed — as-you-go, exam mode, or a printable answer sheet.',
+    },
+    {
+      src: '/screenshots/screenshot-maths-question.jpg',
+      title: 'Clean, focused question screens',
+      caption: "No clutter, no distractions — just the question, four answer choices, and a clear sense of progress through the test.",
+    },
+    {
+      src: '/screenshots/screenshot-reading-setup.jpg',
+      title: 'Reading comprehension, your way',
+      caption: 'Choose the number of passages, questions per passage, and even the passage topic — from Science and History to Fiction and Sport.',
+    },
+    {
+      src: '/screenshots/screenshot-reading-passage.jpg',
+      title: 'Exam-style passages & questions',
+      caption: 'Original comprehension passages paired with questions that mirror the style used in ACER, NAPLAN and selective-entry exams.',
+    },
+    {
+      src: '/screenshots/screenshot-progress.jpg',
+      title: 'Know exactly where your child stands',
+      caption: 'Every topic scored, graded and benchmarked against the national average — with specific, plain-English feedback on what to work on next.',
+    },
+  ];
+  const nextScreenshot = () => setScreenshotIndex(i => (i + 1) % SCREENSHOTS.length);
+  const prevScreenshot = () => setScreenshotIndex(i => (i - 1 + SCREENSHOTS.length) % SCREENSHOTS.length);
 
   const getBandColor = (pct) => {
     if (pct < 40) return '#EF4444';
@@ -176,6 +220,8 @@ export default function Landing() {
           .dash-feedback { display: none !important; }
           .dash-header-score { display: none !important; }
           .dash-header-feedback { display: none !important; }
+          .screenshot-arrow-prev { left: 4px !important; width: 36px !important; height: 36px !important; }
+          .screenshot-arrow-next { right: 4px !important; width: 36px !important; height: 36px !important; }
         }
         @media (min-width: 769px) { .nav-burger { display: none !important; } .hero-mobile-mockup { display: none !important; } }
       `}</style>
@@ -193,7 +239,60 @@ export default function Landing() {
           Scholar<span style={{ color: '#4338CA' }}>Prep</span>
         </div>
         <div className="nav-links-d" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+          {['Features', 'Subjects'].map(l => <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>)}
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setProductsMenuOpen(true)}
+            onMouseLeave={() => setProductsMenuOpen(false)}
+          >
+            <span className="nav-link" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              Products
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ transform: productsMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                <path d="M1 1L5 5L9 1" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            {productsMenuOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                paddingTop: 14, zIndex: 200,
+              }}>
+                <div style={{
+                  background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.12)', padding: 12,
+                  display: 'flex', flexDirection: 'column', gap: 2,
+                  width: 260,
+                }}>
+                  {PRODUCT_LINKS.map(p => {
+                    const rowStyle = {
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                      borderRadius: 10, textDecoration: 'none', color: '#374151',
+                      fontFamily: 'Inter, sans-serif', transition: 'background 0.12s',
+                    };
+                    const inner = (
+                      <>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>{p.icon}</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{p.label}</div>
+                          <div style={{ fontSize: 11.5, color: '#9CA3AF', marginTop: 1 }}>{p.desc}</div>
+                        </div>
+                      </>
+                    );
+                    return p.to ? (
+                      <Link key={p.key} to={p.to} style={rowStyle}
+                        onMouseEnter={ev => ev.currentTarget.style.background = '#F8FAFC'}
+                        onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}
+                      >{inner}</Link>
+                    ) : (
+                      <a key={p.key} href={p.href} style={rowStyle}
+                        onMouseEnter={ev => ev.currentTarget.style.background = '#F8FAFC'}
+                        onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}
+                      >{inner}</a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <div
             style={{ position: 'relative' }}
             onMouseEnter={() => setExamsMenuOpen(true)}
@@ -248,7 +347,23 @@ export default function Landing() {
 
       {menuOpen && (
         <div style={{ position: 'fixed', top: 60, left: 0, right: 0, bottom: 0, zIndex: 99, background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)', overflowY: 'auto' }}>
-          {['Features', 'Subjects', 'Pricing'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
+          {['Features', 'Subjects'].map(l => <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ fontSize: 16, fontWeight: 600, color: '#111827', textDecoration: 'none' }}>{l}</a>)}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Products</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {PRODUCT_LINKS.map(p => (
+                p.to ? (
+                  <Link key={p.key} to={p.to} onClick={() => setMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 0' }}>
+                    <span>{p.icon}</span>{p.label}
+                  </Link>
+                ) : (
+                  <a key={p.key} href={p.href} onClick={() => setMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 0' }}>
+                    <span>{p.icon}</span>{p.label}
+                  </a>
+                )
+              ))}
+            </div>
+          </div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Exams we prepare you for</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -442,6 +557,81 @@ export default function Landing() {
           </div>
         </div>
       </div>
+
+      {/* ── SCREENSHOT CAROUSEL — a look inside the platform ── */}
+      <section style={{ background: '#fff', padding: '96px 40px', borderBottom: '1px solid #F3F4F6' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div style={{ display: 'inline-block', background: '#F5F3FF', color: '#7C3AED', padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>See it in action</div>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, letterSpacing: -1, color: '#111827', marginBottom: 16, lineHeight: 1.15 }}>A look inside ScholarPrep.</h2>
+            <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 560, margin: '0 auto', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>Six real screens from the platform — from picking a test to tracking real progress.</p>
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 0 0 1px #E5E7EB, 0 30px 70px rgba(15,23,42,0.12)', overflow: 'hidden' }}>
+              <div style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {['#FF5F57', '#FFBD2E', '#28CA41'].map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: c }} />)}
+                </div>
+                <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '5px 16px', fontSize: 13, color: '#9CA3AF', fontFamily: 'Inter, sans-serif', border: '1px solid #E5E7EB', marginLeft: 8, maxWidth: 320 }}>
+                  scholarprep.com.au/app
+                </div>
+              </div>
+              <img
+                src={SCREENSHOTS[screenshotIndex].src}
+                alt={SCREENSHOTS[screenshotIndex].title}
+                style={{ display: 'block', width: '100%', height: 'auto' }}
+              />
+            </div>
+
+            {/* Prev / Next arrows */}
+            <button
+              onClick={prevScreenshot}
+              aria-label="Previous screenshot"
+              className="screenshot-arrow-prev"
+              style={{
+                position: 'absolute', top: '50%', left: -20, transform: 'translateY(-50%)',
+                width: 44, height: 44, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', cursor: 'pointer', fontSize: 18, color: '#374151',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >‹</button>
+            <button
+              onClick={nextScreenshot}
+              aria-label="Next screenshot"
+              className="screenshot-arrow-next"
+              style={{
+                position: 'absolute', top: '50%', right: -20, transform: 'translateY(-50%)',
+                width: 44, height: 44, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', cursor: 'pointer', fontSize: 18, color: '#374151',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >›</button>
+          </div>
+
+          {/* Caption */}
+          <div style={{ textAlign: 'center', marginTop: 28, padding: '0 20px' }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 8 }}>{SCREENSHOTS[screenshotIndex].title}</div>
+            <p style={{ fontSize: 14.5, color: '#6B7280', lineHeight: 1.75, maxWidth: 640, margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>{SCREENSHOTS[screenshotIndex].caption}</p>
+          </div>
+
+          {/* Dots */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 22 }}>
+            {SCREENSHOTS.map((s, i) => (
+              <button
+                key={s.src}
+                onClick={() => setScreenshotIndex(i)}
+                aria-label={`Go to screenshot ${i + 1}`}
+                style={{
+                  width: i === screenshotIndex ? 22 : 8, height: 8, borderRadius: 100, border: 'none',
+                  background: i === screenshotIndex ? '#4338CA' : '#E5E7EB', cursor: 'pointer', transition: 'all 0.2s',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ── PROGRESS DASHBOARD FEATURE — Large mockup ── */}
       <section style={{ background: '#F9FAFB', padding: '96px 40px 0' }}>
@@ -867,7 +1057,7 @@ export default function Landing() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Popular Exams</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Popular Tests</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {EXAM_LINKS.slice(0, 5).map(e => (
                   <Link key={e.slug} to={`/exams/${e.slug}`} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>{e.label}</Link>
@@ -875,7 +1065,7 @@ export default function Landing() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>More Exams</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>More Tests</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {EXAM_LINKS.slice(5, 10).map(e => (
                   <Link key={e.slug} to={`/exams/${e.slug}`} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>{e.label}</Link>

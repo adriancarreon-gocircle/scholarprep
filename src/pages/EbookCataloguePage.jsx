@@ -183,6 +183,29 @@ function BookCard({ year, volume, inCart, onToggle }) {
   );
 }
 
+const BOOK_PREVIEWS = [
+  {
+    src: '/book-preview/preview-contents.jpg',
+    title: 'A complete table of contents',
+    caption: '44 practice mini-tests, 4 full-length simulated exams, plus a Writing section with a marking checklist — every page mapped out from the start.',
+  },
+  {
+    src: '/book-preview/preview-reading-minitest.jpg',
+    title: 'Original comprehension passages',
+    caption: 'Real, original short stories and non-fiction passages — never recycled public-domain text — paired with exam-style comprehension questions.',
+  },
+  {
+    src: '/book-preview/preview-english-minitest.jpg',
+    title: 'Conventions of Language',
+    caption: 'Vocabulary, spelling, punctuation and grammar — the exact skills tested in Selective Entry and Scholarship English papers.',
+  },
+  {
+    src: '/book-preview/preview-maths-minitest.jpg',
+    title: 'Mathematical Reasoning',
+    caption: 'Word problems, place value, data interpretation and more, with fully worked answers explained at the back — not just an answer key.',
+  },
+];
+
 export default function EbookCataloguePage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
@@ -190,6 +213,9 @@ export default function EbookCataloguePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [toast, setToast] = useState(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const nextPreview = () => setPreviewIndex(i => (i + 1) % BOOK_PREVIEWS.length);
+  const prevPreview = () => setPreviewIndex(i => (i - 1 + BOOK_PREVIEWS.length) % BOOK_PREVIEWS.length);
 
   useEffect(() => { saveCart(cart); }, [cart]);
 
@@ -317,6 +343,99 @@ export default function EbookCataloguePage() {
               <b style={{ fontSize: 22, fontWeight: 800, fontFamily: 'Plus Jakarta Sans, sans-serif', fontVariantNumeric: 'tabular-nums' }}>{n}</b>
               <span style={{ fontSize: 12, color: '#94A3B8' }}>{label}</span>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── WHY THESE BOOKS ARE DIFFERENT ── */}
+      <div style={{ maxWidth: 1180, margin: '48px auto 0', padding: '0 28px' }}>
+        <div style={{
+          background: '#fff', border: '1px solid rgba(67,56,202,0.09)', borderRadius: 20,
+          padding: '32px 28px', boxShadow: '0 1px 3px rgba(67,56,202,0.06), 0 10px 24px -12px rgba(67,56,202,0.1)',
+        }}>
+          <h2 style={{ fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 800, margin: '0 0 10px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Why these books are different
+          </h2>
+          <p style={{ fontSize: 14.5, color: '#475569', lineHeight: 1.75, maxWidth: '82ch', margin: 0 }}>
+            Most practice books you'll find in a bookshop or on Amazon pack in 30–50 short tests for $25–35 — and there's
+            rarely a way to see what's actually inside before you buy. Every ScholarPrep volume gives you <strong>44 practice
+              mini-tests plus 4 full-length simulated exams</strong> — over 600 original questions across Reading, English,
+            General Ability and Mathematical Reasoning — with a complete worked answer key at the back explaining every
+            answer, not just listing it. It's the equivalent of 3–4 typical practice books bound into one, at a fraction of
+            the combined price. Below is a genuine look inside one of our books, so you know exactly what you're getting.
+          </p>
+        </div>
+      </div>
+
+      {/* ── LOOK INSIDE — real book preview carousel ── */}
+      <div style={{ maxWidth: 1180, margin: '28px auto 0', padding: '0 28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+            letterSpacing: '0.06em', textTransform: 'uppercase', color: '#4338CA', background: '#EEF2FF',
+            padding: '5px 12px', borderRadius: 100, marginBottom: 14,
+          }}>👀 Look inside</div>
+          <h3 style={{ fontSize: 'clamp(20px,3vw,28px)', fontWeight: 800, margin: '0 0 8px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Real pages from ScholarPrep — Year 3, Volume 1
+          </h3>
+          <p style={{ fontSize: 14, color: '#94A3B8', maxWidth: 560, margin: '0 auto' }}>
+            Every volume follows the same structure — the specific questions differ by year level.
+          </p>
+        </div>
+
+        <div style={{ position: 'relative', maxWidth: 620, margin: '0 auto' }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(67,56,202,0.09)',
+            boxShadow: '0 1px 3px rgba(67,56,202,0.06), 0 20px 44px -16px rgba(67,56,202,0.18)',
+          }}>
+            <img
+              src={BOOK_PREVIEWS[previewIndex].src}
+              alt={BOOK_PREVIEWS[previewIndex].title}
+              style={{ display: 'block', width: '100%', height: 'auto' }}
+            />
+          </div>
+          <button
+            onClick={prevPreview}
+            aria-label="Previous page"
+            style={{
+              position: 'absolute', top: '50%', left: -18, transform: 'translateY(-50%)',
+              width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(67,56,202,0.09)', background: '#fff',
+              boxShadow: '0 8px 20px rgba(15,23,42,0.14)', cursor: 'pointer', fontSize: 17, color: '#374151',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >‹</button>
+          <button
+            onClick={nextPreview}
+            aria-label="Next page"
+            style={{
+              position: 'absolute', top: '50%', right: -18, transform: 'translateY(-50%)',
+              width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(67,56,202,0.09)', background: '#fff',
+              boxShadow: '0 8px 20px rgba(15,23,42,0.14)', cursor: 'pointer', fontSize: 17, color: '#374151',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >›</button>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 20, padding: '0 20px' }}>
+          <div style={{ fontSize: 15.5, fontWeight: 800, color: '#0F172A', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            {BOOK_PREVIEWS[previewIndex].title}
+          </div>
+          <p style={{ fontSize: 13.5, color: '#64748B', lineHeight: 1.7, maxWidth: 560, margin: '0 auto' }}>
+            {BOOK_PREVIEWS[previewIndex].caption}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 18 }}>
+          {BOOK_PREVIEWS.map((p, i) => (
+            <button
+              key={p.src}
+              onClick={() => setPreviewIndex(i)}
+              aria-label={`Go to page ${i + 1}`}
+              style={{
+                width: i === previewIndex ? 20 : 8, height: 8, borderRadius: 100, border: 'none',
+                background: i === previewIndex ? '#4338CA' : '#E2E8F0', cursor: 'pointer', transition: 'all 0.2s', padding: 0,
+              }}
+            />
           ))}
         </div>
       </div>
