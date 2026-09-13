@@ -30,8 +30,6 @@ const BlogPage = lazy(() => import('./pages/BlogPage'));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminPaperBuilderPage = lazy(() => import('./pages/AdminPaperBuilderPage'));
-const PracticePapersPage = lazy(() => import('./pages/PracticePapersPage'));
-const PracticePaperSuccessPage = lazy(() => import('./pages/PracticePaperSuccessPage'));
 const EbookCataloguePage = lazy(() => import('./pages/EbookCataloguePage'));
 const EbookSuccessPage = lazy(() => import('./pages/EbookSuccessPage'));
 
@@ -81,8 +79,9 @@ function AppRoutes() {
         <Route path="/blog/:slug" element={<BlogPostPage />} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
         <Route path="/admin/paper-builder" element={<ProtectedRoute><AdminPaperBuilderPage /></ProtectedRoute>} />
-        <Route path="/practice-papers" element={<PracticePapersPage />} />
-        <Route path="/practice-papers/success" element={<PracticePaperSuccessPage />} />
+        {/* Practice Papers retired — folded into the eBooks catalogue. Old links/bookmarks redirect there. */}
+        <Route path="/practice-papers" element={<Navigate to="/ebooks" replace />} />
+        <Route path="/practice-papers/success" element={<Navigate to="/ebooks" replace />} />
         <Route path="/ebooks" element={<EbookCataloguePage />} />
         <Route path="/ebooks/success" element={<EbookSuccessPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

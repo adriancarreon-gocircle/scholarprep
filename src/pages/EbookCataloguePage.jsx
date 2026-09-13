@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import SiteHeader from '../components/SiteHeader';
 
 // ── ScholarPrep eBooks — catalogue + cart ───────────────────────────────────
-// The 4th revenue offering: full-length practice books (44 mini-tests + 4
-// full simulated exams per volume) sold as one-off PDF purchases, separate
-// from the subscription, the $0.15/question PDF generator, and the
-// Printable Practice Test Papers. Approved as an HTML mockup first, this is
-// that same design ported to a real React page.
+// The main revenue offering alongside the subscription and the $0.15/question
+// PDF generator: full-length practice books (44 mini-tests + 4 full
+// simulated exams per volume) sold as one-off PDF purchases. (The standalone
+// printable Practice Papers product has been retired — /practice-papers now
+// redirects here.)
 //
-// Checkout now goes through the SAME shared endpoint your Practice Papers
-// page uses — POST /api/stripe with { type: 'ebook', skus, successUrl,
-// cancelUrl } — instead of a standalone endpoint, so there's one consistent
-// way this app talks to Stripe for one-off purchases. successUrl uses
-// Stripe's {CHECKOUT_SESSION_ID} placeholder (Stripe fills it in), landing
-// on /ebooks/success, which — like /practice-papers/success — verifies the
-// session server-side via GET /api/ebook-download?session_id=... rather
-// than trusting a query-param flag. That download endpoint (mirroring
-// api/paper-download.js) is the remaining piece to build once the file
-// hosting/signing approach is confirmed.
+// Checkout goes through POST /api/stripe with { type: 'ebook', skus,
+// successUrl, cancelUrl }. successUrl uses Stripe's {CHECKOUT_SESSION_ID}
+// placeholder (Stripe fills it in), landing on /ebooks/success, which
+// verifies the session server-side via GET /api/ebook-download?session_id=...
+// rather than trusting a query-param flag.
 
 const FULL_KIND = 'Selective Entry, Scholarship & NAPLAN-style Tests';
 const CART_STORAGE_KEY = 'scholarprep_ebook_cart_v1';
@@ -207,7 +202,6 @@ const BOOK_PREVIEWS = [
 ];
 
 export default function EbookCataloguePage() {
-  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [cart, setCart] = useState(() => loadCart());
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -288,42 +282,26 @@ export default function EbookCataloguePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF', fontFamily: 'Inter, sans-serif', color: '#0F172A' }}>
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(67,56,202,0.09)', display: 'flex', alignItems: 'center', gap: 16, padding: '14px 28px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #4338CA, #6D5DF0)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800,
-            fontSize: 16, fontFamily: 'Plus Jakarta Sans, sans-serif',
-          }}>SP</div>
-          <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.2px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-            Scholar<span style={{ color: '#4338CA' }}>Prep</span>
-          </div>
-        </div>
-        <nav style={{ marginLeft: 6, fontSize: 13, color: '#94A3B8', display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>Home</span>
-          <span style={{ opacity: 0.5 }}>/</span>
-          <span style={{ color: '#0F172A', fontWeight: 600 }}>eBooks</span>
-        </nav>
-        <button
-          onClick={() => setDrawerOpen(true)}
-          style={{
-            marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', gap: 8,
-            background: '#fff', border: '1.5px solid rgba(67,56,202,0.09)', color: '#0F172A', fontWeight: 600,
-            fontSize: 13.5, padding: '9px 16px 9px 14px', borderRadius: 100, cursor: 'pointer',
-          }}
-        >
-          🛒 Cart
-          <span style={{
-            background: '#4338CA', color: '#fff', fontSize: 11, fontWeight: 800, minWidth: 18, height: 18,
-            borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
-          }}>{cartItems.length}</span>
-        </button>
-      </header>
+      <SiteHeader
+        rightSlot={
+          <button
+            onClick={() => setDrawerOpen(true)}
+            style={{
+              position: 'relative', display: 'flex', alignItems: 'center', gap: 8,
+              background: '#fff', border: '1.5px solid rgba(67,56,202,0.09)', color: '#0F172A', fontWeight: 600,
+              fontSize: 13.5, padding: '9px 16px 9px 14px', borderRadius: 100, cursor: 'pointer',
+            }}
+          >
+            🛒 Cart
+            <span style={{
+              background: '#4338CA', color: '#fff', fontSize: 11, fontWeight: 800, minWidth: 18, height: 18,
+              borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+            }}>{cartItems.length}</span>
+          </button>
+        }
+      />
 
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '44px 28px 8px' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '104px 28px 8px' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
           letterSpacing: '0.06em', textTransform: 'uppercase', color: '#4338CA', background: '#EEF2FF',
@@ -442,7 +420,7 @@ export default function EbookCataloguePage() {
 
       <div style={{
         maxWidth: 1180, margin: '30px auto 0', padding: '10px 28px', display: 'flex', gap: 8, flexWrap: 'wrap',
-        alignItems: 'center', position: 'sticky', top: 65, zIndex: 15, background: 'rgba(245,247,255,0.92)', backdropFilter: 'blur(6px)',
+        alignItems: 'center', position: 'sticky', top: 60, zIndex: 15, background: 'rgba(245,247,255,0.92)', backdropFilter: 'blur(6px)',
       }}>
         {FILTERS.map(f => (
           <button
@@ -458,7 +436,6 @@ export default function EbookCataloguePage() {
       </div>
 
       {visibleYears.map(year => {
-        const allAvailable = year.volumes.every(v => v.status === 'available');
         return (
           <React.Fragment key={year.id}>
             <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
@@ -466,11 +443,6 @@ export default function EbookCataloguePage() {
                 <div style={{ width: 10, height: 10, borderRadius: 100, background: year.accent }} />
                 <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{year.label}</h2>
                 <span style={{ fontSize: 12, color: '#94A3B8' }}>{year.kind}</span>
-                {allAvailable && (
-                  <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: '#059669', background: '#DCFCE7', padding: '4px 12px', borderRadius: 100 }}>
-                    Bundle all 3 &amp; save $15
-                  </span>
-                )}
               </div>
             </div>
             <div style={{
