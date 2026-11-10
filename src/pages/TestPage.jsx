@@ -5,6 +5,10 @@ import { generateMathsQuestions, generateReadingQuestions, generateGeneralAbilit
 import { saveTestResult, updateTestResult } from '../lib/progress';
 import { compressImageFile, compressDataUrl } from '../lib/imageUtils';
 import QuestionVisual, { PatternFrame } from '../components/QuestionVisual';
+// Reused from the Custom Test builder — same Subject > Topic > Question Type
+// data (with example questions) so Mathematics can offer the same
+// question-type-level drill-down here, instead of duplicating the data.
+import { QUESTION_BANK } from './CustomTestPage';
 
 const SUBJECT_CONFIG = {
   mathematics: { label: 'Mathematics', icon: '🔢', color: '#4338CA', lightBg: '#EEF2FF', generate: generateMathsQuestions },
@@ -112,20 +116,49 @@ function SetupScreen({ subject, yearLevel, onStart }) {
   const [reviewMode, setReviewMode] = useState('each');
   const [showTopicPicker, setShowTopicPicker] = useState(false);
   const [topicCounts, setTopicCounts] = useState({});
+  // Maths-only: which topic rows / question-type rows are expanded in the
+  // drill-down tree (mirrors the Custom Test builder's Subject > Topic >
+  // Question Type pattern, reusing the same QUESTION_BANK data).
+  const [expandedMathsTopics, setExpandedMathsTopics] = useState({});
+  const [expandedMathsQTypes, setExpandedMathsQTypes] = useState({});
   // Reading-specific
   const [selectedTheme, setSelectedTheme] = useState('');
   const [passages, setPassages] = useState(2);
   const [questionsPerPassage, setQuestionsPerPassage] = useState(5);
   const cfg = SUBJECT_CONFIG[subject];
-  const topics = TOPIC_PICKER[subject] || [];
+  const isMaths = subject === 'mathematics';
+  // Maths reuses the richer Subject > Topic > Question Type data already
+  // built for Custom Test, so a topic can be expanded to specific question
+  // types. Other subjects keep the simpler flat topic list.
+  const topics = isMaths ? (QUESTION_BANK.mathematics?.topics || []) : (TOPIC_PICKER[subject] || []);
 
   // For maths/GA: usingTopics means they've picked specific topic counts
   // For reading: theme selection is separate — never hides question controls
-  const topicTotal = subject !== 'reading' ? Object.values(topicCounts).reduce((s, n) => s + n, 0) : 0;
+  // A maths topic's value can be a plain number (no drill-down used) or a
+  // nested { questionTypeKey: count, _topic: count } object once expanded —
+  // sum either shape transparently.
+  const topicTotal = subject !== 'reading'
+    ? Object.values(topicCounts).reduce((s, v) => s + (typeof v === 'number' ? v : Object.values(v || {}).reduce((a, n) => a + n, 0)), 0)
+    : 0;
   const usingTopics = topicTotal > 0;
   const effectiveCount = usingTopics ? topicTotal : (subject === 'reading' ? passages * questionsPerPassage : qCount);
 
   const setTopicCount = (key, count) => setTopicCounts(p => ({ ...p, [key]: Math.max(0, count) }));
+  // Maths question-type-level counter — qtKey '_topic' is the same "any
+  // question type within this topic" counter shown on the collapsed row.
+  const setMathsQtCount = (topicKey, qtKey, count) => setTopicCounts(p => {
+    const current = (typeof p[topicKey] === 'object' && p[topicKey] !== null) ? p[topicKey] : {};
+    return { ...p, [topicKey]: { ...current, [qtKey]: Math.max(0, count) } };
+  });
+  const getMathsQtCount = (topicKey, qtKey) => {
+    const v = topicCounts[topicKey];
+    return (typeof v === 'object' && v !== null) ? (v[qtKey] || 0) : 0;
+  };
+  const getMathsTopicTotal = (topicKey) => {
+    const v = topicCounts[topicKey];
+    if (typeof v === 'number') return v;
+    return Object.values(v || {}).reduce((s, n) => s + n, 0);
+  };
 
   const handleStart = () => {
     if (subject === 'reading') {
@@ -228,8 +261,72 @@ function SetupScreen({ subject, yearLevel, onStart }) {
                     );
                   })}
                 </div>
+              ) : isMaths ? (
+                /* Mathematics — expandable Topic > Question Type tree, same
+                   data and pattern as the Custom Test builder */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {topics.map(t => {
+                    const topicTotalCount = getMathsTopicTotal(t.key);
+                    const topicDirectCount = getMathsQtCount(t.key, '_topic');
+                    const isTExp = expandedMathsTopics[t.key];
+                    return (
+                      <div key={t.key} style={{ borderBottom: '1px solid #F8FAFC' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px' }}>
+                          <button onClick={() => setExpandedMathsTopics(p => ({ ...p, [t.key]: !p[t.key] }))} style={{ fontSize: 10, color: isTExp ? cfg.color : '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}>{isTExp ? '▼' : '▶'}</button>
+                          <span onClick={() => setExpandedMathsTopics(p => ({ ...p, [t.key]: !p[t.key] }))} style={{ flex: 1, fontSize: 13, fontWeight: topicTotalCount > 0 ? 700 : 500, color: topicTotalCount > 0 ? cfg.color : '#374151', fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>{t.label}</span>
+                          {topicTotalCount > 0 && <span style={{ fontSize: 11, color: cfg.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', marginRight: 2 }}>({topicTotalCount}q)</span>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button onClick={() => setMathsQtCount(t.key, '_topic', topicDirectCount - 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: topicDirectCount > 0 ? cfg.color : '#94A3B8', minWidth: 22, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{topicDirectCount}</span>
+                            <button onClick={() => setMathsQtCount(t.key, '_topic', topicDirectCount + 1)} style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          </div>
+                        </div>
+                        {!isTExp && topicDirectCount > 0 && (
+                          <div style={{ fontSize: 11, color: '#94A3B8', paddingLeft: 24, paddingBottom: 6, fontFamily: 'Inter, sans-serif', fontStyle: 'italic' }}>
+                            Mixed question types · expand to pick specific types
+                          </div>
+                        )}
+                        {isTExp && (
+                          <div style={{ background: '#F8FAFF', borderTop: '1px solid #EEF2FF', paddingBottom: 6, marginBottom: 2 }}>
+                            <div style={{ fontSize: 11, color: '#94A3B8', padding: '6px 4px 4px 24px', fontFamily: 'Inter, sans-serif' }}>
+                              ↑ Use the counter above for any mix, or pick specific question types below:
+                            </div>
+                            {t.questionTypes.map(qt => {
+                              const qtCount = getMathsQtCount(t.key, qt.key);
+                              const exKey = `${t.key}.${qt.key}`;
+                              const isExExp = expandedMathsQTypes[exKey];
+                              return (
+                                <div key={qt.key} style={{ padding: '6px 4px 6px 24px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button onClick={() => setExpandedMathsQTypes(p => ({ ...p, [exKey]: !p[exKey] }))} style={{ fontSize: 10, color: isExExp ? cfg.color : '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: 14, flexShrink: 0 }}>{isExExp ? '▼' : '▶'}</button>
+                                    <span style={{ flex: 1, fontSize: 12.5, fontWeight: qtCount > 0 ? 700 : 500, color: qtCount > 0 ? cfg.color : '#64748B', fontFamily: 'Inter, sans-serif' }}>{qt.label}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <button onClick={() => setMathsQtCount(t.key, qt.key, qtCount - 1)} style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: qtCount > 0 ? cfg.color : '#94A3B8', minWidth: 18, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>{qtCount}</span>
+                                      <button onClick={() => setMathsQtCount(t.key, qt.key, qtCount + 1)} style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                                    </div>
+                                  </div>
+                                  {isExExp && qt.examples && (
+                                    <div style={{ marginTop: 6, marginLeft: 22, background: '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #EEF2FF' }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, fontFamily: 'Inter, sans-serif' }}>Example questions:</div>
+                                      {qt.examples.map((ex, i) => (
+                                        <div key={i} style={{ fontSize: 11.5, color: '#374151', fontFamily: 'Inter, sans-serif', padding: '3px 0', borderBottom: i < qt.examples.length - 1 ? '1px solid #F3F4F6' : 'none', lineHeight: 1.5 }}>
+                                          <span style={{ color: cfg.color, fontWeight: 700, marginRight: 6 }}>Q.</span>{ex}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                /* Maths / GA — numeric +/- per topic */
+                /* General Ability — simple numeric +/- per topic */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {topics.map(t => {
                     const count = topicCounts[t.key] || 0;
@@ -1064,6 +1161,37 @@ export default function TestPage({ subject }) {
         // Flatten all questions together, store passages for display
         const allQs = groups.flatMap(g => g.questions);
         setPassage(groups); // store array of passage groups
+        setQuestions(allQs);
+      } else if (subject === 'mathematics' && topicCounts && Object.keys(topicCounts).length > 0) {
+        // Mathematics — same nested Topic > Question Type selection the
+        // Custom Test builder uses. One API call per (topic, question type)
+        // pair — guarantees exact counts and no topic/type drift.
+        const subjectTopics = QUESTION_BANK.mathematics?.topics || [];
+        const allTopicLabels = subjectTopics.map(t => t.label);
+        const includedKeys = Object.entries(topicCounts).filter(([, v]) => {
+          const total = typeof v === 'number' ? v : Object.values(v || {}).reduce((s, n) => s + n, 0);
+          return total > 0;
+        }).map(([key]) => key);
+        const includedLabels = new Set(includedKeys.map(key => subjectTopics.find(t => t.key === key)?.label || key));
+        const excludedLabels = allTopicLabels.filter(l => !includedLabels.has(l));
+        const exclusionClause = excludedLabels.length > 0
+          ? `\nSTRICTLY FORBIDDEN topics — do NOT generate any questions on: ${excludedLabels.join(', ')}.`
+          : '';
+        const allQs = [];
+        for (const [topicKey, v] of Object.entries(topicCounts)) {
+          const topicObj = subjectTopics.find(t => t.key === topicKey);
+          const entries = typeof v === 'number' ? [['_topic', v]] : Object.entries(v || {});
+          for (const [qtKey, n] of entries) {
+            if (!n) continue;
+            const qtObj = qtKey !== '_topic' ? topicObj?.questionTypes?.find(q => q.key === qtKey) : null;
+            const focus = qtKey === '_topic'
+              ? `Generate exactly ${n} question${n > 1 ? 's' : ''} ONLY on the topic: "${topicObj?.label || topicKey}". Every question MUST be about "${topicObj?.label || topicKey}" — vary question types within this topic. No exceptions.${exclusionClause}`
+              : `Generate exactly ${n} question${n > 1 ? 's' : ''} ONLY on: "${topicObj?.label || topicKey} — ${qtObj?.label || qtKey}". Example: ${qtObj?.examples?.[0] || ''}${exclusionClause}`;
+            const qs = await cfg.generate(yearLevel, n, focus);
+            const batch = Array.isArray(qs) ? qs : [];
+            allQs.push(...batch.slice(0, n));
+          }
+        }
         setQuestions(allQs);
       } else if (topicCounts && Object.keys(topicCounts).length > 0) {
         // One API call per topic — guarantees exact counts and no topic drift
