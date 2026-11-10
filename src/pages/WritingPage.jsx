@@ -18,6 +18,15 @@ const TIME_OPTIONS = [
   { mins: 40, label: '40 min', words: '~550 words', desc: 'Extended task' },
 ];
 
+// Text sent to the assessor in place of a generated prompt when the student
+// chose "Write Freely" (option 4) — there is no fixed prompt to grade against,
+// so we tell the assessor explicitly rather than passing null/empty and
+// risking it being treated as a missing-data error or an implicit topic.
+const FREE_WRITE_CONTEXT =
+  'Open writing task — the student chose their own topic; there is no fixed prompt. ' +
+  'Assess the writing on its own merits (ideas, structure, language, sentences, punctuation) ' +
+  'without penalising it for not addressing a specific set prompt.';
+
 // ── Ideal Answer Dialog ───────────────────────────────────────────────────────
 function IdealAnswerDialog({ prompt, type, yearLevel, onClose }) {
   const [timeMins, setTimeMins] = useState(25);
@@ -252,12 +261,9 @@ function LineFeedback({ feedback }) {
             ))}
 
             {/* Vocab upgrades */}
-            {(s.vocabUpgrades || []).map((item, i) => {
-              const [chosen, setChosen] = [null, () => { }]; // local state via key
-              return (
-                <VocabInline key={`vc${i}`} item={item} sentIdx={idx} itemIdx={i} />
-              );
-            })}
+            {(s.vocabUpgrades || []).map((item, i) => (
+              <VocabInline key={`vc${i}`} item={item} sentIdx={idx} itemIdx={i} />
+            ))}
 
             {/* Structure rewrites */}
             {(s.structureUpgrades || []).map((u, i) => (
@@ -307,6 +313,33 @@ function StructureInline({ upgrade, techColor, sentIdx, itemIdx }) {
   );
 }
 
+// ── Entry-mode option card — one of the 4 ways to start a writing task ──────
+function OptionCard({ icon, title, desc, accent, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 14, textAlign: 'left',
+        padding: 18, borderRadius: 16, cursor: 'pointer', width: '100%',
+        background: active ? accent : '#fff',
+        border: `1.5px solid ${active ? accent : 'rgba(67,56,202,0.1)'}`,
+        boxShadow: active ? `0 6px 20px ${accent}40` : '0 2px 8px rgba(67,56,202,0.05)',
+        transition: 'all 0.15s',
+      }}
+    >
+      <div style={{
+        width: 44, height: 44, borderRadius: 12, flexShrink: 0, fontSize: 22,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? 'rgba(255,255,255,0.2)' : '#F8F9FF',
+      }}>{icon}</div>
+      <div>
+        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 800, color: active ? '#fff' : '#0F172A', marginBottom: 3 }}>{title}</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: active ? 'rgba(255,255,255,0.85)' : '#64748B', fontFamily: 'Inter, sans-serif' }}>{desc}</div>
+      </div>
+    </button>
+  );
+}
+
 // ── Main WritingPage ──────────────────────────────────────────────────────────
 export default function WritingPage() {
   const { yearLevel, hasAccess } = useAuth();
@@ -329,16 +362,33 @@ export default function WritingPage() {
   const [imageMediaType, setImageMediaType] = useState('image/jpeg');
   const [imageFileName, setImageFileName] = useState('');
 
+  // Which of the 4 entry options is currently expanded on the setup screen:
+  // null (none chosen yet) | 'prompt' (option 3) | 'free' (option 4).
+  // Options 1 & 2 (upload / take a photo) navigate away immediately instead
+  // of expanding anything here.
+  const [entryMode, setEntryMode] = useState(null);
+  // True once the student is writing without a generated prompt (option 4).
+  const [freeWrite, setFreeWrite] = useState(false);
+
   const handleGetPrompt = async () => {
     setLoading(true); setError('');
     try {
       // Pass type and theme directly — ai.js handles all 4 types with appropriate prompts
       const p = await generateWritingPrompt(type, yearLevel, selectedTheme || null);
-      setPrompt(p); setPhase('writing'); setResponse('');
+      setPrompt(p); setFreeWrite(false); setPhase('writing'); setResponse('');
     } catch (e) {
       setError('Failed to generate prompt. Please try again.');
     }
     setLoading(false);
+  };
+
+  // Option 4 — skip prompt generation entirely, go straight to a blank notepad.
+  const handleStartFreeWrite = () => {
+    setPrompt(null);
+    setFreeWrite(true);
+    setResponse('');
+    setError('');
+    setPhase('writing');
   };
 
   const startTimer = () => {
@@ -365,8 +415,11 @@ export default function WritingPage() {
         // Photo of handwritten work — use vision-based assessment
         result = await assessHandwritingPhoto(imageBase64, imageMediaType, yearLevel, type);
       } else {
-        // Typed response — use text-based assessment
-        result = await assessWriting(response, prompt.prompt, type, yearLevel);
+        // Typed response — use text-based assessment. Free-write sessions have
+        // no generated prompt, so we send a descriptive context string instead
+        // of prompt.prompt.
+        const promptText = freeWrite ? FREE_WRITE_CONTEXT : prompt.prompt;
+        result = await assessWriting(response, promptText, type, yearLevel);
       }
       setFeedback(result);
       await saveWritingResult(yearLevel, type, result.totalScore, result.maxTotal, result);
@@ -403,7 +456,13 @@ export default function WritingPage() {
     setPhase('setup'); setPrompt(null); setFeedback(null);
     setResponse(''); setShowIdealDialog(false); setTimerOn(false);
     setImageBase64(null); setImageFileName('');
+    setEntryMode(null); setFreeWrite(false);
     if (fileRef.current) fileRef.current.value = '';
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+
+  const handleBackToSetup = () => {
+    setPhase('setup'); setPrompt(null); setFreeWrite(false); setTimerOn(false);
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
@@ -419,8 +478,9 @@ export default function WritingPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FF' }}>
 
-      {/* Ideal answer dialog */}
-      {showIdealDialog && prompt && (
+      {/* Ideal answer dialog — only meaningful when there's an actual generated
+          prompt to compare against, so it's unavailable in free-write mode */}
+      {showIdealDialog && prompt && !freeWrite && (
         <IdealAnswerDialog
           prompt={prompt.prompt}
           type={type}
@@ -469,181 +529,277 @@ export default function WritingPage() {
         {/* ── SETUP ── */}
         {hasAccess && phase === 'setup' && (
           <div>
-            {/* Photo feedback option */}
-            <div
-              onClick={() => navigate('/app/writing/photo-feedback')}
-              style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%)', borderRadius: 16, padding: 20, marginBottom: 20, border: '1.5px solid rgba(67,56,202,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(67,56,202,0.06)' }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(67,56,202,0.15)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(67,56,202,0.06)'}
-            >
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>📷</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A', marginBottom: 3 }}>Photo Feedback — New!</div>
-                <div style={{ fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>Upload or take a photo of handwritten work for detailed feedback on vocabulary, grammar and sentence structure</div>
-              </div>
-              <div style={{ fontSize: 18, color: '#4338CA', flexShrink: 0 }}>→</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>
+              Choose how you'd like to practise
             </div>
 
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>Or generate a writing prompt below</div>
-
-            <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Writing type</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {[
-                  { k: 'narrative', l: 'Narrative', icon: '📖', desc: 'Write a story using your imagination' },
-                  { k: 'persuasive', l: 'Persuasive', icon: '🗣️', desc: 'Argue a point of view convincingly' },
-                  { k: 'values', l: 'Values & Character', icon: '🌟', desc: 'Story starters and scenarios that explore values through narrative' },
-                  { k: 'picture', l: 'Picture Prompt', icon: '🖼️', desc: 'Write a story inspired by a vivid scene or image' },
-                ].map(t => (
-                  <button key={t.k} onClick={() => { setType(t.k); setSelectedTheme(''); setShowThemePicker(false); }} style={{
-                    padding: 20, borderRadius: 14, cursor: 'pointer', textAlign: 'left',
-                    background: type === t.k ? '#4338CA' : '#F8F9FF',
-                    border: type === t.k ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
-                    transition: 'all 0.15s',
-                    boxShadow: type === t.k ? '0 4px 16px rgba(67,56,202,0.3)' : 'none',
-                  }}>
-                    <div style={{ fontSize: 24, marginBottom: 8 }}>{t.icon}</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: type === t.k ? '#fff' : '#0F172A', marginBottom: 4, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t.l}</div>
-                    <div style={{ fontSize: 13, color: type === t.k ? 'rgba(255,255,255,0.65)' : '#64748B', fontFamily: 'Inter, sans-serif' }}>{t.desc}</div>
-                  </button>
-                ))}
-              </div>
+            {/* The 4 entry options, shown as equal-weight cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <OptionCard
+                icon="📤"
+                title="Upload a Photo"
+                desc="Upload a photo of handwritten work for detailed feedback."
+                accent="#4338CA"
+                onClick={() => navigate('/app/writing/photo-feedback?mode=upload')}
+              />
+              <OptionCard
+                icon="📷"
+                title="Take a Photo"
+                desc="Use your camera to photograph handwritten work."
+                accent="#4338CA"
+                onClick={() => navigate('/app/writing/photo-feedback?mode=camera')}
+              />
+              <OptionCard
+                icon="✨"
+                title="Generate a Prompt"
+                desc="Get a fresh exam-style prompt, then write your answer."
+                accent="#4338CA"
+                active={entryMode === 'prompt'}
+                onClick={() => setEntryMode(m => m === 'prompt' ? null : 'prompt')}
+              />
+              <OptionCard
+                icon="✍️"
+                title="Write Freely"
+                desc="Skip the prompt — type your own piece to be assessed."
+                accent="#F97316"
+                active={entryMode === 'free'}
+                onClick={() => setEntryMode(m => m === 'free' ? null : 'free')}
+              />
             </div>
 
-            {/* Writing theme picker — only for narrative/persuasive */}
-            {(type === 'narrative' || type === 'persuasive') && (
-              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? 'rgba(67,56,202,0.3)' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showThemePicker ? 14 : 0 }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Choose a theme</div>
-                    {selectedTheme
-                      ? <div style={{ fontSize: 12, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>
-                      : <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or let it pick a random theme</div>}
+            {/* ── Generate-a-prompt sub-flow (option 3) ── */}
+            {entryMode === 'prompt' && (
+              <div>
+                <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(67,56,202,0.08)', boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>Writing type</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {[
+                      { k: 'narrative', l: 'Narrative', icon: '📖', desc: 'Write a story using your imagination' },
+                      { k: 'persuasive', l: 'Persuasive', icon: '🗣️', desc: 'Argue a point of view convincingly' },
+                      { k: 'values', l: 'Values & Character', icon: '🌟', desc: 'Story starters and scenarios that explore values through narrative' },
+                      { k: 'picture', l: 'Picture Prompt', icon: '🖼️', desc: 'Write a story inspired by a vivid scene or image' },
+                    ].map(t => (
+                      <button key={t.k} onClick={() => { setType(t.k); setSelectedTheme(''); setShowThemePicker(false); }} style={{
+                        padding: 20, borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+                        background: type === t.k ? '#4338CA' : '#F8F9FF',
+                        border: type === t.k ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
+                        transition: 'all 0.15s',
+                        boxShadow: type === t.k ? '0 4px 16px rgba(67,56,202,0.3)' : 'none',
+                      }}>
+                        <div style={{ fontSize: 24, marginBottom: 8 }}>{t.icon}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: type === t.k ? '#fff' : '#0F172A', marginBottom: 4, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t.l}</div>
+                        <div style={{ fontSize: 13, color: type === t.k ? 'rgba(255,255,255,0.65)' : '#64748B', fontFamily: 'Inter, sans-serif' }}>{t.desc}</div>
+                      </button>
+                    ))}
                   </div>
-                  <button onClick={() => setShowThemePicker(p => !p)} style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showThemePicker ? '#EEF2FF' : '#F8F9FF', color: showThemePicker ? '#4338CA' : '#64748B', border: `1.5px solid ${showThemePicker ? '#4338CA' : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                    {showThemePicker ? '▲ Hide' : '▼ Choose'}
-                  </button>
                 </div>
-                {showThemePicker && (
-                  <div>
-                    {selectedTheme && <button onClick={() => setSelectedTheme('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>✕ Clear theme</button>}
+
+                {/* Writing theme picker — only for narrative/persuasive */}
+                {(type === 'narrative' || type === 'persuasive') && (
+                  <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? 'rgba(67,56,202,0.3)' : 'rgba(67,56,202,0.08)'}`, boxShadow: '0 2px 8px rgba(67,56,202,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showThemePicker ? 14 : 0 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Inter, sans-serif' }}>Choose a theme</div>
+                        {selectedTheme
+                          ? <div style={{ fontSize: 12, color: '#4338CA', fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>Theme: {selectedTheme}</div>
+                          : <div style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>Optional — or let it pick a random theme</div>}
+                      </div>
+                      <button onClick={() => setShowThemePicker(p => !p)} style={{ padding: '7px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: showThemePicker ? '#EEF2FF' : '#F8F9FF', color: showThemePicker ? '#4338CA' : '#64748B', border: `1.5px solid ${showThemePicker ? '#4338CA' : 'rgba(67,56,202,0.1)'}`, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                        {showThemePicker ? '▲ Hide' : '▼ Choose'}
+                      </button>
+                    </div>
+                    {showThemePicker && (
+                      <div>
+                        {selectedTheme && <button onClick={() => setSelectedTheme('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 10, padding: 0 }}>✕ Clear theme</button>}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {['Environment', 'Science', 'Technology', 'Community & Social', 'History & Adventure', 'Sport & Competition', 'Friendship & Belonging', 'Animals & Nature', 'Mystery & Imagination', 'Travel & Discovery'].map(theme => (
+                            <button key={theme} onClick={() => { setSelectedTheme(theme === selectedTheme ? '' : theme); }} style={{
+                              padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                              background: selectedTheme === theme ? '#EEF2FF' : '#F8F9FF',
+                              color: selectedTheme === theme ? '#4338CA' : '#64748B',
+                              border: `1.5px solid ${selectedTheme === theme ? '#4338CA' : 'rgba(67,56,202,0.1)'}`,
+                              fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                            }}>{theme}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Values & Character theme picker */}
+                {type === 'values' && (
+                  <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? '#F97316' : 'rgba(249,115,22,0.15)'}`, boxShadow: '0 2px 8px rgba(249,115,22,0.06)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>Choose a theme or scenario focus</div>
+                    <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>A narrative story starter will be generated around this theme — optional, or leave blank for a surprise</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {['Environment', 'Science', 'Technology', 'Community & Social', 'History & Adventure', 'Sport & Competition', 'Friendship & Belonging', 'Animals & Nature', 'Mystery & Imagination', 'Travel & Discovery'].map(theme => (
-                        <button key={theme} onClick={() => { setSelectedTheme(theme === selectedTheme ? '' : theme); }} style={{
+                      {[
+                        { label: '💪 Courage & Bravery', value: 'courage and bravery' },
+                        { label: '🌱 Resilience & Perseverance', value: 'resilience and perseverance' },
+                        { label: '✨ Confidence & Self-belief', value: 'confidence and self-belief' },
+                        { label: '🤝 Helping Others', value: 'helping others' },
+                        { label: '💝 Sharing & Generosity', value: 'sharing and generosity' },
+                        { label: '🫂 Kindness & Empathy', value: 'kindness and empathy' },
+                        { label: '🏅 Honesty & Integrity', value: 'honesty and integrity' },
+                        { label: '🤗 Belonging & Inclusion', value: 'belonging and inclusion' },
+                        { label: '⭐ Leadership & Responsibility', value: 'leadership and responsibility' },
+                        { label: '🌍 Making a Difference', value: 'making a difference' },
+                        { label: '🔮 Mystery & Discovery', value: 'mystery and discovery' },
+                        { label: '⏰ Unexpected Situations', value: 'unexpected situations' },
+                      ].map(({ label, value }) => (
+                        <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
                           padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                          background: selectedTheme === theme ? '#EEF2FF' : '#F8F9FF',
-                          color: selectedTheme === theme ? '#4338CA' : '#64748B',
-                          border: `1.5px solid ${selectedTheme === theme ? '#4338CA' : 'rgba(67,56,202,0.1)'}`,
+                          background: selectedTheme === value ? '#FFF7ED' : '#F8F9FF',
+                          color: selectedTheme === value ? '#F97316' : '#64748B',
+                          border: `1.5px solid ${selectedTheme === value ? '#F97316' : 'rgba(67,56,202,0.1)'}`,
                           fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
-                        }}>{theme}</button>
+                        }}>{label}</button>
                       ))}
                     </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Values & Character theme picker */}
-            {type === 'values' && (
-              <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: `1px solid ${selectedTheme ? '#F97316' : 'rgba(249,115,22,0.15)'}`, boxShadow: '0 2px 8px rgba(249,115,22,0.06)' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>Choose a theme or scenario focus</div>
-                <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>A narrative story starter will be generated around this theme — optional, or leave blank for a surprise</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {[
-                    { label: '💪 Courage & Bravery', value: 'courage and bravery' },
-                    { label: '🌱 Resilience & Perseverance', value: 'resilience and perseverance' },
-                    { label: '✨ Confidence & Self-belief', value: 'confidence and self-belief' },
-                    { label: '🤝 Helping Others', value: 'helping others' },
-                    { label: '💝 Sharing & Generosity', value: 'sharing and generosity' },
-                    { label: '🫂 Kindness & Empathy', value: 'kindness and empathy' },
-                    { label: '🏅 Honesty & Integrity', value: 'honesty and integrity' },
-                    { label: '🤗 Belonging & Inclusion', value: 'belonging and inclusion' },
-                    { label: '⭐ Leadership & Responsibility', value: 'leadership and responsibility' },
-                    { label: '🌍 Making a Difference', value: 'making a difference' },
-                    { label: '🔮 Mystery & Discovery', value: 'mystery and discovery' },
-                    { label: '⏰ Unexpected Situations', value: 'unexpected situations' },
-                  ].map(({ label, value }) => (
-                    <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
-                      padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                      background: selectedTheme === value ? '#FFF7ED' : '#F8F9FF',
-                      color: selectedTheme === value ? '#F97316' : '#64748B',
-                      border: `1.5px solid ${selectedTheme === value ? '#F97316' : 'rgba(67,56,202,0.1)'}`,
-                      fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
-                    }}>{label}</button>
-                  ))}
-                </div>
-              </div>
-            )}
+                {/* Picture Prompt info */}
+                {type === 'picture' && (
+                  <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFF1F2)', borderRadius: 16, padding: 24, marginBottom: 16, border: '1.5px solid rgba(249,115,22,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                      <div style={{ fontSize: 32 }}>🖼️</div>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>How Picture Prompt works</div>
+                        <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>A vivid scene will be described for you — like a real exam picture prompt</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {[
+                        '🎨 A scene is described in rich detail — fictional or real-world',
+                        '✍️ You write a story or response based on what you imagine from the scene',
+                        '📊 Your writing is assessed on the same 5 criteria as other tasks',
+                      ].map((item, i) => (
+                        <div key={i} style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{item}</div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {[
+                        { label: '🌅 Fictional scene', value: 'fictional' },
+                        { label: '📸 Real-world scene', value: 'real-world' },
+                        { label: '🧙 Fantasy & Adventure', value: 'fantasy' },
+                        { label: '🏙️ City life', value: 'city life' },
+                        { label: '🌿 Nature & Outdoors', value: 'nature' },
+                        { label: '🚀 Sci-fi / Future', value: 'sci-fi' },
+                      ].map(({ label, value }) => (
+                        <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
+                          padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          background: selectedTheme === value ? '#FFF7ED' : '#fff',
+                          color: selectedTheme === value ? '#F97316' : '#64748B',
+                          border: `1.5px solid ${selectedTheme === value ? '#F97316' : '#E5E7EB'}`,
+                          fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>
+                      Optional — or leave blank for a surprise scene
+                    </div>
+                  </div>
+                )}
 
-            {/* Picture Prompt info */}
-            {type === 'picture' && (
-              <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFF1F2)', borderRadius: 16, padding: 24, marginBottom: 16, border: '1.5px solid rgba(249,115,22,0.2)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                  <div style={{ fontSize: 32 }}>🖼️</div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>How Picture Prompt works</div>
-                    <div style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>A vivid scene will be described for you — like a real exam picture prompt</div>
+                <div style={{ background: '#EEF2FF', borderRadius: 14, padding: 18, marginBottom: 24, border: '1px solid rgba(67,56,202,0.1)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#4338CA', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 How it works</div>
+                  <div style={{ fontSize: 14, color: '#4338CA', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', opacity: 0.85 }}>
+                    1. Get a fresh writing prompt (similar to real ACER/Edutest exams)<br />
+                    2. Type your response or upload a photo of handwritten work<br />
+                    3. Get detailed feedback with scores across 5 criteria<br />
+                    4. View an ideal answer to see what a top-scoring response looks like
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[
-                    '🎨 A scene is described in rich detail — fictional or real-world',
-                    '✍️ You write a story or response based on what you imagine from the scene',
-                    '📊 Your writing is assessed on the same 5 criteria as other tasks',
-                  ].map((item, i) => (
-                    <div key={i} style={{ fontSize: 13, color: '#374151', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>{item}</div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {[
-                    { label: '🌅 Fictional scene', value: 'fictional' },
-                    { label: '📸 Real-world scene', value: 'real-world' },
-                    { label: '🧙 Fantasy & Adventure', value: 'fantasy' },
-                    { label: '🏙️ City life', value: 'city life' },
-                    { label: '🌿 Nature & Outdoors', value: 'nature' },
-                    { label: '🚀 Sci-fi / Future', value: 'sci-fi' },
-                  ].map(({ label, value }) => (
-                    <button key={value} onClick={() => setSelectedTheme(selectedTheme === value ? '' : value)} style={{
-                      padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      background: selectedTheme === value ? '#FFF7ED' : '#fff',
-                      color: selectedTheme === value ? '#F97316' : '#64748B',
-                      border: `1.5px solid ${selectedTheme === value ? '#F97316' : '#E5E7EB'}`,
-                      fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
-                    }}>{label}</button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>
-                  Optional — or leave blank for a surprise scene
-                </div>
+
+                <button onClick={handleGetPrompt} disabled={loading} style={{
+                  width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
+                  background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
+                  opacity: loading ? 0.7 : 1, fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 4px 20px rgba(67,56,202,0.3)',
+                }}>
+                  {loading ? 'Getting your prompt...' : 'Get writing prompt →'}
+                </button>
               </div>
             )}
 
-            <div style={{ background: '#EEF2FF', borderRadius: 14, padding: 18, marginBottom: 24, border: '1px solid rgba(67,56,202,0.1)' }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#4338CA', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>📝 How it works</div>
-              <div style={{ fontSize: 14, color: '#4338CA', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', opacity: 0.85 }}>
-                1. Get a fresh writing prompt (similar to real ACER/Edutest exams)<br />
-                2. Type your response or upload a photo of handwritten work<br />
-                3. Get detailed feedback with scores across 5 criteria<br />
-                4. View an ideal answer to see what a top-scoring response looks like
-              </div>
-            </div>
+            {/* ── Write-freely sub-flow (option 4) ── */}
+            {entryMode === 'free' && (
+              <div>
+                <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, border: '1px solid rgba(249,115,22,0.15)', boxShadow: '0 2px 8px rgba(249,115,22,0.05)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontFamily: 'Inter, sans-serif' }}>What kind of writing is this?</div>
+                  <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>So it's marked fairly against the right criteria</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {[
+                      { k: 'narrative', l: 'Narrative', icon: '📖' },
+                      { k: 'persuasive', l: 'Persuasive', icon: '🗣️' },
+                      { k: 'values', l: 'Values & Character', icon: '🌟' },
+                      { k: 'picture', l: 'Picture / Descriptive', icon: '🖼️' },
+                    ].map(t => (
+                      <button key={t.k} onClick={() => setType(t.k)} style={{
+                        padding: '14px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: type === t.k ? '#F97316' : '#F8F9FF',
+                        border: type === t.k ? 'none' : '1.5px solid rgba(67,56,202,0.1)',
+                        transition: 'all 0.15s',
+                        boxShadow: type === t.k ? '0 4px 16px rgba(249,115,22,0.3)' : 'none',
+                      }}>
+                        <div style={{ fontSize: 20 }}>{t.icon}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: type === t.k ? '#fff' : '#0F172A', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{t.l}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <button onClick={handleGetPrompt} disabled={loading} style={{
-              width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
-              background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer',
-              opacity: loading ? 0.7 : 1, fontFamily: 'Inter, sans-serif',
-              boxShadow: '0 4px 20px rgba(67,56,202,0.3)',
-            }}>
-              {loading ? 'Getting your prompt...' : 'Get writing prompt →'}
-            </button>
+                <div style={{ background: '#FFF7ED', borderRadius: 14, padding: 18, marginBottom: 24, border: '1px solid rgba(249,115,22,0.15)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#C2410C', marginBottom: 6, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>✍️ How it works</div>
+                  <div style={{ fontSize: 14, color: '#C2410C', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', opacity: 0.85 }}>
+                    1. No prompt is generated — write about anything you like, on a topic of your own<br />
+                    2. Type it straight into the blank notepad (or upload a photo of handwritten work)<br />
+                    3. Get the same detailed feedback with scores across 5 criteria
+                  </div>
+                </div>
+
+                <button onClick={handleStartFreeWrite} style={{
+                  width: '100%', padding: 16, borderRadius: 100, fontSize: 16, fontWeight: 700,
+                  background: '#F97316', color: '#fff', border: 'none', cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 4px 20px rgba(249,115,22,0.3)',
+                }}>
+                  Start writing freely →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── WRITING ── */}
-        {hasAccess && phase === 'writing' && prompt && (
+        {hasAccess && phase === 'writing' && (prompt || freeWrite) && (
           <div>
-            {/* Prompt card — styled differently per writing type */}
-            {(() => {
+            {/* Prompt card — styled differently per writing type, or a free-write banner */}
+            {freeWrite ? (
+              <div style={{ background: 'linear-gradient(135deg, #C2410C, #F97316)', borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>✍️ Write Freely</span>
+                    <span style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>Year {yearLevel}</span>
+                  </div>
+                  {timerOn && (
+                    <div style={{ background: timeLeft < 300 ? '#FFF1F2' : 'rgba(255,255,255,0.2)', color: timeLeft < 300 ? '#BE123C' : '#fff', padding: '5px 12px', borderRadius: 100, fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
+                      ⏱ {formatTime(timeLeft)}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 500, color: '#fff', lineHeight: 1.7, fontFamily: 'Inter, sans-serif' }}>
+                  No prompt this time — write about anything you like. Use the notepad below for your own story, letter, argument or idea.
+                </div>
+                {!timerOn && (
+                  <button onClick={startTimer} style={{ marginTop: 14, background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.9)', border: 'none', padding: '6px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                    ⏱ Start 25-minute timer
+                  </button>
+                )}
+              </div>
+            ) : (() => {
               const typeConfig = {
                 narrative: { bg: '#3730A3', badge: '#F97316', label: '📖 Narrative' },
                 persuasive: { bg: '#1e1b4b', badge: '#7C3AED', label: '🗣️ Persuasive' },
@@ -697,19 +853,21 @@ export default function WritingPage() {
               );
             })()}
 
-            {/* Criteria + ideal answer button row */}
+            {/* Criteria + ideal answer button row (ideal answer hidden in free-write — there's no reference prompt to generate a matching model response from) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
               <div style={{ fontSize: 13, color: '#4338CA', fontFamily: 'Inter, sans-serif', background: '#EEF2FF', borderRadius: 10, padding: '8px 14px', flex: 1 }}>
                 <strong>Assessed on:</strong> Ideas · Structure · Language · Sentences · Punctuation
               </div>
-              <button onClick={() => setShowIdealDialog(true)} style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600,
-                background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)',
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
-              }}>
-                ✨ View ideal answer
-              </button>
+              {!freeWrite && (
+                <button onClick={() => setShowIdealDialog(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600,
+                  background: '#fff', color: '#4338CA', border: '1.5px solid rgba(67,56,202,0.2)',
+                  cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+                }}>
+                  ✨ View ideal answer
+                </button>
+              )}
             </div>
 
             <textarea
@@ -737,11 +895,11 @@ export default function WritingPage() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setPhase('setup'); setPrompt(null); setTimerOn(false); if (timerRef.current) clearInterval(timerRef.current); }} style={{
+              <button onClick={handleBackToSetup} style={{
                 padding: '12px 24px', borderRadius: 100, fontSize: 14, fontWeight: 600,
                 background: '#fff', color: '#64748B', border: '1.5px solid #E5E7EB', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
               }}>
-                ← New prompt
+                {freeWrite ? '← Start over' : '← New prompt'}
               </button>
               <button onClick={handleSubmit} style={{
                 flex: 1, padding: '12px 24px', borderRadius: 100, fontSize: 15, fontWeight: 700,
@@ -803,16 +961,18 @@ export default function WritingPage() {
               </div>
             </div>
 
-            {/* Ideal answer CTA */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 16, border: '1.5px solid rgba(67,56,202,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>✨ See an ideal answer</div>
-                <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>Generate a top-scoring model response to compare with yours.</div>
+            {/* Ideal answer CTA — hidden for free-write, same reasoning as above */}
+            {!freeWrite && (
+              <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', marginBottom: 16, border: '1.5px solid rgba(67,56,202,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>✨ See an ideal answer</div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter, sans-serif' }}>Generate a top-scoring model response to compare with yours.</div>
+                </div>
+                <button onClick={() => setShowIdealDialog(true)} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  View ideal answer →
+                </button>
               </div>
-              <button onClick={() => setShowIdealDialog(true)} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 13, fontWeight: 700, background: '#4338CA', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                View ideal answer →
-              </button>
-            </div>
+            )}
 
             {/* ── LINE-BY-LINE FEEDBACK ── */}
             <LineFeedback response={response} feedback={feedback} />
